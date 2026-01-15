@@ -1,0 +1,115 @@
+#pragma once
+
+#include "GraphicsPipelineBuilder.hpp"
+
+namespace vkz {
+
+    class ViewportBuilder;
+
+    class ScissorBuilder;
+
+    class ViewportStateBuilder : public GraphicsPipelineBuilder {
+    public:
+        ViewportStateBuilder(Device device, GraphicsPipelineBuilder *builder);
+
+        explicit ViewportStateBuilder(ViewportStateBuilder *parent);
+
+        ~ViewportStateBuilder();
+
+        virtual ViewportBuilder &viewport();
+
+        virtual ScissorBuilder &scissor();
+
+        VkPipelineViewportStateCreateInfo &buildViewportState();
+
+        ViewportStateBuilder &clear();
+
+        void copy(const ViewportStateBuilder &source);
+
+    protected:
+        ViewportBuilder *_viewportBuilder{nullptr};
+        ScissorBuilder *_scissorBuilder{nullptr};
+        VkPipelineViewportStateCreateInfo _info{ VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
+    };
+
+    class ViewportBuilder : public ViewportStateBuilder {
+    public:
+        explicit ViewportBuilder(ViewportStateBuilder *builder);
+
+        ViewportBuilder &origin(float xValue, float yValue);
+
+        ViewportBuilder &x(float value);
+
+        ViewportBuilder &y(float value);
+
+        ViewportBuilder &width(float value);
+
+        ViewportBuilder &height(float value);
+
+        ViewportBuilder &dimension(VkExtent2D dim);
+
+        ViewportBuilder &dimension(uint32_t width, uint32_t height);
+
+        ViewportBuilder &minDepth(float value);
+
+        ViewportBuilder &maxDepth(float value);
+
+        ViewportBuilder &add();
+
+        ViewportStateBuilder *parent() override;
+
+        ViewportBuilder &viewport() override;
+
+        ScissorBuilder &scissor() override;
+
+        void checkpoint();
+
+        void resetScratchpad();
+
+        [[nodiscard]]
+        bool ready() const;
+
+        std::vector<VkViewport> &buildViewports();
+
+        void copy(const ViewportBuilder &source);
+
+    private:
+        std::vector<VkViewport> _viewports{};
+        VkViewport _scratchpad{};
+    };
+
+    class ScissorBuilder : public ViewportStateBuilder {
+    public:
+        explicit ScissorBuilder(ViewportStateBuilder *builder);
+
+        ScissorBuilder &offset(int32_t x, int32_t y);
+
+        ScissorBuilder &extent(int32_t width, int32_t height);
+
+        ScissorBuilder &extent(VkExtent2D value);
+
+        ScissorBuilder &add();
+
+        void resetScratchpad();
+
+        std::vector<VkRect2D> &buildScissors();
+
+        [[nodiscard]]
+        bool ready() const;
+
+        void checkpoint();
+
+        ViewportBuilder &viewport() override;
+
+        ScissorBuilder &scissor() override;
+
+        ViewportStateBuilder *parent() override;
+
+        void copy(const ScissorBuilder &source);
+
+    private:
+        std::vector<VkRect2D> _scissors;
+        VkRect2D _scratchpad{};
+    };
+
+}
