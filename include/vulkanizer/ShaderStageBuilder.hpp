@@ -1,7 +1,6 @@
 #pragma once
 
 #include "types.hpp"
-#include "ShaderInfo.hpp"
 #include "GraphicsPipelineBuilder.hpp"
 
 #include <tuple>
