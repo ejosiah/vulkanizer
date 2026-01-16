@@ -8,7 +8,7 @@ namespace vkz {
 
     GraphicsPipelineBuilder graphics_pipeline_builder(Device device);
 
-    ComputePipelineBuilder compute_pipeline_bulder(Device device);
+    ComputePipelineBuilder compute_pipeline_builder(Device device);
 
     DescriptorSetLayoutBuilder descriptorset_layout_builder(Device device);
 }
