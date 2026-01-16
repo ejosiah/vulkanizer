@@ -1,5 +1,4 @@
 #pragma once
-#include "GraphicsPipelineBuilder.hpp"
 
 namespace vkz {
 

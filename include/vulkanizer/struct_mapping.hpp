@@ -103,17 +103,21 @@ namespace vkz {
         return { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
     }
 
-
     template<>
     inline VkGraphicsPipelineCreateInfo makeStruct<VkGraphicsPipelineCreateInfo>() {
         return { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
+    }
+
+
+    template<>
+    inline VkComputePipelineCreateInfo makeStruct<VkComputePipelineCreateInfo>() {
+        return { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
     }
 
     template<>
     inline VkShaderModuleCreateInfo makeStruct<VkShaderModuleCreateInfo>() {
         return { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
     }
-
 
     template<>
     inline VkPipelineShaderStageCreateInfo makeStruct<VkPipelineShaderStageCreateInfo>() {

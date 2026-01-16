@@ -1,4 +1,4 @@
-#include "vulkanizer/DynamicStateBuilder.hpp"
+#include "vulkanizer/GraphicsPipelineBuilder.hpp"
 
 namespace vkz {
 

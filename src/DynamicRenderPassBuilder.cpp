@@ -1,4 +1,4 @@
-#include "vulkanizer/DynamicRenderPassBuilder.hpp"
+#include "vulkanizer/GraphicsPipelineBuilder.hpp"
 #include "vulkanizer/log.hpp"
 namespace vkz {
 

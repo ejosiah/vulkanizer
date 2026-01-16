@@ -1,7 +1,6 @@
 #pragma once
 
 #include "types.hpp"
-#include "GraphicsPipelineBuilder.hpp"
 
 #include <tuple>
 #include <variant>

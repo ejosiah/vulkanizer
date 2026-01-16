@@ -1,7 +1,5 @@
 #pragma once
 
-#include "vulkanizer/GraphicsPipelineBuilder.hpp"
-
 namespace vkz {
 
     class PipelineLayoutBuilder : public GraphicsPipelineBuilder {

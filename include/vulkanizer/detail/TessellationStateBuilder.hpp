@@ -1,7 +1,5 @@
 #pragma once
 
-#include "GraphicsPipelineBuilder.hpp"
-
 namespace vkz {
 
     class TessellationStateBuilder : public GraphicsPipelineBuilder {

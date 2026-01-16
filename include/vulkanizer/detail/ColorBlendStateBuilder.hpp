@@ -1,6 +1,5 @@
 #pragma once
 
-#include "GraphicsPipelineBuilder.hpp"
 #include "LogicOp.hpp"
 #include "BlendFactor.hpp"
 #include "BlendOp.hpp"

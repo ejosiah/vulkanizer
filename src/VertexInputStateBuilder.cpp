@@ -1,4 +1,4 @@
-#include "vulkanizer/VertexInputStateBuilder.hpp"
+#include "vulkanizer/GraphicsPipelineBuilder.hpp"
 #include "vulkanizer/log.hpp"
 
 #include <format>

@@ -1,4 +1,4 @@
-#include "vulkanizer/RasterizationStateBuilder.hpp"
+#include "vulkanizer/GraphicsPipelineBuilder.hpp"
 
 namespace vkz {
 

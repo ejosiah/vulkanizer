@@ -12,7 +12,7 @@ namespace vkz {
     };
 
     struct ShaderInfo{
-        VkShaderModule module;
+        VkShaderModule module{};
         VkShaderStageFlagBits stage;
         const char*  entry = "main";
     };

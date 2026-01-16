@@ -1,5 +1,5 @@
 #include "vulkanizer/util.hpp"
-#include "vulkanizer/ShaderStageBuilder.hpp"
+#include "vulkanizer/GraphicsPipelineBuilder.hpp"
 #include "vulkanizer/creators.hpp"
 
 #include <stdexcept>

@@ -1,4 +1,4 @@
-#include "vulkanizer/ColorBlendStateBuilder.hpp"
+#include "vulkanizer/GraphicsPipelineBuilder.hpp"
 
 namespace vkz {
 

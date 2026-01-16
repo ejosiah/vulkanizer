@@ -1,4 +1,4 @@
-#include "vulkanizer/PipelineLayoutBuilder.hpp"
+#include "vulkanizer/GraphicsPipelineBuilder.hpp"
 
 namespace vkz {
 

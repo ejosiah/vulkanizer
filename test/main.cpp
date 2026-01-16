@@ -1,5 +1,6 @@
 #define VKZ_IOSTREAM_ADAPTOR
 #include <vulkanizer/log.hpp>
+#include <vulkanizer/ComputePipelineBuilder.hpp>
 #include <iostream>
 
 int main()
