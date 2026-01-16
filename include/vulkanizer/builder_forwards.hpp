@@ -4,6 +4,7 @@ namespace vkz {
 
     class Builder;
     class GraphicsPipelineBuilder;
+    class ComputePipelineBuilder;
     class ShaderStageBuilder;
     class VertexInputStateBuilder;
     class InputAssemblyStateBuilder;
@@ -17,5 +18,7 @@ namespace vkz {
     class PipelineLayoutBuilder;
     class DescriptorSetLayoutBuilder;
     class DynamicRenderPassBuilder;
+    class ComputeShaderStageBuilder;
+    class ComputePipelineLayoutBuilder;
 
 }
