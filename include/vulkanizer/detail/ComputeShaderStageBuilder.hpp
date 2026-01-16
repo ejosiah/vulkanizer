@@ -15,6 +15,8 @@ namespace vkz {
 
         explicit ComputeShaderStageBuilder(ComputeShaderStageBuilder *parent);
 
+        ~ComputeShaderStageBuilder();
+
         [[nodiscard]]
         virtual ComputeShaderStageBuilder &computeShader(const ShaderSource &source);
 
@@ -40,7 +42,7 @@ namespace vkz {
 
 
     private:
-        ShaderInfo _stage;
+        ShaderInfo _shader;
         std::vector<VkSpecializationMapEntry> _entries;
         std::vector<char> _data;
         uint32_t _offset{};

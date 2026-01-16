@@ -18,24 +18,25 @@ namespace vkz {
 
         explicit ShaderStageBuilder(ShaderStageBuilder *parent);
 
-        [[nodiscard]]
+        [[maybe_unused]]
         virtual ShaderBuilder &vertexShader(const ShaderSource &source);
 
+        [[maybe_unused]]
         virtual ShaderBuilder &taskSShader(const ShaderSource &source);
 
+        [[maybe_unused]]
         virtual ShaderBuilder &meshShader(const ShaderSource &source);
 
-        [[nodiscard]]
+        [[maybe_unused]]
         virtual ShaderBuilder &fragmentShader(const ShaderSource &source);
 
-        [[nodiscard]]
+        [[maybe_unused]]
         virtual ShaderBuilder &geometryShader(const ShaderSource &source);
 
-        [[nodiscard]]
+        [[maybe_unused]]
         virtual ShaderBuilder &tessellationEvaluationShader(const ShaderSource &source);
 
-
-        [[nodiscard]]
+        [[maybe_unused]]
         virtual ShaderBuilder &tessellationControlShader(const ShaderSource &source);
 
         ShaderStageBuilder &clear();
@@ -74,6 +75,8 @@ namespace vkz {
         explicit ShaderBuilder(ShaderStageBuilder *parent);
 
         ShaderBuilder(const ShaderSource &source, VkShaderStageFlagBits stage, ShaderStageBuilder *parent);
+
+        ~ShaderBuilder() override;
 
         template<typename T>
         ShaderBuilder &addSpecialization(T value, uint32_t constantID) {
@@ -118,7 +121,7 @@ namespace vkz {
         void copy(const ShaderBuilder &source);
 
     private:
-        ShaderInfo _stage;
+        ShaderInfo _shader;
         std::vector<VkSpecializationMapEntry> _entries;
         std::vector<char> _data;
         uint32_t _offset{};

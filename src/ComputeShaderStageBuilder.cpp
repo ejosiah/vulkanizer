@@ -2,6 +2,8 @@
 #include "vulkanizer/creators.hpp"
 #include "vulkanizer/util.hpp"
 #include "vulkanizer/status.hpp"
+#include "vulkanizer/detail/ComputeShaderStageBuilder.hpp"
+
 
 vkz::ComputeShaderStageBuilder::ComputeShaderStageBuilder(vkz::Device device, vkz::ComputePipelineBuilder *parent)
     : ComputePipelineBuilder(device, parent) {}
@@ -11,27 +13,34 @@ vkz::ComputeShaderStageBuilder::ComputeShaderStageBuilder(vkz::ComputeShaderStag
 
 vkz::ComputeShaderStageBuilder &
 vkz::ComputeShaderStageBuilder::computeShader(const vkz::ComputeShaderStageBuilder::ShaderSource &source) {
-    _stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    _shader.stage = VK_SHADER_STAGE_COMPUTE_BIT;
     std::visit(overloaded{
-            [&](const byte_string source) { _stage.module = createShaderModule(_device, source); },
-            [&](const std::vector<uint32_t> source) { _stage.module = createShaderModule(_device, source); },
-            [&](const std::string &source) { _stage.module = createShaderModule(_device, source); },
+            [&](const byte_string& source) { _shader.module = createShaderModule(_device, source); },
+            [&](const std::vector<uint32_t>& source) { _shader.module = createShaderModule(_device, source); },
+            [&](const std::string &source) { _shader.module = createShaderModule(_device, source); },
     }, source);
 
     return *this;
 }
 
+vkz::ComputeShaderStageBuilder::~ComputeShaderStageBuilder() {
+    assert(_device.logical);
+    if(_shader.module) {
+        vkDestroyShaderModule(_device.logical, _shader.module, nullptr);
+    }
+}
+
 void vkz::ComputeShaderStageBuilder::validate() const {
-    if(_stage.stage != VK_SHADER_STAGE_COMPUTE_BIT || !_stage.module) {
+    if(_shader.stage != VK_SHADER_STAGE_COMPUTE_BIT || !_shader.module) {
         VKZ_THROW("shader module must be provided")
     }
 }
 
 VkPipelineShaderStageCreateInfo &vkz::ComputeShaderStageBuilder::buildShaderStage() {
     _createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    _createInfo.stage = _stage.stage;
-    _createInfo.module = _stage.module;
-    _createInfo.pName = _stage.entry;
+    _createInfo.stage = _shader.stage;
+    _createInfo.module = _shader.module;
+    _createInfo.pName = _shader.entry;
 
     _specialization.mapEntryCount = _entries.size();
     _specialization.pMapEntries = _entries.data();
@@ -43,5 +52,5 @@ VkPipelineShaderStageCreateInfo &vkz::ComputeShaderStageBuilder::buildShaderStag
 }
 
 void vkz::ComputeShaderStageBuilder::clearStages() {
-    _stage.module = nullptr;
+    _shader.module = nullptr;
 }

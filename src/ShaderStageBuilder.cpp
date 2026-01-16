@@ -1,6 +1,8 @@
 #include "vulkanizer/util.hpp"
 #include "vulkanizer/GraphicsPipelineBuilder.hpp"
 #include "vulkanizer/creators.hpp"
+#include "vulkanizer/detail/ShaderStageBuilder.hpp"
+
 
 #include <stdexcept>
 #include <algorithm>
@@ -134,19 +136,26 @@ namespace vkz {
 
     ShaderBuilder::ShaderBuilder(const ShaderSource &source, VkShaderStageFlagBits stage, ShaderStageBuilder *parent)
             : ShaderStageBuilder(parent) {
-        _stage.stage = stage;
+        _shader.stage = stage;
         std::visit(overloaded{
-                [&](const byte_string source) { _stage.module = createShaderModule(_device, source); },
-                [&](const std::vector<uint32_t> source) { _stage.module = createShaderModule(_device, source); },
-                [&](const std::string &source) { _stage.module = createShaderModule(_device, source); },
+                [&](const byte_string& source) { _shader.module = createShaderModule(_device, source); },
+                [&](const std::vector<uint32_t>& source) { _shader.module = createShaderModule(_device, source); },
+                [&](const std::string &source) { _shader.module = createShaderModule(_device, source); },
         }, source);
+    }
+
+    ShaderBuilder::~ShaderBuilder() {
+        assert(_device.logical);
+        if(_shader.module) {
+            vkDestroyShaderModule(_device.logical, _shader.module, nullptr);
+        }
     }
 
     VkPipelineShaderStageCreateInfo &ShaderBuilder::buildShader() {
         _createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        _createInfo.stage = _stage.stage;
-        _createInfo.module = _stage.module;
-        _createInfo.pName = _stage.entry;
+        _createInfo.stage = _shader.stage;
+        _createInfo.module = _shader.module;
+        _createInfo.pName = _shader.entry;
 
         _specialization.mapEntryCount = _entries.size();
         _specialization.pMapEntries = _entries.data();
@@ -190,30 +199,30 @@ namespace vkz {
     }
 
     bool ShaderBuilder::isVertexShader() const {
-        return _stage.stage == VK_SHADER_STAGE_VERTEX_BIT;
+        return _shader.stage == VK_SHADER_STAGE_VERTEX_BIT;
     }
 
     bool ShaderBuilder::isMeshShader() const {
-        return _stage.stage == VK_SHADER_STAGE_MESH_BIT_EXT;
+        return _shader.stage == VK_SHADER_STAGE_MESH_BIT_EXT;
     }
 
     bool ShaderBuilder::isTessEvalShader() const {
-        return _stage.stage == VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+        return _shader.stage == VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
     }
 
     bool ShaderBuilder::isTessControlShader() const {
-        return _stage.stage == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+        return _shader.stage == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
     }
 
     void ShaderBuilder::copy(const ShaderBuilder &source) {
-        _stage = source._stage;
+        _shader = source._shader;
         _entries = source._entries;
         _data.resize(source._data.size());
         std::memcpy(_data.data(), source._data.data(), source._data.size());
     }
 
     bool ShaderBuilder::isStage(VkShaderStageFlagBits stage) const {
-        return _stage.stage == stage;
+        return _shader.stage == stage;
     }
 
 }

@@ -7,14 +7,14 @@
 namespace vkz {
 
     struct Device {
-        VkPhysicalDevice physical;
-        VkDevice logical;
+        VkPhysicalDevice physical{};
+        VkDevice logical{};
     };
 
     struct ShaderInfo{
         VkShaderModule module{};
-        VkShaderStageFlagBits stage;
-        const char*  entry = "main";
+        VkShaderStageFlagBits stage{};
+        const char* entry{"main"};
     };
 
     template<VkObjectType objectType>
