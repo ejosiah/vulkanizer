@@ -84,9 +84,9 @@ namespace vkz {
 
     protected:
         VkPipelineCreateFlags _flags = 0;
-        VkRenderPass _renderPass = VK_NULL_HANDLE;
-        VkPipelineLayout _pipelineLayout;
-        VkPipelineLayout _pipelineLayoutOwned;
+        VkRenderPass _renderPass{};
+        VkPipelineLayout _pipelineLayout{};
+        VkPipelineLayout _pipelineLayoutOwned{};
         uint32_t _subpass = 0;
         std::string _name;
 
