@@ -1,8 +1,8 @@
 #pragma once
 
 #include "status.hpp"
+#include "vkz.hpp"
 
-#include <vulkan/vulkan.h>
 #include <stdexcept>
 #include <format>
 #include <type_traits>

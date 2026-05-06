@@ -2,7 +2,6 @@
 
 #include "vkz.hpp"
 #include "builder_forwards.hpp"
-#include <vulkan/vulkan.h>
 
 namespace vkz {
     class Builder{

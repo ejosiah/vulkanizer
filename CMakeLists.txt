@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.31)
 project(vulkanizer)
 set(CMAKE_CXX_STANDARD 20)
 
-find_package(Vulkan)
+find_package(volk REQUIRED)
+find_package(glfw3 REQUIRED)
 
 include_directories(include)
 set(INCLUDE_DIRS $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
@@ -13,9 +14,9 @@ file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/src/*.cpp)
 file(GLOB_RECURSE TEST_FILES ${CMAKE_CURRENT_LIST_DIR}/test/*.*)
 
 add_library(vulkanizer STATIC ${HPP_FILES} ${CPP_FILES})
-target_link_libraries(vulkanizer PRIVATE Vulkan::Vulkan)
+target_link_libraries(vulkanizer PUBLIC volk::volk)
 
 target_include_directories(vulkanizer PUBLIC ${INCLUDE_DIRS} ${INSTALL_INCLUDE_DIRS})
 
 add_executable(vulkanizer_test ${TEST_FILES})
-target_link_libraries(vulkanizer_test PRIVATE vulkanizer Vulkan::Vulkan)
+target_link_libraries(vulkanizer_test PRIVATE vulkanizer glfw)

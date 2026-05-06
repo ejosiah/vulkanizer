@@ -1,5 +1,5 @@
 #pragma once
-#include <vulkan/vulkan.h>
+#include "vulkanizer/vkz.hpp"
 
 template <typename Caller>
 struct LogicOp{
