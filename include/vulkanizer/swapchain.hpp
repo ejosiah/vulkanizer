@@ -57,6 +57,8 @@ namespace vkz {
 
         [[maybe_unused]] Builder& setImageFormat(VkFormat format, VkColorSpaceKHR colorSpace);
 
+        [[maybe_unused]] Builder& setImageUsage(VkImageUsageFlags usage);
+
         [[maybe_unused]] Builder& setExtent(uint32_t width, uint32_t height);
 
         [[maybe_unused]] Builder& setPreTransform(VkSurfaceTransformFlagBitsKHR transform);

@@ -218,5 +218,112 @@ namespace vkz::barrier {
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
+    void push(VkImage& image, VkImageSubresourceRange subresourceRange,
+                 VkPipelineStageFlags2 srcStageMask,VkPipelineStageFlags2 dstStageMask,
+                 VkAccessFlags2 srcAccessMask, VkAccessFlags2 dstAccessMask,
+                 VkImageLayout oldLayout, VkImageLayout newLayout) {
+    imageMemoryBarriers.push_back({
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+          .srcStageMask = srcStageMask,
+          .srcAccessMask = srcAccessMask,
+          .dstStageMask = dstStageMask,
+          .dstAccessMask = dstAccessMask,
+          .oldLayout = oldLayout,
+          .newLayout = newLayout,
+          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+          .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+          .image = image,
+          .subresourceRange = subresourceRange,
+    });
+}
+
+void pushAndFlush(VkCommandBuffer commandBuffer, VkImage &image,
+                            VkImageSubresourceRange subresourceRange, VkPipelineStageFlags2 srcStageMask,
+                            VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 srcAccessMask,
+                            VkAccessFlags2 dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout) {
+
+    push(image, subresourceRange, srcStageMask, dstStageMask, srcAccessMask, dstAccessMask, oldLayout, newLayout);
+    flush(commandBuffer);
+}
+
+void
+push(VkPipelineStageFlags2 srcStageMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 srcAccessMask,
+               VkAccessFlags2 dstAccessMask) {
+
+    memoryBarriers.push_back({
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+         .srcStageMask = srcStageMask,
+         .srcAccessMask = srcAccessMask,
+         .dstStageMask = dstStageMask,
+         .dstAccessMask = dstAccessMask,
+    });
+}
+
+
+void
+pushAndFlush(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 srcStageMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 srcAccessMask,
+               VkAccessFlags2 dstAccessMask) {
+
+    push(srcStageMask, dstStageMask, srcAccessMask, dstAccessMask);
+    flush(commandBuffer);
+}
+
+
+void release(VkImage &image, VkImageSubresourceRange subresourceRange,
+                       VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkImageLayout oldLayout,
+                       VkImageLayout newLayout, uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex) {
+
+    imageMemoryBarriers.push_back({
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+          .srcStageMask = srcStageMask,
+          .srcAccessMask = srcAccessMask,
+          .dstStageMask = VK_PIPELINE_STAGE_NONE,
+          .dstAccessMask = VK_ACCESS_NONE,
+          .oldLayout = oldLayout,
+          .newLayout = newLayout,
+          .srcQueueFamilyIndex = srcQueueFamilyIndex,
+          .dstQueueFamilyIndex = dstQueueFamilyIndex,
+          .image = image,
+          .subresourceRange = subresourceRange,
+    });
+}
+
+void acquire(VkImage &image, VkImageSubresourceRange subresourceRange, VkImageLayout oldLayout,
+                       VkImageLayout newLayout, uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex) {
+
+    imageMemoryBarriers.push_back({
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+          .srcStageMask = VK_PIPELINE_STAGE_NONE,
+          .srcAccessMask = VK_PIPELINE_STAGE_NONE,
+          .dstStageMask = VK_PIPELINE_STAGE_NONE,
+          .dstAccessMask = VK_ACCESS_NONE,
+          .oldLayout = oldLayout,
+          .newLayout = newLayout,
+          .srcQueueFamilyIndex = srcQueueFamilyIndex,
+          .dstQueueFamilyIndex = dstQueueFamilyIndex,
+          .image = image,
+          .subresourceRange = subresourceRange,
+    });
+}
+
+void flush(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlag) {
+    dependencyInfo.imageMemoryBarrierCount = VKZ_COUNT(imageMemoryBarriers);
+    dependencyInfo.pImageMemoryBarriers = imageMemoryBarriers.data();
+    dependencyInfo.bufferMemoryBarrierCount = VKZ_COUNT(bufferMemoryBarriers);
+    dependencyInfo.pBufferMemoryBarriers = bufferMemoryBarriers.data();
+    dependencyInfo.memoryBarrierCount = VKZ_COUNT(memoryBarriers);
+    dependencyInfo.pMemoryBarriers = memoryBarriers.data();
+
+    dependencyInfo.dependencyFlags = dependencyFlag;
+    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
+    imageMemoryBarriers.clear();
+    bufferMemoryBarriers.clear();
+    memoryBarriers.clear();
+}
+
+bool flushed() {
+    return imageMemoryBarriers.empty() && bufferMemoryBarriers.empty() && memoryBarriers.empty();
+}
 
 }

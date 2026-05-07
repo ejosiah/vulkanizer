@@ -199,7 +199,7 @@ namespace vkz {
                 0,
                 engineName.c_str(),
                 0,
-                VK_API_VERSION_1_0,
+                VK_API_VERSION_1_3,
         };
 
         std::vector<std::string> instanceExtensions;

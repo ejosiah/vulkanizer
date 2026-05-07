@@ -158,6 +158,11 @@ namespace vkz {
         return *this;
     }
 
+    swapchain::Builder& swapchain::Builder::setImageUsage(VkImageUsageFlags usage) {
+        createInfo_.imageUsage = usage;
+        return *this;
+    }
+
     swapchain::Builder& swapchain::Builder::setExtent(uint32_t width, uint32_t height) {
         extent_ = {width, height};
         createInfo_.imageExtent = extent_;
