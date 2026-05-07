@@ -31,8 +31,6 @@ namespace vkz::imgui {
 
     void newFrame();
 
-    void setMinImageCount(uint32_t minImageCount);
-
     void render(VkCommandBuffer commandBuffer);
 
     void destroy();

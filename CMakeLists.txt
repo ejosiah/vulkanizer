@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 find_package(volk REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(imgui REQUIRED)
+find_package(glm)
+find_package(VulkanMemoryAllocator)
 
 set(IMGUI_BINDINGS_DIR "")
 foreach(CONFIG_TYPE DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
@@ -33,7 +35,7 @@ add_library(vulkanizer STATIC
         ${CPP_FILES}
         "${IMGUI_BINDINGS_DIR}/imgui_impl_glfw.cpp"
         "${IMGUI_BINDINGS_DIR}/imgui_impl_vulkan.cpp")
-target_link_libraries(vulkanizer PUBLIC volk::volk imgui::imgui glfw)
+target_link_libraries(vulkanizer PUBLIC volk::volk glfw glm::glm GPUOpen::VulkanMemoryAllocator imgui::imgui)
 
 target_include_directories(vulkanizer PUBLIC ${INCLUDE_DIRS} ${INSTALL_INCLUDE_DIRS})
 target_include_directories(vulkanizer PRIVATE "${IMGUI_BINDINGS_DIR}")

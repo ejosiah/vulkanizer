@@ -4,6 +4,7 @@
 #include <vulkanizer/context.hpp>
 #include <vulkanizer/imgui.hpp>
 #include <vulkanizer/log.hpp>
+#include <vulkanizer/render.hpp>
 #include <vulkanizer/status.hpp>
 #include <vulkanizer/swapchain.hpp>
 
@@ -104,8 +105,8 @@ namespace {
         vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
     }
 
-    std::vector<VkImageView> createImageViews(VkDevice device, vkz::swapchain& swapchain) {
-        std::vector<VkImageView> imageViews;
+    std::vector<vkz::ImageView> createImageViews(VkDevice device, vkz::swapchain& swapchain) {
+        std::vector<vkz::ImageView> imageViews;
         imageViews.reserve(swapchain.imageCount());
 
         for (uint32_t i = 0; i < swapchain.imageCount(); ++i) {
@@ -123,15 +124,18 @@ namespace {
 
             VkImageView imageView{};
             VKZ_CHECK_VULKAN(vkCreateImageView(device, &createInfo, nullptr, &imageView));
-            imageViews.push_back(imageView);
+            imageViews.push_back({
+                    .handle = imageView,
+                    .info = createInfo,
+            });
         }
 
         return imageViews;
     }
 
-    void destroyImageViews(VkDevice device, std::vector<VkImageView>& imageViews) {
+    void destroyImageViews(VkDevice device, std::vector<vkz::ImageView>& imageViews) {
         for (auto imageView : imageViews) {
-            vkDestroyImageView(device, imageView, nullptr);
+            vkDestroyImageView(device, imageView.handle, nullptr);
         }
 
         imageViews.clear();
@@ -243,7 +247,6 @@ int main() {
     VkFence frameFence{};
     VKZ_CHECK_VULKAN(vkCreateFence(context.device.logical, &fenceCreateInfo, nullptr, &frameFence));
 
-    bool showDemoWindow = true;
     auto recreateSwapchain = [&] {
         vkDeviceWaitIdle(context.device.logical);
         waitForDrawableWindow(window);
@@ -255,7 +258,6 @@ int main() {
         swapchain.reset();
         swapchain = createSwapchain();
         imageViews = createImageViews(context.device.logical, *swapchain);
-        vkz::imgui::setMinImageCount(2);
     };
 
     bool show_demo_window = true;
@@ -349,25 +351,17 @@ int main() {
                 VK_IMAGE_LAYOUT_UNDEFINED,
                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-        VkClearValue clearValue{};
-        clearValue.color = {{clear_color.x, clear_color.y, clear_color.z, 1.0f}};
+        vkz::render_info renderInfo{};
+        renderInfo.colorAttachments.push_back({
+                .imageView = imageViews[imageIndex],
+                .format = swapchain->format(),
+                .clearValue = {clear_color.x, clear_color.y, clear_color.z, clear_color.w},
+        });
+        renderInfo.renderArea = {swapchain->width(), swapchain->height()};
 
-        VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-        colorAttachment.imageView = imageViews[imageIndex];
-        colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        colorAttachment.clearValue = clearValue;
-
-        VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO};
-        renderingInfo.renderArea.extent = {swapchain->width(), swapchain->height()};
-        renderingInfo.layerCount = 1;
-        renderingInfo.colorAttachmentCount = 1;
-        renderingInfo.pColorAttachments = &colorAttachment;
-
-        vkCmdBeginRendering(commandBuffer, &renderingInfo);
-        vkz::imgui::render(commandBuffer);
-        vkCmdEndRendering(commandBuffer);
+        vkz::render(commandBuffer, renderInfo, [&] {
+            vkz::imgui::render(commandBuffer);
+        });
 
         vkz::barrier::pushAndFlush(
                 commandBuffer,

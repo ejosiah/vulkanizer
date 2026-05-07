@@ -2,6 +2,8 @@
 volk/1.3.296.0
 glfw/3.4
 imgui/1.92.7
+glm/1.0.1
+vulkan-memory-allocator/3.3.0
 
 [generators]
 CMakeDeps

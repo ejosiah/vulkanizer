@@ -202,14 +202,6 @@ namespace vkz::imgui {
         instance->newFrame();
     }
 
-    void setMinImageCount(uint32_t minImageCount) {
-        if (!instance) {
-            VKZ_THROW("vkz::imgui has not been initialized")
-        }
-
-        ImGui_ImplVulkan_SetMinImageCount(minImageCount);
-    }
-
     void render(VkCommandBuffer commandBuffer) {
         if (!instance) {
             VKZ_THROW("vkz::imgui has not been initialized")
