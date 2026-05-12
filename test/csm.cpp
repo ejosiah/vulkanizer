@@ -10,11 +10,13 @@
 #include <vulkanizer/io.hpp>
 #include <vulkanizer/log.hpp>
 #include <vulkanizer/memory.hpp>
+#include <vulkanizer/primitives.hpp>
 #include <vulkanizer/status.hpp>
 #include <vulkanizer/transforms.hpp>
 
 #include <imgui.h>
 
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <array>
@@ -174,34 +176,22 @@ namespace {
         framebuffers.clear();
     }
 
-    std::vector<vertex> make_plane(float size) {
-        const float h = size * 0.5f;
-        const glm::vec3 n{0.0f, 1.0f, 0.0f};
-        return {
-            {{-h, 0.0f, -h}, n}, {{ h, 0.0f,  h}, n}, {{ h, 0.0f, -h}, n},
-            {{-h, 0.0f, -h}, n}, {{-h, 0.0f,  h}, n}, {{ h, 0.0f,  h}, n},
-        };
-    }
-
-    void add_face(std::vector<vertex>& vertices, glm::vec3 a, glm::vec3 b, glm::vec3 c, glm::vec3 d, glm::vec3 normal) {
-        vertices.push_back({a, normal});
-        vertices.push_back({b, normal});
-        vertices.push_back({c, normal});
-        vertices.push_back({a, normal});
-        vertices.push_back({c, normal});
-        vertices.push_back({d, normal});
-    }
-
-    std::vector<vertex> make_cube() {
-        constexpr float h = 0.5f;
+    std::vector<vertex> to_vertices(const vkz::prim::primitive& primitive) {
         std::vector<vertex> vertices;
-        vertices.reserve(36);
-        add_face(vertices, {-h, -h,  h}, { h, -h,  h}, { h,  h,  h}, {-h,  h,  h}, {0, 0, 1});
-        add_face(vertices, { h, -h, -h}, {-h, -h, -h}, {-h,  h, -h}, { h,  h, -h}, {0, 0, -1});
-        add_face(vertices, {-h, -h, -h}, {-h, -h,  h}, {-h,  h,  h}, {-h,  h, -h}, {-1, 0, 0});
-        add_face(vertices, { h, -h,  h}, { h, -h, -h}, { h,  h, -h}, { h,  h,  h}, {1, 0, 0});
-        add_face(vertices, {-h,  h,  h}, { h,  h,  h}, { h,  h, -h}, {-h,  h, -h}, {0, 1, 0});
-        add_face(vertices, {-h, -h, -h}, { h, -h, -h}, { h, -h,  h}, {-h, -h,  h}, {0, -1, 0});
+
+        if (primitive.indices.empty()) {
+            vertices.reserve(primitive.vertices.size());
+            for (const auto& source : primitive.vertices) {
+                vertices.push_back({source.position, source.normal});
+            }
+            return vertices;
+        }
+
+        vertices.reserve(primitive.indices.size());
+        for (const auto index : primitive.indices) {
+            const auto& source = primitive.vertices[index];
+            vertices.push_back({source.position, source.normal});
+        }
         return vertices;
     }
 
@@ -314,8 +304,16 @@ int main() {
         .use_dynamic_rendering = false,
     });
 
-    const auto plane_vertices = make_plane(40.0f);
-    const auto cube_vertices = make_cube();
+    auto plane_transform = glm::rotate(glm::mat4{1}, -glm::half_pi<float>(), {1.0f, 0.0f, 0.0f});
+    const auto plane_vertices = to_vertices(vkz::prim::plane(
+        1,
+        1,
+        40.0f,
+        40.0f,
+        plane_transform,
+        vkz::prim::GRAY,
+        vkz::prim::topology::TRIANGLES));
+    const auto cube_vertices = to_vertices(vkz::prim::cube());
     auto plane_buffer = create_vertex_buffer(allocator, plane_vertices);
     auto cube_buffer = create_vertex_buffer(allocator, cube_vertices);
 

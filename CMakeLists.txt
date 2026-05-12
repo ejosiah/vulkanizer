@@ -29,6 +29,11 @@ endif()
 set(INCLUDE_DIRS $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 set(INSTALL_INCLUDE_DIRS $<INSTALL_INTERFACE:include>)
 
+add_definitions(
+        -DGLM_FORCE_SWIZZLE
+)
+
+
 file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
 file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/src/*.cpp)
 add_library(vulkanizer STATIC

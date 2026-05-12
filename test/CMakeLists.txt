@@ -8,6 +8,7 @@ endfunction()
 
 vulkanizer_add_test_executable(vulkanizer_context_test main.cpp)
 vulkanizer_add_test_executable(vulkanizer_csm_test csm.cpp)
+vulkanizer_add_test_executable(vulkanizer_primitive_test primitives.cpp)
 
 find_program(GLSLC_EXECUTABLE glslc)
 if(NOT GLSLC_EXECUTABLE)
@@ -37,3 +38,23 @@ endforeach()
 add_custom_target(vulkanizer_csm_test_shaders DEPENDS ${CSM_TEST_SPV_FILES})
 add_dependencies(vulkanizer_csm_test vulkanizer_csm_test_shaders)
 target_compile_definitions(vulkanizer_csm_test PRIVATE VKZ_CSM_TEST_SHADER_DIR="${CSM_TEST_SHADER_BINARY_DIR}")
+
+set(PRIMITIVE_TEST_SHADERS
+        primitive.vert
+        primitive.frag)
+
+set(PRIMITIVE_TEST_SPV_FILES)
+foreach(shader ${PRIMITIVE_TEST_SHADERS})
+    set(source "${CSM_TEST_SHADER_SOURCE_DIR}/${shader}")
+    set(output "${CSM_TEST_SHADER_BINARY_DIR}/${shader}.spv")
+    add_custom_command(
+            OUTPUT "${output}"
+            COMMAND "${GLSLC_EXECUTABLE}" "${source}" -o "${output}"
+            DEPENDS "${source}"
+            VERBATIM)
+    list(APPEND PRIMITIVE_TEST_SPV_FILES "${output}")
+endforeach()
+
+add_custom_target(vulkanizer_primitive_test_shaders DEPENDS ${PRIMITIVE_TEST_SPV_FILES})
+add_dependencies(vulkanizer_primitive_test vulkanizer_primitive_test_shaders)
+target_compile_definitions(vulkanizer_primitive_test PRIVATE VKZ_PRIMITIVE_TEST_SHADER_DIR="${CSM_TEST_SHADER_BINARY_DIR}")
