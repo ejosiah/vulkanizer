@@ -32,6 +32,7 @@ namespace vkz::csm {
         uint in_flight_frames{};
         uint num_cascades{DEFAULT_CASCADE_COUNT};
         uint size{DEFAULT_SHADOW_MAP_SIZE};
+        VkCullModeFlags cull_mode{VK_CULL_MODE_FRONT_BIT};
     };
 
     struct camera {
@@ -61,4 +62,6 @@ namespace vkz::csm {
     void render(id id, VkCommandBuffer command_buffer);
 
     void split_lambda(id id, float value);
+
+    void cull_mode(id id, VkCullModeFlags value);
 }

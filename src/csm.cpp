@@ -124,6 +124,7 @@ void main(){
         assert(params.size != 0 && "shadow map size should not be zero");
         assert(params.num_cascades > 0 && "numCascades should be at least 2");
         assert(params.in_flight_frames != 0 && "inflightFrames should be at least 1");
+        cull_mode_ = params.cull_mode;
     }
 
     void init() {
@@ -313,7 +314,7 @@ void main(){
         vkz::render(commandBuffer, render_info_[currentFrame], [&] {
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &descriptor_set_, 0, VK_NULL_HANDLE);
-            vkCmdSetCullMode(commandBuffer, VK_CULL_MODE_FRONT_BIT);
+            vkCmdSetCullMode(commandBuffer, cull_mode_);
             vkCmdSetPrimitiveTopology(commandBuffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
             vkCmdPushConstants(commandBuffer, layout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants_), &constants_);
 
@@ -352,6 +353,10 @@ void main(){
 
     void splitLambda(float value) {
         split_lambda_ = value;
+    }
+
+    void cullMode(VkCullModeFlags value) {
+        cull_mode_ = value;
     }
 
     buffer cascadeViewProjection() const {
@@ -689,6 +694,7 @@ private:
     glm::uvec2 screen_resolution_{};
     float depth_bias_constant_{0.005f};
     float depth_bias_slope_{0.05f};
+    VkCullModeFlags cull_mode_{VK_CULL_MODE_FRONT_BIT};
 
     struct {
         glm::mat4 worldTransform{1};
@@ -776,5 +782,9 @@ private:
 
     void split_lambda(id id, float value) {
         get(id).splitLambda(value);
+    }
+
+    void cull_mode(id id, VkCullModeFlags value) {
+        get(id).cullMode(value);
     }
 }

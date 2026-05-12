@@ -51,6 +51,11 @@ namespace {
         int camera_frozen{};
     };
 
+    struct cull_mode_option {
+        const char* label{};
+        VkCullModeFlags value{};
+    };
+
     struct shadow_push_constants {
         glm::mat4 world{1};
         int cascade_index{};
@@ -413,11 +418,19 @@ mat4 get_model_matrix() {
     bool show_extents = false;
     bool color_shadow = false;
     bool auto_light = true;
+    int shadow_cull_mode_index = 1;
     float split_lambda = vkz::csm::DEFAULT_CASCADE_SLIT_LAMBDA;
     float light_angle = 0.35f;
     float camera_angle = 0.65f;
     uint32_t current_frame = 0;
     double previous_time = glfwGetTime();
+
+    constexpr std::array<cull_mode_option, 4> shadow_cull_modes{{
+        {"None", VK_CULL_MODE_NONE},
+        {"Front", VK_CULL_MODE_FRONT_BIT},
+        {"Back", VK_CULL_MODE_BACK_BIT},
+        {"Front and back", VK_CULL_MODE_FRONT_AND_BACK},
+    }};
 
     while (!app.should_close()) {
         app.poll_events();
@@ -452,6 +465,19 @@ mat4 get_model_matrix() {
             ImGui::Checkbox("Color shadow", &color_shadow);
             ImGui::Checkbox("PCF filtering", &use_pcf_filtering);
             ImGui::Checkbox("Show depth map", &show_shadow_map);
+            if (ImGui::BeginCombo("Cull mode", shadow_cull_modes[shadow_cull_mode_index].label)) {
+                for (int i = 0; i < static_cast<int>(shadow_cull_modes.size()); ++i) {
+                    const bool selected = shadow_cull_mode_index == i;
+                    if (ImGui::Selectable(shadow_cull_modes[i].label, selected)) {
+                        shadow_cull_mode_index = i;
+                        vkz::csm::cull_mode(csm_id, shadow_cull_modes[i].value);
+                    }
+                    if (selected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
             ImGui::Checkbox("Auto light", &auto_light);
             if (!auto_light) {
                 ImGui::SliderFloat("Light angle", &light_angle, 0.0f, glm::two_pi<float>());
