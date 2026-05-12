@@ -1,6 +1,7 @@
 #include "vulkanizer/csm.hpp"
 
 #include <array>
+#include <unordered_map>
 
 #include "vulkanizer/render.hpp"
 #include "vulkanizer/transforms.hpp"
@@ -626,57 +627,72 @@ private:
 };
 
     namespace {
-        impl csm;
+        std::unordered_map<id, impl> csm_instances;
+        id next_id{1};
+
+        impl& get(id id) {
+            auto itr = csm_instances.find(id);
+            if (itr == csm_instances.end()) {
+                VKZ_THROW("Invalid cascade shadow map id")
+            }
+            return itr->second;
+        }
     }
 
-    void init(const params& params) {
-        csm.destroy();
-        csm = impl{params};
-        csm.init();
+    id create(const params& params) {
+        auto result = next_id++;
+        auto [itr, inserted] = csm_instances.emplace(result, impl{params});
+        itr->second.init();
+        return result;
     }
 
-    void destroy() {
-        csm.destroy();
-        csm = {};
+    void destroy(id id) {
+        auto itr = csm_instances.find(id);
+        if (itr == csm_instances.end()) {
+            return;
+        }
+
+        itr->second.destroy();
+        csm_instances.erase(itr);
     }
 
-    void update(const camera& camera, const glm::vec3& light_direction, std::span<float> split_depth) {
-        csm.update(camera, light_direction, split_depth);
+    void update(id id, const camera& camera, const glm::vec3& light_direction, std::span<float> split_depth) {
+        get(id).update(camera, light_direction, split_depth);
     }
 
-    void capture(const scene& scene, VkCommandBuffer command_buffer, int current_frame) {
-        csm.capture(scene, command_buffer, current_frame);
+    void capture(id id, const scene& scene, VkCommandBuffer command_buffer, int current_frame) {
+        get(id).capture(scene, command_buffer, current_frame);
     }
 
-    const texture shadow_map(int index) {
-        return csm.shadowMap(index);
+    const texture shadow_map(id id, int index) {
+        return get(id).shadowMap(index);
     }
 
-    uint cascade_count() {
-        return csm.cascadeCount();
+    uint cascade_count(id id) {
+        return get(id).cascadeCount();
     }
 
-    buffer cascade_view_projection() {
-        return csm.cascadeViewProjection();
+    buffer cascade_view_projection(id id) {
+        return get(id).cascadeViewProjection();
     }
 
-    VkDescriptorSetLayout descriptor_set_layout() {
-        return csm.descriptorSetLayout();
+    VkDescriptorSetLayout descriptor_set_layout(id id) {
+        return get(id).descriptorSetLayout();
     }
 
-    VkDescriptorSet descriptor_set() {
-        return csm.descriptorSet();
+    VkDescriptorSet descriptor_set(id id) {
+        return get(id).descriptorSet();
     }
 
-    void set(VkRenderPass render_pass, glm::uvec2 resolution) {
-        csm.setRenderPass(render_pass, resolution);
+    void set(id id, VkRenderPass render_pass, glm::uvec2 resolution) {
+        get(id).setRenderPass(render_pass, resolution);
     }
 
-    void render(VkCommandBuffer command_buffer) {
-        csm.render(command_buffer);
+    void render(id id, VkCommandBuffer command_buffer) {
+        get(id).render(command_buffer);
     }
 
-    void split_lambda(float value) {
-        csm.splitLambda(value);
+    void split_lambda(id id, float value) {
+        get(id).splitLambda(value);
     }
 }

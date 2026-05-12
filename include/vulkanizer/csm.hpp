@@ -15,6 +15,7 @@ namespace vkz::csm {
     static constexpr uint32_t DEFAULT_CASCADE_COUNT = 4;
     static constexpr float DEFAULT_CASCADE_SLIT_LAMBDA = 0.95f;
     using scene = std::function<void(VkPipelineLayout)>;
+    using id = uint32_t;
 
     struct params {
         context context;
@@ -35,27 +36,27 @@ namespace vkz::csm {
         float far_plane{1000};
     };
 
-    void init(const params& params);
+    id create(const params& params);
 
-    void destroy();
+    void destroy(id id);
 
-    void update(const camera& camera, const glm::vec3& light_direction, std::span<float> split_depth);
+    void update(id id, const camera& camera, const glm::vec3& light_direction, std::span<float> split_depth);
 
-    void capture(const scene& scene, VkCommandBuffer command_buffer, int current_frame);
+    void capture(id id, const scene& scene, VkCommandBuffer command_buffer, int current_frame);
 
-    const texture shadow_map(int index);
+    const texture shadow_map(id id, int index);
 
-    uint cascade_count();
+    uint cascade_count(id id);
 
-    buffer cascade_view_projection();
+    buffer cascade_view_projection(id id);
 
-    VkDescriptorSetLayout descriptor_set_layout();
+    VkDescriptorSetLayout descriptor_set_layout(id id);
 
-    VkDescriptorSet descriptor_set();
+    VkDescriptorSet descriptor_set(id id);
 
-    void set(VkRenderPass render_pass, glm::uvec2 resolution);
+    void set(id id, VkRenderPass render_pass, glm::uvec2 resolution);
 
-    void render(VkCommandBuffer command_buffer);
+    void render(id id, VkCommandBuffer command_buffer);
 
-    void split_lambda(float value);
+    void split_lambda(id id, float value);
 }
