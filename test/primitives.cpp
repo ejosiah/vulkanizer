@@ -80,6 +80,23 @@ namespace {
         return std::string{VKZ_PRIMITIVE_TEST_SHADER_DIR} + "/" + name + ".spv";
     }
 
+    VkSampleCountFlagBits pick_sample_count(VkPhysicalDevice physical_device) {
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(physical_device, &properties);
+
+        const auto supported =
+            properties.limits.framebufferColorSampleCounts &
+            properties.limits.framebufferDepthSampleCounts;
+
+        if (supported & VK_SAMPLE_COUNT_4_BIT) {
+            return VK_SAMPLE_COUNT_4_BIT;
+        }
+        if (supported & VK_SAMPLE_COUNT_2_BIT) {
+            return VK_SAMPLE_COUNT_2_BIT;
+        }
+        return VK_SAMPLE_COUNT_1_BIT;
+    }
+
     float implicit_paraboloid(float x, float y) {
         return x * x + y * y;
     }
@@ -202,11 +219,30 @@ int main() {
     auto swapchain = app.create_swapchain();
     auto swapchain_image_views = vkz::test::create_swapchain_image_views(context.device.logical, *swapchain);
     const auto depth_format = vkz::test::pick_depth_format(context.device.physical);
+    const auto sample_count = pick_sample_count(context.device.physical);
+
+    auto color_image =
+        vkz::image::builder(allocator)
+            .format(swapchain->format())
+            .extent(swapchain->width(), swapchain->height())
+            .samples(sample_count)
+            .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+            .build();
+    auto color_view =
+        vkz::image_view::builder(context.device.logical)
+            .image(color_image)
+            .view_type(VK_IMAGE_VIEW_TYPE_2D)
+            .format(swapchain->format())
+            .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
+            .level_count(1)
+            .layer_count(1)
+            .build();
 
     auto depth_image =
         vkz::image::builder(allocator)
             .format(depth_format)
             .extent(swapchain->width(), swapchain->height())
+            .samples(sample_count)
             .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
             .build();
     auto depth_view =
@@ -228,6 +264,7 @@ int main() {
         .image_count = swapchain->image_count(),
         .api_version = VK_API_VERSION_1_3,
         .color_attachment_format = swapchain->format(),
+        .samples = sample_count,
     });
 
     VkPipelineLayout pipeline_layout{};
@@ -256,6 +293,8 @@ int main() {
                 .cull_none()
                 .front_face_counter_clockwise()
                 .polygon_mode_fill()
+            .multisample_state()
+                .rasterization_samples(sample_count)
             .depth_stencil_state()
                 .enable_depth_test()
                 .enable_depth_write()
@@ -332,6 +371,17 @@ int main() {
         color_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         color_range.levelCount = 1;
         color_range.layerCount = 1;
+        VkImage color_handle = color_image;
+        vkz::barrier::push_and_flush(
+            command_buffer,
+            color_handle,
+            color_range,
+            VK_PIPELINE_STAGE_2_NONE,
+            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_ACCESS_2_NONE,
+            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         vkz::barrier::push_and_flush(
             command_buffer,
             image,
@@ -361,9 +411,10 @@ int main() {
 
         vkz::render_info render_info{};
         render_info.color_attachments.push_back({
-            .view = swapchain_image_views[image_index],
+            .view = color_view,
             .format = swapchain->format(),
             .clear_value = {0.06f, 0.08f, 0.10f, 1.0f},
+            .resolve = swapchain_image_views[image_index],
         });
         render_info.depth_attachment = vkz::depth_stencil_attachment{
             .view = depth_view,
@@ -439,7 +490,9 @@ int main() {
     vkDestroyPipeline(context.device.logical, pipeline, nullptr);
     vkDestroyPipelineLayout(context.device.logical, pipeline_layout, nullptr);
     vkz::imgui::destroy();
+    vkDestroyImageView(context.device.logical, color_view.handle, nullptr);
     vkDestroyImageView(context.device.logical, depth_view.handle, nullptr);
+    allocator.deallocate(color_image);
     allocator.deallocate(depth_image);
     vkz::test::destroy_image_views(context.device.logical, swapchain_image_views);
     swapchain.reset();
