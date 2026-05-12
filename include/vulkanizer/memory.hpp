@@ -12,6 +12,7 @@ namespace vkz {
     class image_builder;
     class image_view_builder;
     class sampler_builder;
+    struct context;
     struct vma_memory_allocator;
     struct mapping;
 
@@ -21,7 +22,7 @@ namespace vkz {
         VmaAllocation allocation{};
         VmaAllocator allocator{};
 
-        mapping map() const;
+        [[nodiscard]] mapping map() const;
 
         static buffer_builder builder(vma_memory_allocator& allocator);
 
@@ -82,6 +83,8 @@ namespace vkz {
     };
 
     struct mapping {
+        friend struct buffer;
+
         void* _{};
 
         template<typename T>
@@ -113,7 +116,7 @@ namespace vkz {
         VkDevice device{VK_NULL_HANDLE};
         VmaAllocator allocator{VK_NULL_HANDLE};
 
-        void init();
+        static vma_memory_allocator create(const context& context);
 
         void destroy();
 

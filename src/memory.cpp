@@ -1,12 +1,15 @@
 #define VMA_IMPLEMENTATION
 #include "vulkanizer/memory.hpp"
 
+#include "vulkanizer/context.hpp"
 #include "vulkanizer/status.hpp"
 
 namespace vkz {
     mapping buffer::map() const {
         mapping mapping{};
         vmaMapMemory(allocator, allocation, &mapping._);
+        mapping.allocation = allocation;
+        mapping.allocator = allocator;
         return mapping;
     }
 
@@ -46,13 +49,19 @@ namespace vkz {
         return builder(device).build();
     }
 
-    void vma_memory_allocator::init() {
-        VmaAllocatorCreateInfo create_info{};
-        create_info.instance = instance;
-        create_info.physicalDevice = physical_device;
-        create_info.device = device;
+    vma_memory_allocator vma_memory_allocator::create(const context& context) {
+        vma_memory_allocator result{};
+        result.instance = context.instance;
+        result.physical_device = context.device.physical;
+        result.device = context.device.logical;
 
-        VKZ_CHECK_VULKAN(vmaCreateAllocator(&create_info, &allocator));
+        VmaAllocatorCreateInfo create_info{};
+        create_info.instance = result.instance;
+        create_info.physicalDevice = result.physical_device;
+        create_info.device = result.device;
+
+        VKZ_CHECK_VULKAN(vmaCreateAllocator(&create_info, &result.allocator));
+        return result;
     }
 
     void vma_memory_allocator::destroy() {
@@ -68,6 +77,7 @@ namespace vkz {
 
         buffer result{};
         result.create_info = create_info;
+        result.allocator = allocator;
 
         VKZ_CHECK_VULKAN(vmaCreateBuffer(allocator, &create_info, &allocation_info, &result._, &result.allocation, nullptr));
         return result;
