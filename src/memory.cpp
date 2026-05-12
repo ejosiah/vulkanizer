@@ -56,9 +56,17 @@ namespace vkz {
         result.device = context.device.logical;
 
         VmaAllocatorCreateInfo create_info{};
+        create_info.vulkanApiVersion = context.api_version;
         create_info.instance = result.instance;
         create_info.physicalDevice = result.physical_device;
         create_info.device = result.device;
+
+        VmaVulkanFunctions vulkan_functions{};
+        vulkan_functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+        vulkan_functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
+        vmaImportVulkanFunctionsFromVolk(&create_info, &vulkan_functions);
+        create_info.pVulkanFunctions = &vulkan_functions;
 
         VKZ_CHECK_VULKAN(vmaCreateAllocator(&create_info, &result.allocator));
         return result;
@@ -84,6 +92,10 @@ namespace vkz {
     }
 
     image vma_memory_allocator::allocate(VkImageCreateInfo create_info, VmaMemoryUsage usage) {
+        if (create_info.format == VK_FORMAT_UNDEFINED) {
+            VKZ_THROW("Cannot allocate image with VK_FORMAT_UNDEFINED")
+        }
+
         VmaAllocationCreateInfo allocation_info{};
         allocation_info.usage = usage;
 

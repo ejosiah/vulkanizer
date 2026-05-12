@@ -31,8 +31,6 @@ set(INSTALL_INCLUDE_DIRS $<INSTALL_INTERFACE:include>)
 
 file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
 file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/src/*.cpp)
-file(GLOB_RECURSE TEST_FILES ${CMAKE_CURRENT_LIST_DIR}/test/*.*)
-
 add_library(vulkanizer STATIC
         ${HPP_FILES}
         ${CPP_FILES}
@@ -75,6 +73,6 @@ install(FILES
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vulkanizer)
 
 if(VULKANIZER_BUILD_TESTS)
-    add_executable(vulkanizer_test ${TEST_FILES})
-    target_link_libraries(vulkanizer_test PRIVATE vulkanizer glfw)
+    enable_testing()
+    add_subdirectory(test)
 endif()

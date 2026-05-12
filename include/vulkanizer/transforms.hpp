@@ -65,7 +65,6 @@ namespace vkz {
 
     inline glm::mat4 perspectiveVFov(float fovy, float aspect, float zNear, float zFar){
         assert(abs(aspect - std::numeric_limits<float>::epsilon()) > 0);
-        glm::perspective(fovy, aspect, zNear, zFar);
 
         float const tanHalfFovy = glm::tan(fovy / 2);
 

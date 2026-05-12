@@ -6,8 +6,75 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 
 namespace vkz {
+    namespace {
+        bool is_glsl_source(const std::string& source) {
+            const auto first = source.find_first_not_of(" \t\r\n");
+            return first != std::string::npos && source.compare(first, 8, "#version") == 0;
+        }
+
+        const char* glsl_stage_name(VkShaderStageFlagBits stage) {
+            switch (stage) {
+                case VK_SHADER_STAGE_VERTEX_BIT:
+                    return "vertex";
+                case VK_SHADER_STAGE_FRAGMENT_BIT:
+                    return "fragment";
+                case VK_SHADER_STAGE_GEOMETRY_BIT:
+                    return "geometry";
+                case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+                    return "tesscontrol";
+                case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+                    return "tesseval";
+                default:
+                    throw std::runtime_error{"Inline GLSL shader stage is not supported"};
+            }
+        }
+
+        std::vector<uint32_t> compile_inline_glsl(const std::string& source, VkShaderStageFlagBits stage) {
+            const auto id = std::chrono::steady_clock::now().time_since_epoch().count();
+            const auto base = std::filesystem::temp_directory_path() / ("vkz-inline-shader-" + std::to_string(id));
+            const auto source_path = base.string() + ".glsl";
+            const auto output_path = base.string() + ".spv";
+
+            {
+                std::ofstream file{source_path, std::ios::binary};
+                if (!file) {
+                    throw std::runtime_error{"Failed to write inline GLSL shader source"};
+                }
+                file << source;
+            }
+
+            const std::string command =
+                "glslc -fshader-stage=" + std::string{glsl_stage_name(stage)} +
+                " \"" + source_path + "\" -o \"" + output_path + "\"";
+
+            if (std::system(command.c_str()) != 0) {
+                std::filesystem::remove(source_path);
+                throw std::runtime_error{"Failed to compile inline GLSL shader with glslc"};
+            }
+
+            std::ifstream file{output_path, std::ios::binary | std::ios::ate};
+            if (!file) {
+                std::filesystem::remove(source_path);
+                std::filesystem::remove(output_path);
+                throw std::runtime_error{"Failed to read compiled inline GLSL shader"};
+            }
+
+            const auto size = file.tellg();
+            std::vector<uint32_t> spirv(static_cast<size_t>(size) / sizeof(uint32_t));
+            file.seekg(0);
+            file.read(reinterpret_cast<char*>(spirv.data()), size);
+
+            // std::filesystem::remove(source_path);
+            // std::filesystem::remove(output_path);
+            return spirv;
+        }
+    }
 
     shader_stage_builder::shader_stage_builder(vkz::device device, graphics_pipeline_builder *parent)
             : graphics_pipeline_builder(device, parent) {
@@ -140,7 +207,13 @@ namespace vkz {
         std::visit(overloaded{
                 [&](const byte_string& source) { _shader.module = create_shader_module(_device, source); },
                 [&](const std::vector<uint32_t>& source) { _shader.module = create_shader_module(_device, source); },
-                [&](const std::string &source) { _shader.module = create_shader_module(_device, source); },
+                [&](const std::string &source) {
+                    if (is_glsl_source(source)) {
+                        _shader.module = create_shader_module(_device, compile_inline_glsl(source, stage));
+                    } else {
+                        _shader.module = create_shader_module(_device, source);
+                    }
+                },
         }, source);
     }
 

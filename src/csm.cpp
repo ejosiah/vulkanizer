@@ -20,6 +20,10 @@ namespace vkz::csm {
 
 ${vertex_shader_include}
 
+layout(set = 0, binding = 0, std430) readonly buffer Cascades {
+    mat4 cascadeViewProjMat[];
+};
+
 layout(push_constant) uniform Constants {
     mat4 worldTransform;
     int cascadeIndex;
@@ -27,7 +31,7 @@ layout(push_constant) uniform Constants {
 
 void main() {
     mat4 model = worldTransform * get_model_matrix();
-    gl_Position = cascadeViewProjMat[gl_ViewIndex] * model * position;
+    gl_Position = cascadeViewProjMat[gl_ViewIndex] * model * vec4(position, 1);
 }
 )";
 
@@ -599,12 +603,12 @@ private:
                                 .extent(screen_resolution_.x, screen_resolution_.y)
                             .add()
                         .rasterization_state()
-                            .cull_back_face()
+                            .cull_none()
                             .front_face_counter_clockwise()
                             .polygon_mode_fill()
                         .depth_stencil_state()
-                            .enable_depth_write()
-                            .enable_depth_test()
+                            .disable_depth_write()
+                            .disable_depth_test()
                             .compare_op_always()
                             .min_depth_bounds(0)
                             .max_depth_bounds(1)
