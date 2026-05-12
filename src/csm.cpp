@@ -89,9 +89,9 @@ void main(){
     impl() = default;
 
     explicit impl(const params& params)
-        : device_(params.context.device)
+        : device_(params.device)
         , descriptor_pool_(params.descriptor_pool)
-        , depth_format_(params.context.depth_format)
+        , depth_format_(params.depth_format)
         , num_cascades_(params.num_cascades)
         , size_(params.size)
         , cascade_splits_(params.num_cascades)

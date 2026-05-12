@@ -18,7 +18,8 @@ namespace vkz::csm {
     using id = uint32_t;
 
     struct params {
-        context context;
+        vkz::device device;
+        VkFormat depth_format{};
         vma_memory_allocator memory_allocator;
         std::string vertex_shader_include;  // should contain get_model_matrix()
         VkDeviceSize vertex_shader_position_offset{};
