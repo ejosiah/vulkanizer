@@ -29,6 +29,7 @@ namespace vkz::csm {
         VkCommandBuffer initial_transition_command_buffer{};
         VkRenderPass debug_render_pass{};
         glm::uvec2 debug_resolution{};
+        VkSampleCountFlagBits debug_samples{VK_SAMPLE_COUNT_1_BIT};
         uint in_flight_frames{};
         uint num_cascades{DEFAULT_CASCADE_COUNT};
         uint size{DEFAULT_SHADOW_MAP_SIZE};

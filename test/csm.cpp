@@ -70,17 +70,38 @@ namespace {
         return std::string{VKZ_CSM_TEST_SHADER_DIR} + "/" + name + ".spv";
     }
 
-    VkRenderPass create_render_pass(VkDevice device, VkFormat color_format, VkFormat depth_format) {
-        std::array<VkAttachmentDescription, 2> attachments{};
+    VkSampleCountFlagBits pick_sample_count(VkPhysicalDevice physical_device) {
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(physical_device, &properties);
+
+        const auto supported =
+            properties.limits.framebufferColorSampleCounts &
+            properties.limits.framebufferDepthSampleCounts;
+
+        if (supported & VK_SAMPLE_COUNT_4_BIT) {
+            return VK_SAMPLE_COUNT_4_BIT;
+        }
+        if (supported & VK_SAMPLE_COUNT_2_BIT) {
+            return VK_SAMPLE_COUNT_2_BIT;
+        }
+        VKZ_THROW("The CSM demo requires multisampled color and depth attachments")
+    }
+
+    VkRenderPass create_render_pass(
+            VkDevice device,
+            VkFormat color_format,
+            VkFormat depth_format,
+            VkSampleCountFlagBits samples) {
+        std::array<VkAttachmentDescription, 3> attachments{};
         attachments[0].format = color_format;
-        attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[0].samples = samples;
         attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
         attachments[1].format = depth_format;
-        attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[1].samples = samples;
         attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -88,13 +109,22 @@ namespace {
         attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+        attachments[2].format = color_format;
+        attachments[2].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[2].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachments[2].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
         VkAttachmentReference color_attachment{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
         VkAttachmentReference depth_attachment{1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+        VkAttachmentReference resolve_attachment{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
 
         VkSubpassDescription subpass{};
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &color_attachment;
+        subpass.pResolveAttachments = &resolve_attachment;
         subpass.pDepthStencilAttachment = &depth_attachment;
 
         VkRenderPassCreateInfo create_info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
@@ -111,15 +141,16 @@ namespace {
     std::vector<VkFramebuffer> create_framebuffers(
             VkDevice device,
             VkRenderPass render_pass,
-            const std::vector<vkz::image_view>& color_views,
+            VkImageView color_view,
             VkImageView depth_view,
+            const std::vector<vkz::image_view>& resolve_views,
             uint32_t width,
             uint32_t height) {
         std::vector<VkFramebuffer> framebuffers;
-        framebuffers.reserve(color_views.size());
+        framebuffers.reserve(resolve_views.size());
 
-        for (const auto& color_view : color_views) {
-            std::array<VkImageView, 2> attachments{color_view.handle, depth_view};
+        for (const auto& resolve_view : resolve_views) {
+            std::array<VkImageView, 3> attachments{color_view, depth_view, resolve_view.handle};
             VkFramebufferCreateInfo create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
             create_info.renderPass = render_pass;
             create_info.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -203,6 +234,7 @@ int main() {
     const auto queue_family_index = app.queue_family_index();
     const auto graphics_queue = app.graphics_queue();
     const auto depth_format = vkz::test::pick_depth_format(context.device.physical);
+    const auto sample_count = pick_sample_count(context.device.physical);
 
     auto swapchain = app.create_swapchain();
     auto swapchain_image_views = vkz::test::create_swapchain_image_views(context.device.logical, *swapchain);
@@ -212,10 +244,28 @@ int main() {
         queue_family_index,
         VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
+    auto color_image =
+        vkz::image::builder(allocator)
+            .format(swapchain->format())
+            .extent(swapchain->width(), swapchain->height())
+            .samples(sample_count)
+            .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+            .build();
+    auto color_view =
+        vkz::image_view::builder(context.device.logical)
+            .image(color_image)
+            .view_type(VK_IMAGE_VIEW_TYPE_2D)
+            .format(swapchain->format())
+            .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
+            .level_count(1)
+            .layer_count(1)
+            .build();
+
     auto depth_image =
         vkz::image::builder(allocator)
             .format(depth_format)
             .extent(swapchain->width(), swapchain->height())
+            .samples(sample_count)
             .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
             .build();
     auto depth_view =
@@ -228,12 +278,13 @@ int main() {
             .layer_count(1)
             .build();
 
-    VkRenderPass render_pass = create_render_pass(context.device.logical, swapchain->format(), depth_format);
+    VkRenderPass render_pass = create_render_pass(context.device.logical, swapchain->format(), depth_format, sample_count);
     auto framebuffers = create_framebuffers(
         context.device.logical,
         render_pass,
-        swapchain_image_views,
+        color_view.handle,
         depth_view.handle,
+        swapchain_image_views,
         swapchain->width(),
         swapchain->height());
 
@@ -258,6 +309,9 @@ int main() {
         .image_count = swapchain->image_count(),
         .api_version = VK_API_VERSION_1_3,
         .color_attachment_format = swapchain->format(),
+        .render_pass = render_pass,
+        .samples = sample_count,
+        .use_dynamic_rendering = false,
     });
 
     const auto plane_vertices = make_plane(40.0f);
@@ -272,10 +326,13 @@ int main() {
     std::uniform_real_distribution<float> position{-14.0f, 14.0f};
     std::uniform_real_distribution<float> size{0.6f, 2.5f};
     std::uniform_real_distribution<float> rotation{0.0f, glm::two_pi<float>()};
+    std::uniform_real_distribution<float> hover{2.0f, 6.0f};
     for (int i = 0; i < 42; ++i) {
         const auto scale = glm::vec3{size(rng), size(rng) * 1.5f, size(rng)};
+        const auto is_floating = i % 6 == 0;
+        const auto y = is_floating ? hover(rng) : scale.y * 0.5f;
         glm::mat4 transform{1};
-        transform = glm::translate(transform, {position(rng), scale.y * 0.5f, position(rng)});
+        transform = glm::translate(transform, {position(rng), y, position(rng)});
         transform = glm::rotate(transform, rotation(rng), {0.0f, 1.0f, 0.0f});
         transform = glm::scale(transform, scale);
         objects.push_back({cube_buffer, static_cast<uint32_t>(cube_vertices.size()), transform});
@@ -298,6 +355,7 @@ mat4 get_model_matrix() {
         .initial_transition_command_buffer = initial_transition_command_buffer,
         .debug_render_pass = render_pass,
         .debug_resolution = {swapchain->width(), swapchain->height()},
+        .debug_samples = sample_count,
         .in_flight_frames = max_frames_in_flight,
         .num_cascades = 4,
         .size = 2048,
@@ -391,6 +449,8 @@ mat4 get_model_matrix() {
                 .cull_back_face()
                 .front_face_counter_clockwise()
                 .polygon_mode_fill()
+            .multisample_state()
+                .rasterization_samples(sample_count)
             .depth_stencil_state()
                 .enable_depth_test()
                 .enable_depth_write()
@@ -537,9 +597,10 @@ mat4 get_model_matrix() {
             }, command_buffer, static_cast<int>(current_frame));
         }
 
-        std::array<VkClearValue, 2> clear_values{};
+        std::array<VkClearValue, 3> clear_values{};
         clear_values[0].color = {0.06f, 0.08f, 0.10f, 1.0f};
         clear_values[1].depthStencil = {1.0f, 0u};
+        clear_values[2].color = {0.06f, 0.08f, 0.10f, 1.0f};
 
         VkRenderPassBeginInfo render_pass_begin{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
         render_pass_begin.renderPass = render_pass;
@@ -602,6 +663,8 @@ mat4 get_model_matrix() {
     vkDestroyRenderPass(context.device.logical, render_pass, nullptr);
     vkDestroyImageView(context.device.logical, depth_view.handle, nullptr);
     allocator.deallocate(depth_image);
+    vkDestroyImageView(context.device.logical, color_view.handle, nullptr);
+    allocator.deallocate(color_image);
     vkz::test::destroy_image_views(context.device.logical, swapchain_image_views);
     swapchain.reset();
     vkDestroyCommandPool(context.device.logical, command_pool, nullptr);

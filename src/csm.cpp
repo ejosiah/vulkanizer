@@ -120,6 +120,7 @@ void main(){
         , vertex_shader_position_stride_(params.vertex_shader_position_stride)
         , initial_transition_command_buffer_(params.initial_transition_command_buffer)
         , render_pass_(params.debug_render_pass)
+        , debug_samples_(params.debug_samples)
         , screen_resolution_(params.debug_resolution) {
         assert(params.size != 0 && "shadow map size should not be zero");
         assert(params.num_cascades > 0 && "numCascades should be at least 2");
@@ -611,6 +612,8 @@ private:
                             .cull_none()
                             .front_face_counter_clockwise()
                             .polygon_mode_fill()
+                        .multisample_state()
+                            .rasterization_samples(debug_samples_)
                         .depth_stencil_state()
                             .disable_depth_write()
                             .disable_depth_test()
@@ -711,6 +714,7 @@ private:
     VkPipeline pipeline_{};
     VkPipelineLayout layout_{};
     VkRenderPass render_pass_{};
+    VkSampleCountFlagBits debug_samples_{VK_SAMPLE_COUNT_1_BIT};
 
     struct {
         VkPipeline pipeline;
