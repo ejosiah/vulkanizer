@@ -26,6 +26,9 @@ namespace vkz::csm {
         VkDeviceSize vertex_shader_position_stride{sizeof(glm::vec3)};
         VkDescriptorSetLayout vertex_include_descriptorset_layout{};
         VkDescriptorPool descriptor_pool{};
+        VkCommandBuffer initial_transition_command_buffer{};
+        VkRenderPass debug_render_pass{};
+        glm::uvec2 debug_resolution{};
         uint in_flight_frames{};
         uint num_cascades{DEFAULT_CASCADE_COUNT};
         uint size{DEFAULT_SHADOW_MAP_SIZE};
@@ -54,8 +57,6 @@ namespace vkz::csm {
     VkDescriptorSetLayout descriptor_set_layout(id id);
 
     VkDescriptorSet descriptor_set(id id);
-
-    void set(id id, VkRenderPass render_pass, glm::uvec2 resolution);
 
     void render(id id, VkCommandBuffer command_buffer);
 

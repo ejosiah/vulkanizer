@@ -1,8 +1,10 @@
 #include "vulkanizer/csm.hpp"
 
+#include <algorithm>
 #include <array>
 #include <unordered_map>
 
+#include "vulkanizer/barrier.hpp"
 #include "vulkanizer/render.hpp"
 #include "vulkanizer/transforms.hpp"
 #include "vulkanizer/descriptor_set_builder.hpp"
@@ -40,14 +42,25 @@ void main() {
     static std::string quad_vertex_shader = R"(
 #version 460 core
 
-layout(location = 0) in vec2 pos;
-layout(location = 1) in vec2 uv;
-
 layout(location = 0) out vec2 vUv;
 
 void main(){
-    vUv = uv;
-    gl_Position = vec4(pos, 0, 1);
+    vec2 positions[4] = vec2[](
+        vec2(-1.0, -1.0),
+        vec2( 1.0, -1.0),
+        vec2(-1.0,  1.0),
+        vec2( 1.0,  1.0)
+    );
+
+    vec2 uvs[4] = vec2[](
+        vec2(0.0, 0.0),
+        vec2(1.0, 0.0),
+        vec2(0.0, 1.0),
+        vec2(1.0, 1.0)
+    );
+
+    vUv = uvs[gl_VertexIndex];
+    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
 }
 )";
 
@@ -100,7 +113,10 @@ void main(){
         , vertex_include_descriptorset_layout_(params.vertex_include_descriptorset_layout)
         , vertex_shader_include_(params.vertex_shader_include)
         , vertex_shader_position_offset_(params.vertex_shader_position_offset)
-        , vertex_shader_position_stride_(params.vertex_shader_position_stride){
+        , vertex_shader_position_stride_(params.vertex_shader_position_stride)
+        , initial_transition_command_buffer_(params.initial_transition_command_buffer)
+        , render_pass_(params.debug_render_pass)
+        , screen_resolution_(params.debug_resolution) {
         assert(params.size != 0 && "shadow map size should not be zero");
         assert(params.num_cascades > 0 && "numCascades should be at least 2");
         assert(params.in_flight_frames != 0 && "inflightFrames should be at least 1");
@@ -166,6 +182,8 @@ void main(){
                 memory_allocator_.deallocate(debug_buffer_);
                 debug_buffer_ = {};
             }
+
+            _uniforms.mapping.unmap();
 
             if (_uniforms.gpu) {
                 memory_allocator_.deallocate(_uniforms.gpu);
@@ -276,7 +294,18 @@ void main(){
         }
     }
 
-    void capture(const scene& scene, VkCommandBuffer commandBuffer, int currentFrame) const {
+    void capture(const scene& scene, VkCommandBuffer commandBuffer, int currentFrame) {
+        auto& shadow_map = shadow_map_[currentFrame];
+        transition_shadow_map(
+            commandBuffer,
+            shadow_map.image,
+            shadow_map.image.layout,
+            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+            VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+            VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+
         vkz::render(commandBuffer, render_info_[currentFrame], [&] {
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &descriptor_set_, 0, VK_NULL_HANDLE);
@@ -286,6 +315,16 @@ void main(){
 
             scene(layout_);
         });
+
+        transition_shadow_map(
+            commandBuffer,
+            shadow_map.image,
+            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
     }
 
     const texture& shadowMap(int index) const {
@@ -296,16 +335,15 @@ void main(){
         return num_cascades_;
     }
 
-    void setRenderPass(VkRenderPass renderPass, glm::uvec2 resolution) {
-        render_pass_ = renderPass;
-        screen_resolution_ = resolution;
-    }
-
     void render(VkCommandBuffer commandBuffer) const {
+        if (!debug_.pipeline || !debug_.layout) {
+            VKZ_THROW("Cascade shadow map debug render pipeline was not created")
+        }
+
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debug_.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debug_.layout, 0, 1, &descriptor_set_, 0, nullptr);
         vkCmdPushConstants(commandBuffer, debug_.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint), &num_cascades_);
-        // TODO render clip space quad
+        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     }
 
     void splitLambda(float value) {
@@ -334,10 +372,10 @@ private:
                     .format(depth_format_)
                     .extent({ size_, size_, 1})
                     .mip_levels(1)
-                    .array_layers(1)
+                    .array_layers(num_cascades_)
                     .samples(VK_SAMPLE_COUNT_1_BIT)
                     .tiling(VK_IMAGE_TILING_OPTIMAL)
-                    .usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+                    .usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
                     .sharing_mode(VK_SHARING_MODE_EXCLUSIVE)
                     .initial_layout(VK_IMAGE_LAYOUT_UNDEFINED)
                 .build();
@@ -345,7 +383,7 @@ private:
             shadow_map.image_view =
                 image_view::builder(device_.logical)
                     .image(shadow_map.image)
-                    .view_type(VK_IMAGE_VIEW_TYPE_2D)
+                    .view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
                     .format(depth_format_)
                     .aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT)
                     .base_mip_level(0)
@@ -367,8 +405,17 @@ private:
                     .border_color(VK_BORDER_COLOR_INT_OPAQUE_WHITE)
                 .build();
 
-            // TODO transition layout to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-
+            if (initial_transition_command_buffer_) {
+                transition_shadow_map(
+                    initial_transition_command_buffer_,
+                    shadow_map.image,
+                    VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    VK_PIPELINE_STAGE_2_NONE,
+                    VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                    VK_ACCESS_2_NONE,
+                    VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+            }
         }
     }
 
@@ -388,7 +435,7 @@ private:
             buffer::builder(memory_allocator_)
                 .usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
                 .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
-                .size(sizeof(glm::mat4))
+                .size(sizeof(glm::mat4) * num_cascades_)
             .build();
 
         debug_buffer_ =
@@ -398,11 +445,11 @@ private:
                 .size(sizeof(num_cascades_))
             .build();
 
-        auto mapping = _uniforms.gpu.map();
-        *mapping.as<glm::mat4>() = glm::mat4{1};
-        mapping.unmap();
+        _uniforms.mapping = _uniforms.gpu.map();
+        _uniforms.cpu = { _uniforms.mapping.as<glm::mat4>(), num_cascades_ };
+        std::fill(_uniforms.cpu.begin(), _uniforms.cpu.end(), glm::mat4{1});
 
-        mapping = debug_buffer_.map();
+        auto mapping = debug_buffer_.map();
         *mapping.as<uint>() = num_cascades_;
         mapping.unmap();
     }
@@ -538,9 +585,7 @@ private:
                             .vertex_shader(quad_vertex_shader)
                             .fragment_shader(shadow_map_debug_frag)
                         .vertex_input_state()
-                            .add_vertex_binding_description(0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX)
-                            .add_vertex_attribute_description(0, 0, VK_FORMAT_R32G32_SFLOAT,  0)
-                            .add_vertex_attribute_description(1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(glm::vec2))
+                            .clear()
                         .input_assembly_state()
                             .triangle_strip()
                         .viewport_state()
@@ -580,6 +625,41 @@ private:
         return (1u << num_cascades_) - 1;
     }
 
+    void transition_shadow_map(
+        VkCommandBuffer command_buffer,
+        image& shadow_map_image,
+        VkImageLayout old_layout,
+        VkImageLayout new_layout,
+        VkPipelineStageFlags2 src_stage_mask,
+        VkPipelineStageFlags2 dst_stage_mask,
+        VkAccessFlags2 src_access_mask,
+        VkAccessFlags2 dst_access_mask) const {
+        if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED) {
+            src_stage_mask = VK_PIPELINE_STAGE_2_NONE;
+            src_access_mask = VK_ACCESS_2_NONE;
+        }
+
+        VkImageSubresourceRange subresource_range{};
+        subresource_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        subresource_range.baseMipLevel = 0;
+        subresource_range.levelCount = 1;
+        subresource_range.baseArrayLayer = 0;
+        subresource_range.layerCount = num_cascades_;
+
+        barrier::push_and_flush(
+            command_buffer,
+            shadow_map_image.handle,
+            subresource_range,
+            src_stage_mask,
+            dst_stage_mask,
+            src_access_mask,
+            dst_access_mask,
+            old_layout,
+            new_layout);
+
+        shadow_map_image.layout = new_layout;
+    }
+
     VkDevice& device() {
         return device_.logical;
     }
@@ -600,6 +680,7 @@ private:
     std::string vertex_shader_include_;
     VkDeviceSize vertex_shader_position_offset_{};
     VkDeviceSize vertex_shader_position_stride_{};
+    VkCommandBuffer initial_transition_command_buffer_{};
     VkDescriptorSet descriptor_set_{};
     glm::uvec2 screen_resolution_{};
     float depth_bias_constant_{0.005f};
@@ -613,6 +694,7 @@ private:
     struct {
         buffer gpu;
         std::span<glm::mat4> cpu;
+        mapping mapping;
     } _uniforms;
     buffer debug_buffer_;
     std::span<uint> view_indexes_;
@@ -682,10 +764,6 @@ private:
 
     VkDescriptorSet descriptor_set(id id) {
         return get(id).descriptorSet();
-    }
-
-    void set(id id, VkRenderPass render_pass, glm::uvec2 resolution) {
-        get(id).setRenderPass(render_pass, resolution);
     }
 
     void render(id id, VkCommandBuffer command_buffer) {
