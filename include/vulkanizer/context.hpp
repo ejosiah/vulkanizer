@@ -36,7 +36,6 @@ namespace vkz {
         VkInstance instance{};
         VkDebugUtilsMessengerEXT debug_messenger{};
         VkSurfaceKHR surface{};
-        VkFormat depth_format{};
         device device{};
         uint32_t api_version{VK_API_VERSION_1_3};
 

@@ -1,7 +1,8 @@
 #define VKZ_IOSTREAM_ADAPTER
 
+#include "vulkan_app.hpp"
+
 #include <vulkanizer/barrier.hpp>
-#include <vulkanizer/context.hpp>
 #include <vulkanizer/csm.hpp>
 #include <vulkanizer/descriptor_set_builder.hpp>
 #include <vulkanizer/graphics_pipeline_builder.hpp>
@@ -10,11 +11,8 @@
 #include <vulkanizer/log.hpp>
 #include <vulkanizer/memory.hpp>
 #include <vulkanizer/status.hpp>
-#include <vulkanizer/swapchain.hpp>
 #include <vulkanizer/transforms.hpp>
 
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
 #include <imgui.h>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -22,7 +20,6 @@
 #include <array>
 #include <cstddef>
 #include <iostream>
-#include <memory>
 #include <random>
 #include <string>
 #include <vector>
@@ -64,113 +61,8 @@ namespace {
         glm::mat4 view_projection{1};
     };
 
-    class glfw_surface_provider final : public vkz::surface_provider {
-    public:
-        explicit glfw_surface_provider(GLFWwindow* window)
-            : window_{window} {}
-
-        VkSurfaceKHR operator()(VkInstance instance) const override {
-            VkSurfaceKHR surface{};
-            VKZ_CHECK_VULKAN(glfwCreateWindowSurface(instance, window_, nullptr, &surface));
-            return surface;
-        }
-
-    private:
-        GLFWwindow* window_{};
-    };
-
     std::string shader_path(const char* name) {
         return std::string{VKZ_CSM_TEST_SHADER_DIR} + "/" + name + ".spv";
-    }
-
-    uint32_t find_graphics_present_queue_family(VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
-        uint32_t queue_family_count{};
-        vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, nullptr);
-
-        std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
-        vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_families.data());
-
-        for (uint32_t i = 0; i < queue_families.size(); ++i) {
-            VkBool32 present_supported{};
-            VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &present_supported));
-            if ((queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && present_supported) {
-                return i;
-            }
-        }
-
-        VKZ_THROW("No graphics/present queue family is available")
-    }
-
-    VkCommandBuffer begin_command_buffer(VkDevice device, VkCommandPool command_pool) {
-        VkCommandBufferAllocateInfo allocate_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-        allocate_info.commandPool = command_pool;
-        allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocate_info.commandBufferCount = 1;
-
-        VkCommandBuffer command_buffer{};
-        VKZ_CHECK_VULKAN(vkAllocateCommandBuffers(device, &allocate_info, &command_buffer));
-
-        VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        VKZ_CHECK_VULKAN(vkBeginCommandBuffer(command_buffer, &begin_info));
-        return command_buffer;
-    }
-
-    void submit_and_free(
-            VkDevice device,
-            VkQueue queue,
-            VkCommandPool command_pool,
-            VkCommandBuffer command_buffer,
-            VkSemaphore wait_semaphore = {},
-            VkSemaphore signal_semaphore = {},
-            VkFence fence = {}) {
-        VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
-
-        VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-        submit_info.waitSemaphoreCount = wait_semaphore ? 1u : 0u;
-        submit_info.pWaitSemaphores = wait_semaphore ? &wait_semaphore : nullptr;
-        submit_info.pWaitDstStageMask = wait_semaphore ? &wait_stage : nullptr;
-        submit_info.commandBufferCount = 1;
-        submit_info.pCommandBuffers = &command_buffer;
-        submit_info.signalSemaphoreCount = signal_semaphore ? 1u : 0u;
-        submit_info.pSignalSemaphores = signal_semaphore ? &signal_semaphore : nullptr;
-
-        VKZ_CHECK_VULKAN(vkQueueSubmit(queue, 1, &submit_info, fence));
-        if (fence) {
-            VKZ_CHECK_VULKAN(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
-            VKZ_CHECK_VULKAN(vkResetFences(device, 1, &fence));
-        } else {
-            VKZ_CHECK_VULKAN(vkQueueWaitIdle(queue));
-        }
-
-        vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
-    }
-
-    std::vector<vkz::image_view> create_swapchain_image_views(VkDevice device, vkz::swapchain& swapchain) {
-        std::vector<vkz::image_view> image_views;
-        image_views.reserve(swapchain.image_count());
-
-        for (uint32_t i = 0; i < swapchain.image_count(); ++i) {
-            image_views.push_back(
-                vkz::image_view::builder(device)
-                    .image(swapchain.get_image(i))
-                    .view_type(VK_IMAGE_VIEW_TYPE_2D)
-                    .format(swapchain.format())
-                    .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
-                    .level_count(1)
-                    .layer_count(1)
-                    .build());
-        }
-
-        return image_views;
-    }
-
-    void destroy_image_views(VkDevice device, std::vector<vkz::image_view>& image_views) {
-        for (auto& image_view : image_views) {
-            vkDestroyImageView(device, image_view.handle, nullptr);
-        }
-        image_views.clear();
     }
 
     VkRenderPass create_render_pass(VkDevice device, VkFormat color_format, VkFormat depth_format) {
@@ -246,16 +138,6 @@ namespace {
         framebuffers.clear();
     }
 
-    void wait_for_drawable_window(GLFWwindow* window) {
-        int width{};
-        int height{};
-        glfwGetFramebufferSize(window, &width, &height);
-        while ((width == 0 || height == 0) && !glfwWindowShouldClose(window)) {
-            glfwWaitEvents();
-            glfwGetFramebufferSize(window, &width, &height);
-        }
-    }
-
     std::vector<vertex> make_plane(float size) {
         const float h = size * 0.5f;
         const glm::vec3 n{0.0f, 1.0f, 0.0f};
@@ -304,75 +186,30 @@ namespace {
 int main() {
     vkz::iostream_adapter::install(std::cout);
 
-    if (!glfwInit()) {
-        VKZ_THROW("Failed to initialize GLFW")
-    }
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow* window = glfwCreateWindow(window_width, window_height, "vulkanizer CSM test", nullptr, nullptr);
-    if (!window) {
-        glfwTerminate();
-        VKZ_THROW("Failed to create GLFW window")
-    }
-
-    uint32_t required_extension_count{};
-    const char** required_extensions = glfwGetRequiredInstanceExtensions(&required_extension_count);
-    if (!required_extensions) {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        VKZ_THROW("GLFW could not provide Vulkan instance extensions")
-    }
-
-    glfw_surface_provider surface_provider{window};
-    VkPhysicalDeviceSynchronization2Features synchronization2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES};
-    synchronization2.synchronization2 = VK_TRUE;
-    VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
-    dynamic_rendering.dynamicRendering = VK_TRUE;
-    VkPhysicalDeviceVulkan11Features vulkan11{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
-    vulkan11.multiview = VK_TRUE;
-
-    auto builder = vkz::context::builder();
-    builder
-        .app_name("vulkanizer CSM test")
-        .engine_name("vulkanizer")
-        .api_version(VK_API_VERSION_1_3)
-        .surface(surface_provider)
-        .add_extension(synchronization2)
-        .add_extension(dynamic_rendering)
-        .add_extension(vulkan11)
-        .add_device_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-    for (uint32_t i = 0; i < required_extension_count; ++i) {
-        builder.add_instance_extension(required_extensions[i]);
-    }
-
-    auto context = builder.build();
+    vkz::test::vulkan_app app{{
+        .width = window_width,
+        .height = window_height,
+        .title = "vulkanizer CSM test",
+        .multiview = true,
+    }};
+    auto& context = app.context();
+    auto* window = app.window();
     auto allocator = vkz::vma_memory_allocator::create(context);
-    const auto queue_family_index = find_graphics_present_queue_family(context.device.physical, context.surface);
+    const auto queue_family_index = app.queue_family_index();
+    const auto graphics_queue = app.graphics_queue();
+    const auto depth_format = vkz::test::pick_depth_format(context.device.physical);
 
-    VkQueue graphics_queue{};
-    vkGetDeviceQueue(context.device.logical, queue_family_index, 0, &graphics_queue);
+    auto swapchain = app.create_swapchain();
+    auto swapchain_image_views = vkz::test::create_swapchain_image_views(context.device.logical, *swapchain);
 
-    auto create_swapchain = [&] {
-        return std::make_unique<vkz::swapchain>(
-            vkz::swapchain::builder(context)
-                .set_image_usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-                .build());
-    };
-
-    auto swapchain = create_swapchain();
-    auto swapchain_image_views = create_swapchain_image_views(context.device.logical, *swapchain);
-
-    VkCommandPoolCreateInfo command_pool_create_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-    command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    command_pool_create_info.queueFamilyIndex = queue_family_index;
-
-    VkCommandPool command_pool{};
-    VKZ_CHECK_VULKAN(vkCreateCommandPool(context.device.logical, &command_pool_create_info, nullptr, &command_pool));
+    VkCommandPool command_pool = vkz::test::create_command_pool(
+        context.device.logical,
+        queue_family_index,
+        VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
     auto depth_image =
         vkz::image::builder(allocator)
-            .format(context.depth_format)
+            .format(depth_format)
             .extent(swapchain->width(), swapchain->height())
             .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
             .build();
@@ -380,13 +217,13 @@ int main() {
         vkz::image_view::builder(context.device.logical)
             .image(depth_image)
             .view_type(VK_IMAGE_VIEW_TYPE_2D)
-            .format(context.depth_format)
+            .format(depth_format)
             .aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT)
             .level_count(1)
             .layer_count(1)
             .build();
 
-    VkRenderPass render_pass = create_render_pass(context.device.logical, swapchain->format(), context.depth_format);
+    VkRenderPass render_pass = create_render_pass(context.device.logical, swapchain->format(), depth_format);
     auto framebuffers = create_framebuffers(
         context.device.logical,
         render_pass,
@@ -439,10 +276,10 @@ int main() {
         objects.push_back({cube_buffer, static_cast<uint32_t>(cube_vertices.size()), transform});
     }
 
-    auto initial_transition_command_buffer = begin_command_buffer(context.device.logical, command_pool);
+    auto initial_transition_command_buffer = vkz::test::begin_command_buffer(context.device.logical, command_pool);
     const auto csm_id = vkz::csm::create({
         .device = context.device,
-        .depth_format = context.depth_format,
+        .depth_format = depth_format,
         .memory_allocator = allocator,
         .vertex_shader_include = R"(
 layout(location = 0) in vec3 position;
@@ -460,7 +297,7 @@ mat4 get_model_matrix() {
         .num_cascades = 4,
         .size = 2048,
     });
-    submit_and_free(context.device.logical, graphics_queue, command_pool, initial_transition_command_buffer);
+    vkz::test::submit_and_free(context.device.logical, graphics_queue, command_pool, initial_transition_command_buffer);
 
     auto scene_descriptor_set_layout =
         vkz::descriptor_set_layout_builder{context.device}
@@ -564,15 +401,9 @@ mat4 get_model_matrix() {
             .name("csm_test_scene")
             .build(scene_pipeline_layout);
 
-    VkSemaphoreCreateInfo semaphore_create_info{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    VkSemaphore image_available{};
-    VkSemaphore render_finished{};
-    VKZ_CHECK_VULKAN(vkCreateSemaphore(context.device.logical, &semaphore_create_info, nullptr, &image_available));
-    VKZ_CHECK_VULKAN(vkCreateSemaphore(context.device.logical, &semaphore_create_info, nullptr, &render_finished));
-
-    VkFenceCreateInfo fence_create_info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-    VkFence frame_fence{};
-    VKZ_CHECK_VULKAN(vkCreateFence(context.device.logical, &fence_create_info, nullptr, &frame_fence));
+    VkSemaphore image_available = vkz::test::create_semaphore(context.device.logical);
+    VkSemaphore render_finished = vkz::test::create_semaphore(context.device.logical);
+    VkFence frame_fence = vkz::test::create_fence(context.device.logical);
 
     bool freeze_shadow_map = false;
     bool freeze_pressed = false;
@@ -588,10 +419,10 @@ mat4 get_model_matrix() {
     uint32_t current_frame = 0;
     double previous_time = glfwGetTime();
 
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
-        wait_for_drawable_window(window);
-        if (glfwWindowShouldClose(window)) {
+    while (!app.should_close()) {
+        app.poll_events();
+        app.wait_for_drawable_window();
+        if (app.should_close()) {
             break;
         }
 
@@ -666,7 +497,7 @@ mat4 get_model_matrix() {
             std::memcpy(split_cpu, split_depth.data(), sizeof(float) * split_depth.size());
         }
 
-        auto command_buffer = begin_command_buffer(context.device.logical, command_pool);
+        auto command_buffer = vkz::test::begin_command_buffer(context.device.logical, command_pool);
 
         if (!freeze_shadow_map) {
             vkz::csm::capture(csm_id, [&](VkPipelineLayout layout) {
@@ -710,7 +541,7 @@ mat4 get_model_matrix() {
         vkz::imgui::render(command_buffer);
         vkCmdEndRenderPass(command_buffer);
 
-        submit_and_free(context.device.logical, graphics_queue, command_pool, command_buffer, image_available, render_finished, frame_fence);
+        vkz::test::submit_and_free(context.device.logical, graphics_queue, command_pool, command_buffer, image_available, render_finished, frame_fence);
 
         VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
         const auto swapchain_handle = swapchain->handle();
@@ -745,13 +576,9 @@ mat4 get_model_matrix() {
     vkDestroyRenderPass(context.device.logical, render_pass, nullptr);
     vkDestroyImageView(context.device.logical, depth_view.handle, nullptr);
     allocator.deallocate(depth_image);
-    destroy_image_views(context.device.logical, swapchain_image_views);
+    vkz::test::destroy_image_views(context.device.logical, swapchain_image_views);
     swapchain.reset();
     vkDestroyCommandPool(context.device.logical, command_pool, nullptr);
     allocator.destroy();
-    context = {};
-    glfwDestroyWindow(window);
-    glfwTerminate();
-
     return 0;
 }

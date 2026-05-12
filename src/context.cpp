@@ -253,7 +253,6 @@ namespace vkz {
             surface = result.surface;
             result.debug_messenger = create_debug_messenger(result.instance);
             result.device.physical = pick_physical_device(result.instance);
-            result.depth_format = pick_depth_format(result.device.physical);
             result.device.logical = create_device(result.device.physical, extension_chain);
             volkLoadDevice(result.device.logical);
 
@@ -352,25 +351,6 @@ namespace vkz {
             }
 
             VKZ_THROW("No suitable Vulkan physical device was found")
-        }
-
-        static VkFormat pick_depth_format(VkPhysicalDevice physical_device) {
-            constexpr VkFormat candidates[] = {
-                    VK_FORMAT_D32_SFLOAT,
-                    VK_FORMAT_D32_SFLOAT_S8_UINT,
-                    VK_FORMAT_D24_UNORM_S8_UINT,
-            };
-
-            for (const auto format : candidates) {
-                VkFormatProperties properties{};
-                vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
-
-                if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-                    return format;
-                }
-            }
-
-            VKZ_THROW("No supported depth attachment format was found")
         }
 
         bool is_suitable(VkPhysicalDevice physical_device) {

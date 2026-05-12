@@ -1,6 +1,9 @@
+add_library(vulkanizer_test_common STATIC vulkan_app.cpp vulkan_app.hpp)
+target_link_libraries(vulkanizer_test_common PUBLIC vulkanizer glfw)
+
 function(vulkanizer_add_test_executable target source)
     add_executable(${target} ${source})
-    target_link_libraries(${target} PRIVATE vulkanizer glfw)
+    target_link_libraries(${target} PRIVATE vulkanizer_test_common)
 endfunction()
 
 vulkanizer_add_test_executable(vulkanizer_context_test main.cpp)
