@@ -2,122 +2,122 @@
 
 namespace vkz::barrier {
 
-    void computeWriteToRead(VkCommandBuffer commandBuffer) {
+    void compute_write_to_read(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void computeWriteToHostRead(VkCommandBuffer commandBuffer) {
+    void compute_write_to_host_read(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void computeWriteToTransferRead(VkCommandBuffer commandBuffer) {
+    void compute_write_to_transfer_read(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void transferWriteToComputeRead(VkCommandBuffer commandBuffer) {
+    void transfer_write_to_compute_read(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void transferWriteToComputeWrite(VkCommandBuffer commandBuffer) {
+    void transfer_write_to_compute_write(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void fragmentReadToComputeWrite(VkCommandBuffer commandBuffer) {
+    void fragment_read_to_compute_write(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void fragmentWriteToFragmentRead(VkCommandBuffer commandBuffer) {
+    void fragment_write_to_fragment_read(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void fragmentReadToFragmentWrite(VkCommandBuffer commandBuffer) {
+    void fragment_read_to_fragment_write(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void computeWriteToFragmentRead(VkCommandBuffer commandBuffer) {
+    void compute_write_to_fragment_read(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void gpuToCpu(VkCommandBuffer commandBuffer) {
+    void gpu_to_cpu(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER, VK_NULL_HANDLE, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT };
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void computeWriteToDrawIndirect(VkCommandBuffer commandBuffer) {
+    void compute_write_to_draw_indirect(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void accelerationStructureUpdateToRayTraceRead(VkCommandBuffer commandBuffer) {
+    void acceleration_structure_update_to_ray_trace_read(VkCommandBuffer command_buffer) {
         static VkMemoryBarrier2 barrier{
                 .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
                 .srcStageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
@@ -129,10 +129,10 @@ namespace vkz::barrier {
         static VkDependencyInfo info { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
         info.memoryBarrierCount = 1;
         info.pMemoryBarriers = &barrier;
-        vkCmdPipelineBarrier2(commandBuffer, &info);
+        vkCmdPipelineBarrier2(command_buffer, &info);
     }
 
-    void rayTraceReadToAccelerationStructureUpdate(VkCommandBuffer commandBuffer) {
+    void ray_trace_read_to_acceleration_structure_update(VkCommandBuffer command_buffer) {
         static VkMemoryBarrier2 barrier{
                 .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
                 .srcStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
@@ -144,10 +144,10 @@ namespace vkz::barrier {
         static VkDependencyInfo info { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
         info.memoryBarrierCount = 1;
         info.pMemoryBarriers = &barrier;
-        vkCmdPipelineBarrier2(commandBuffer, &info);
+        vkCmdPipelineBarrier2(command_buffer, &info);
     }
 
-    void rayTraceWriteToComputeRead(VkCommandBuffer commandBuffer) {
+    void ray_trace_write_to_compute_read(VkCommandBuffer command_buffer) {
         static VkMemoryBarrier2 barrier{
                 .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
                 .srcStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
@@ -159,10 +159,10 @@ namespace vkz::barrier {
         static VkDependencyInfo info { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
         info.memoryBarrierCount = 1;
         info.pMemoryBarriers = &barrier;
-        vkCmdPipelineBarrier2(commandBuffer, &info);
+        vkCmdPipelineBarrier2(command_buffer, &info);
     }
 
-    void rayTraceWriteToFragmentRead(VkCommandBuffer commandBuffer) {
+    void ray_trace_write_to_fragment_read(VkCommandBuffer command_buffer) {
         static VkMemoryBarrier2 barrier{
                 .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
                 .srcStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
@@ -174,10 +174,10 @@ namespace vkz::barrier {
         static VkDependencyInfo info { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
         info.memoryBarrierCount = 1;
         info.pMemoryBarriers = &barrier;
-        vkCmdPipelineBarrier2(commandBuffer, &info);
+        vkCmdPipelineBarrier2(command_buffer, &info);
     }
 
-    void accelerationStructureUpdateToRayQueryRead(VkCommandBuffer commandBuffer) {
+    void acceleration_structure_update_to_ray_query_read(VkCommandBuffer command_buffer) {
         static VkMemoryBarrier2 barrier{
                 .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
                 .srcStageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
@@ -189,10 +189,10 @@ namespace vkz::barrier {
         static VkDependencyInfo info { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
         info.memoryBarrierCount = 1;
         info.pMemoryBarriers = &barrier;
-        vkCmdPipelineBarrier2(commandBuffer, &info);
+        vkCmdPipelineBarrier2(command_buffer, &info);
     }
 
-    void rayQueryReadToAccelerationStructureUpdate(VkCommandBuffer commandBuffer) {
+    void ray_query_read_to_acceleration_structure_update(VkCommandBuffer command_buffer) {
         static VkMemoryBarrier2 barrier{
                 .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
                 .srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -204,126 +204,126 @@ namespace vkz::barrier {
         static VkDependencyInfo info { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
         info.memoryBarrierCount = 1;
         info.pMemoryBarriers = &barrier;
-        vkCmdPipelineBarrier2(commandBuffer, &info);
+        vkCmdPipelineBarrier2(command_buffer, &info);
     }
 
-    void transferWriteToFragmentRead(VkCommandBuffer commandBuffer) {
+    void transfer_write_to_fragment_read(VkCommandBuffer command_buffer) {
         VkMemoryBarrier barrier{};
 
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
                              &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
     }
 
-    void push(VkImage& image, VkImageSubresourceRange subresourceRange,
-                 VkPipelineStageFlags2 srcStageMask,VkPipelineStageFlags2 dstStageMask,
-                 VkAccessFlags2 srcAccessMask, VkAccessFlags2 dstAccessMask,
-                 VkImageLayout oldLayout, VkImageLayout newLayout) {
-    imageMemoryBarriers.push_back({
+    void push(VkImage& image, VkImageSubresourceRange subresource_range,
+                 VkPipelineStageFlags2 src_stage_mask,VkPipelineStageFlags2 dst_stage_mask,
+                 VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask,
+                 VkImageLayout old_layout, VkImageLayout new_layout) {
+    image_memory_barriers.push_back({
           .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-          .srcStageMask = srcStageMask,
-          .srcAccessMask = srcAccessMask,
-          .dstStageMask = dstStageMask,
-          .dstAccessMask = dstAccessMask,
-          .oldLayout = oldLayout,
-          .newLayout = newLayout,
+          .srcStageMask = src_stage_mask,
+          .srcAccessMask = src_access_mask,
+          .dstStageMask = dst_stage_mask,
+          .dstAccessMask = dst_access_mask,
+          .oldLayout = old_layout,
+          .newLayout = new_layout,
           .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
           .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
           .image = image,
-          .subresourceRange = subresourceRange,
+          .subresourceRange = subresource_range,
     });
 }
 
-void pushAndFlush(VkCommandBuffer commandBuffer, VkImage &image,
-                            VkImageSubresourceRange subresourceRange, VkPipelineStageFlags2 srcStageMask,
-                            VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 srcAccessMask,
-                            VkAccessFlags2 dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout) {
+void push_and_flush(VkCommandBuffer command_buffer, VkImage &image,
+                            VkImageSubresourceRange subresource_range, VkPipelineStageFlags2 src_stage_mask,
+                            VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 src_access_mask,
+                            VkAccessFlags2 dst_access_mask, VkImageLayout old_layout, VkImageLayout new_layout) {
 
-    push(image, subresourceRange, srcStageMask, dstStageMask, srcAccessMask, dstAccessMask, oldLayout, newLayout);
-    flush(commandBuffer);
+    push(image, subresource_range, src_stage_mask, dst_stage_mask, src_access_mask, dst_access_mask, old_layout, new_layout);
+    flush(command_buffer);
 }
 
 void
-push(VkPipelineStageFlags2 srcStageMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 srcAccessMask,
-               VkAccessFlags2 dstAccessMask) {
+push(VkPipelineStageFlags2 src_stage_mask, VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 src_access_mask,
+               VkAccessFlags2 dst_access_mask) {
 
-    memoryBarriers.push_back({
+    memory_barriers.push_back({
         .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-         .srcStageMask = srcStageMask,
-         .srcAccessMask = srcAccessMask,
-         .dstStageMask = dstStageMask,
-         .dstAccessMask = dstAccessMask,
+         .srcStageMask = src_stage_mask,
+         .srcAccessMask = src_access_mask,
+         .dstStageMask = dst_stage_mask,
+         .dstAccessMask = dst_access_mask,
     });
 }
 
 
 void
-pushAndFlush(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 srcStageMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 srcAccessMask,
-               VkAccessFlags2 dstAccessMask) {
+push_and_flush(VkCommandBuffer command_buffer, VkPipelineStageFlags2 src_stage_mask, VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 src_access_mask,
+               VkAccessFlags2 dst_access_mask) {
 
-    push(srcStageMask, dstStageMask, srcAccessMask, dstAccessMask);
-    flush(commandBuffer);
+    push(src_stage_mask, dst_stage_mask, src_access_mask, dst_access_mask);
+    flush(command_buffer);
 }
 
 
-void release(VkImage &image, VkImageSubresourceRange subresourceRange,
-                       VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkImageLayout oldLayout,
-                       VkImageLayout newLayout, uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex) {
+void release(VkImage &image, VkImageSubresourceRange subresource_range,
+                       VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask, VkImageLayout old_layout,
+                       VkImageLayout new_layout, uint32_t src_queue_family_index, uint32_t dst_queue_family_index) {
 
-    imageMemoryBarriers.push_back({
+    image_memory_barriers.push_back({
           .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-          .srcStageMask = srcStageMask,
-          .srcAccessMask = srcAccessMask,
+          .srcStageMask = src_stage_mask,
+          .srcAccessMask = src_access_mask,
           .dstStageMask = VK_PIPELINE_STAGE_NONE,
           .dstAccessMask = VK_ACCESS_NONE,
-          .oldLayout = oldLayout,
-          .newLayout = newLayout,
-          .srcQueueFamilyIndex = srcQueueFamilyIndex,
-          .dstQueueFamilyIndex = dstQueueFamilyIndex,
+          .oldLayout = old_layout,
+          .newLayout = new_layout,
+          .srcQueueFamilyIndex = src_queue_family_index,
+          .dstQueueFamilyIndex = dst_queue_family_index,
           .image = image,
-          .subresourceRange = subresourceRange,
+          .subresourceRange = subresource_range,
     });
 }
 
-void acquire(VkImage &image, VkImageSubresourceRange subresourceRange, VkImageLayout oldLayout,
-                       VkImageLayout newLayout, uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex) {
+void acquire(VkImage &image, VkImageSubresourceRange subresource_range, VkImageLayout old_layout,
+                       VkImageLayout new_layout, uint32_t src_queue_family_index, uint32_t dst_queue_family_index) {
 
-    imageMemoryBarriers.push_back({
+    image_memory_barriers.push_back({
           .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
           .srcStageMask = VK_PIPELINE_STAGE_NONE,
           .srcAccessMask = VK_PIPELINE_STAGE_NONE,
           .dstStageMask = VK_PIPELINE_STAGE_NONE,
           .dstAccessMask = VK_ACCESS_NONE,
-          .oldLayout = oldLayout,
-          .newLayout = newLayout,
-          .srcQueueFamilyIndex = srcQueueFamilyIndex,
-          .dstQueueFamilyIndex = dstQueueFamilyIndex,
+          .oldLayout = old_layout,
+          .newLayout = new_layout,
+          .srcQueueFamilyIndex = src_queue_family_index,
+          .dstQueueFamilyIndex = dst_queue_family_index,
           .image = image,
-          .subresourceRange = subresourceRange,
+          .subresourceRange = subresource_range,
     });
 }
 
-void flush(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlag) {
-    dependencyInfo.imageMemoryBarrierCount = VKZ_COUNT(imageMemoryBarriers);
-    dependencyInfo.pImageMemoryBarriers = imageMemoryBarriers.data();
-    dependencyInfo.bufferMemoryBarrierCount = VKZ_COUNT(bufferMemoryBarriers);
-    dependencyInfo.pBufferMemoryBarriers = bufferMemoryBarriers.data();
-    dependencyInfo.memoryBarrierCount = VKZ_COUNT(memoryBarriers);
-    dependencyInfo.pMemoryBarriers = memoryBarriers.data();
+void flush(VkCommandBuffer command_buffer, VkDependencyFlags dependency_flag) {
+    dependency_info.imageMemoryBarrierCount = VKZ_COUNT(image_memory_barriers);
+    dependency_info.pImageMemoryBarriers = image_memory_barriers.data();
+    dependency_info.bufferMemoryBarrierCount = VKZ_COUNT(buffer_memory_barriers);
+    dependency_info.pBufferMemoryBarriers = buffer_memory_barriers.data();
+    dependency_info.memoryBarrierCount = VKZ_COUNT(memory_barriers);
+    dependency_info.pMemoryBarriers = memory_barriers.data();
 
-    dependencyInfo.dependencyFlags = dependencyFlag;
-    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+    dependency_info.dependencyFlags = dependency_flag;
+    vkCmdPipelineBarrier2(command_buffer, &dependency_info);
 
-    imageMemoryBarriers.clear();
-    bufferMemoryBarriers.clear();
-    memoryBarriers.clear();
+    image_memory_barriers.clear();
+    buffer_memory_barriers.clear();
+    memory_barriers.clear();
 }
 
 bool flushed() {
-    return imageMemoryBarriers.empty() && bufferMemoryBarriers.empty() && memoryBarriers.empty();
+    return image_memory_barriers.empty() && buffer_memory_barriers.empty() && memory_barriers.empty();
 }
 
 }

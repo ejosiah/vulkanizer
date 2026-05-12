@@ -24,9 +24,9 @@ namespace vkz::imgui {
 
             impl& operator=(impl&& other) noexcept;
 
-            void newFrame();
+            void new_frame();
 
-            void render(VkCommandBuffer commandBuffer);
+            void render(VkCommandBuffer command_buffer);
 
             void destroy();
 
@@ -38,7 +38,7 @@ namespace vkz::imgui {
 
         std::unique_ptr<impl> instance;
 
-        void checkVkResult(VkResult result) {
+        void check_vk_result(VkResult result) {
             VKZ_CHECK_VULKAN(result);
         }
 
@@ -47,11 +47,11 @@ namespace vkz::imgui {
                 VKZ_THROW("vkz::imgui requires a GLFW window")
             }
 
-            if (!params.vulkanContext) {
+            if (!params.vulkan_context) {
                 VKZ_THROW("vkz::imgui requires a Vulkan context")
             }
 
-            if (!params.vulkanContext->instance || !params.vulkanContext->device.physical || !params.vulkanContext->device.logical) {
+            if (!params.vulkan_context->instance || !params.vulkan_context->device.physical || !params.vulkan_context->device.logical) {
                 VKZ_THROW("vkz::imgui requires a fully initialized Vulkan context")
             }
 
@@ -59,20 +59,20 @@ namespace vkz::imgui {
                 VKZ_THROW("vkz::imgui requires a Vulkan queue")
             }
 
-            if (params.minImageCount < 2 || params.imageCount < params.minImageCount) {
-                VKZ_THROW("vkz::imgui requires imageCount >= minImageCount >= 2")
+            if (params.min_image_count < 2 || params.image_count < params.min_image_count) {
+                VKZ_THROW("vkz::imgui requires image_count >= min_image_count >= 2")
             }
 
-            if (params.useDynamicRendering && params.colorAttachmentFormat == VK_FORMAT_UNDEFINED) {
+            if (params.use_dynamic_rendering && params.color_attachment_format == VK_FORMAT_UNDEFINED) {
                 VKZ_THROW("vkz::imgui dynamic rendering requires a color attachment format")
             }
 
-            if (!params.useDynamicRendering && !params.renderPass) {
+            if (!params.use_dynamic_rendering && !params.render_pass) {
                 VKZ_THROW("vkz::imgui render pass mode requires a render pass")
             }
 
-            if (!params.descriptorPool && params.descriptorPoolSize < IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE) {
-                VKZ_THROW("vkz::imgui descriptorPoolSize is too small")
+            if (!params.descriptor_pool && params.descriptor_pool_size < IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE) {
+                VKZ_THROW("vkz::imgui descriptor_pool_size is too small")
             }
         }
     }
@@ -87,51 +87,51 @@ namespace vkz::imgui {
         ImGui::SetCurrentContext(context_);
 
         auto& io = ImGui::GetIO();
-        if (params_.enableKeyboardNavigation) {
+        if (params_.enable_keyboard_navigation) {
             io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         }
-        if (params_.enableGamepadNavigation) {
+        if (params_.enable_gamepad_navigation) {
             io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
         }
 
         ImGui::StyleColorsDark();
 
-        if (!ImGui_ImplGlfw_InitForVulkan(params_.window, params_.installCallbacks)) {
+        if (!ImGui_ImplGlfw_InitForVulkan(params_.window, params_.install_callbacks)) {
             ImGui::DestroyContext(context_);
             context_ = nullptr;
             VKZ_THROW("Failed to initialize ImGui GLFW backend")
         }
 
-        ImGui_ImplVulkan_InitInfo initInfo{};
-        initInfo.ApiVersion = params_.apiVersion;
-        initInfo.Instance = params_.vulkanContext->instance;
-        initInfo.PhysicalDevice = params_.vulkanContext->device.physical;
-        initInfo.Device = params_.vulkanContext->device.logical;
-        initInfo.QueueFamily = params_.queueFamily;
-        initInfo.Queue = params_.queue;
-        initInfo.DescriptorPool = params_.descriptorPool;
-        initInfo.DescriptorPoolSize = params_.descriptorPool ? 0 : params_.descriptorPoolSize;
-        initInfo.MinImageCount = params_.minImageCount;
-        initInfo.ImageCount = params_.imageCount;
-        initInfo.PipelineCache = params_.pipelineCache;
-        initInfo.PipelineInfoMain.RenderPass = params_.renderPass;
-        initInfo.PipelineInfoMain.MSAASamples = params_.samples;
-        initInfo.UseDynamicRendering = params_.useDynamicRendering;
-        initInfo.Allocator = params_.allocator;
-        initInfo.CheckVkResultFn = checkVkResult;
-        initInfo.MinAllocationSize = 1024 * 1024;
+        ImGui_ImplVulkan_InitInfo init_info{};
+        init_info.ApiVersion = params_.api_version;
+        init_info.Instance = params_.vulkan_context->instance;
+        init_info.PhysicalDevice = params_.vulkan_context->device.physical;
+        init_info.Device = params_.vulkan_context->device.logical;
+        init_info.QueueFamily = params_.queue_family;
+        init_info.Queue = params_.queue;
+        init_info.DescriptorPool = params_.descriptor_pool;
+        init_info.DescriptorPoolSize = params_.descriptor_pool ? 0 : params_.descriptor_pool_size;
+        init_info.MinImageCount = params_.min_image_count;
+        init_info.ImageCount = params_.image_count;
+        init_info.PipelineCache = params_.pipeline_cache;
+        init_info.PipelineInfoMain.RenderPass = params_.render_pass;
+        init_info.PipelineInfoMain.MSAASamples = params_.samples;
+        init_info.UseDynamicRendering = params_.use_dynamic_rendering;
+        init_info.Allocator = params_.allocator;
+        init_info.CheckVkResultFn = check_vk_result;
+        init_info.MinAllocationSize = 1024 * 1024;
 
 #ifdef IMGUI_IMPL_VULKAN_HAS_DYNAMIC_RENDERING
-        if (params_.useDynamicRendering) {
-            initInfo.PipelineInfoMain.PipelineRenderingCreateInfo.sType =
+        if (params_.use_dynamic_rendering) {
+            init_info.PipelineInfoMain.PipelineRenderingCreateInfo.sType =
                     VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-            initInfo.PipelineInfoMain.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-            initInfo.PipelineInfoMain.PipelineRenderingCreateInfo.pColorAttachmentFormats =
-                    &params_.colorAttachmentFormat;
+            init_info.PipelineInfoMain.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+            init_info.PipelineInfoMain.PipelineRenderingCreateInfo.pColorAttachmentFormats =
+                    &params_.color_attachment_format;
         }
 #endif
 
-        if (!ImGui_ImplVulkan_Init(&initInfo)) {
+        if (!ImGui_ImplVulkan_Init(&init_info)) {
             ImGui_ImplGlfw_Shutdown();
             ImGui::DestroyContext(context_);
             context_ = nullptr;
@@ -163,17 +163,17 @@ namespace vkz::imgui {
         return *this;
     }
 
-    void impl::newFrame() {
+    void impl::new_frame() {
         ImGui::SetCurrentContext(context_);
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
     }
 
-    void impl::render(VkCommandBuffer commandBuffer) {
+    void impl::render(VkCommandBuffer command_buffer) {
         ImGui::SetCurrentContext(context_);
         ImGui::Render();
-        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer);
     }
 
     void impl::destroy() {
@@ -194,20 +194,20 @@ namespace vkz::imgui {
         instance = std::make_unique<impl>(params);
     }
 
-    void newFrame() {
+    void new_frame() {
         if (!instance) {
             VKZ_THROW("vkz::imgui has not been initialized")
         }
 
-        instance->newFrame();
+        instance->new_frame();
     }
 
-    void render(VkCommandBuffer commandBuffer) {
+    void render(VkCommandBuffer command_buffer) {
         if (!instance) {
             VKZ_THROW("vkz::imgui has not been initialized")
         }
 
-        instance->render(commandBuffer);
+        instance->render(command_buffer);
     }
 
     void destroy() {

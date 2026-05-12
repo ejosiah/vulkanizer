@@ -1,4 +1,4 @@
-#define VKZ_IOSTREAM_ADAPTOR
+#define VKZ_IOSTREAM_ADAPTER
 
 #include <vulkanizer/barrier.hpp>
 #include <vulkanizer/context.hpp>
@@ -17,8 +17,8 @@
 #include <vector>
 
 namespace {
-    constexpr uint32_t WindowWidth = 1280;
-    constexpr uint32_t WindowHeight = 800;
+    constexpr uint32_t window_width = 1280;
+    constexpr uint32_t window_height = 800;
 
     class glfw_surface_provider final : public vkz::surface_provider {
     public:
@@ -36,22 +36,22 @@ namespace {
         GLFWwindow* _window{};
     };
 
-    uint32_t findContextGraphicsPresentQueueFamily(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) {
-        uint32_t queueFamilyCount{};
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
+    uint32_t find_context_graphics_present_queue_family(VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
+        uint32_t queue_family_count{};
+        vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, nullptr);
 
-        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
+        std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
+        vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_families.data());
 
-        for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
-            if (!(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+        for (uint32_t i = 0; i < queue_families.size(); ++i) {
+            if (!(queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
                 continue;
             }
 
-            VkBool32 presentSupported{};
-            VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupported));
+            VkBool32 present_supported{};
+            VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &present_supported));
 
-            if (!presentSupported) {
+            if (!present_supported) {
                 VKZ_THROW("The context graphics queue family does not support presentation")
             }
 
@@ -61,87 +61,87 @@ namespace {
         VKZ_THROW("No graphics queue family is available")
     }
 
-    VkCommandBuffer beginCommandBuffer(VkDevice device, VkCommandPool commandPool) {
-        VkCommandBufferAllocateInfo allocateInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-        allocateInfo.commandPool = commandPool;
-        allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocateInfo.commandBufferCount = 1;
+    VkCommandBuffer begin_command_buffer(VkDevice device, VkCommandPool command_pool) {
+        VkCommandBufferAllocateInfo allocate_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        allocate_info.commandPool = command_pool;
+        allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocate_info.commandBufferCount = 1;
 
-        VkCommandBuffer commandBuffer{};
-        VKZ_CHECK_VULKAN(vkAllocateCommandBuffers(device, &allocateInfo, &commandBuffer));
+        VkCommandBuffer command_buffer{};
+        VKZ_CHECK_VULKAN(vkAllocateCommandBuffers(device, &allocate_info, &command_buffer));
 
-        VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        VKZ_CHECK_VULKAN(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+        VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        VKZ_CHECK_VULKAN(vkBeginCommandBuffer(command_buffer, &begin_info));
 
-        return commandBuffer;
+        return command_buffer;
     }
 
-    void submitAndFree(
+    void submit_and_free(
             VkDevice device,
             VkQueue queue,
-            VkCommandPool commandPool,
-            VkCommandBuffer commandBuffer,
-            VkSemaphore waitSemaphore,
-            VkSemaphore signalSemaphore,
+            VkCommandPool command_pool,
+            VkCommandBuffer command_buffer,
+            VkSemaphore wait_semaphore,
+            VkSemaphore signal_semaphore,
             VkFence fence) {
-        VKZ_CHECK_VULKAN(vkEndCommandBuffer(commandBuffer));
+        VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
 
-        VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-        VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = &waitSemaphore;
-        submitInfo.pWaitDstStageMask = &waitStage;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &signalSemaphore;
+        VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        submit_info.waitSemaphoreCount = 1;
+        submit_info.pWaitSemaphores = &wait_semaphore;
+        submit_info.pWaitDstStageMask = &wait_stage;
+        submit_info.commandBufferCount = 1;
+        submit_info.pCommandBuffers = &command_buffer;
+        submit_info.signalSemaphoreCount = 1;
+        submit_info.pSignalSemaphores = &signal_semaphore;
 
-        VKZ_CHECK_VULKAN(vkQueueSubmit(queue, 1, &submitInfo, fence));
+        VKZ_CHECK_VULKAN(vkQueueSubmit(queue, 1, &submit_info, fence));
         VKZ_CHECK_VULKAN(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
         VKZ_CHECK_VULKAN(vkResetFences(device, 1, &fence));
 
-        vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+        vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
     }
 
-    std::vector<vkz::ImageView> createImageViews(VkDevice device, vkz::swapchain& swapchain) {
-        std::vector<vkz::ImageView> imageViews;
-        imageViews.reserve(swapchain.imageCount());
+    std::vector<vkz::image_view> create_image_views(VkDevice device, vkz::swapchain& swapchain) {
+        std::vector<vkz::image_view> image_views;
+        image_views.reserve(swapchain.image_count());
 
-        for (uint32_t i = 0; i < swapchain.imageCount(); ++i) {
-            VkImageViewCreateInfo createInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-            createInfo.image = swapchain.getImage(i);
-            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            createInfo.format = swapchain.format();
-            createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            createInfo.subresourceRange.levelCount = 1;
-            createInfo.subresourceRange.layerCount = 1;
+        for (uint32_t i = 0; i < swapchain.image_count(); ++i) {
+            VkImageViewCreateInfo create_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+            create_info.image = swapchain.get_image(i);
+            create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            create_info.format = swapchain.format();
+            create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+            create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+            create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+            create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+            create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            create_info.subresourceRange.levelCount = 1;
+            create_info.subresourceRange.layerCount = 1;
 
-            VkImageView imageView{};
-            VKZ_CHECK_VULKAN(vkCreateImageView(device, &createInfo, nullptr, &imageView));
-            imageViews.push_back({
-                    .handle = imageView,
-                    .info = createInfo,
+            VkImageView image_view{};
+            VKZ_CHECK_VULKAN(vkCreateImageView(device, &create_info, nullptr, &image_view));
+            image_views.push_back({
+                    .handle = image_view,
+                    .create_info = create_info,
             });
         }
 
-        return imageViews;
+        return image_views;
     }
 
-    void destroyImageViews(VkDevice device, std::vector<vkz::ImageView>& imageViews) {
-        for (auto imageView : imageViews) {
-            vkDestroyImageView(device, imageView.handle, nullptr);
+    void destroy_image_views(VkDevice device, std::vector<vkz::image_view>& image_views) {
+        for (auto image_view : image_views) {
+            vkDestroyImageView(device, image_view.handle, nullptr);
         }
 
-        imageViews.clear();
+        image_views.clear();
     }
 
-    void waitForDrawableWindow(GLFWwindow* window) {
+    void wait_for_drawable_window(GLFWwindow* window) {
         int width{};
         int height{};
         glfwGetFramebufferSize(window, &width, &height);
@@ -161,27 +161,27 @@ int main() {
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow* window = glfwCreateWindow(WindowWidth, WindowHeight, "vulkanizer context test", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(window_width, window_height, "vulkanizer context test", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         VKZ_THROW("Failed to create GLFW window")
     }
 
-    uint32_t requiredExtensionCount{};
-    const char** requiredExtensions = glfwGetRequiredInstanceExtensions(&requiredExtensionCount);
-    if (!requiredExtensions) {
+    uint32_t required_extension_count{};
+    const char** required_extensions = glfwGetRequiredInstanceExtensions(&required_extension_count);
+    if (!required_extensions) {
         glfwDestroyWindow(window);
         glfwTerminate();
         VKZ_THROW("GLFW could not provide Vulkan instance extensions")
     }
 
-    glfw_surface_provider surfaceProvider{window};
+    glfw_surface_provider surface_provider{window};
     VkPhysicalDeviceSynchronization2Features synchronization2{
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
             nullptr,
             VK_TRUE,
     };
-    VkPhysicalDeviceDynamicRenderingFeatures dynamicRendering{
+    VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering{
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
             nullptr,
             VK_TRUE,
@@ -189,159 +189,156 @@ int main() {
 
     auto builder = vkz::context::builder();
     builder
-            .appName("vulkanizer context test")
-            .engineName("vulkanizer")
-            .apiVersion(VK_API_VERSION_1_3)
-            .surface(surfaceProvider)
-            .addExtension(synchronization2)
-            .addExtension(dynamicRendering)
-            .addDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+            .app_name("vulkanizer context test")
+            .engine_name("vulkanizer")
+            .api_version(VK_API_VERSION_1_3)
+            .surface(surface_provider)
+            .add_extension(synchronization2)
+            .add_extension(dynamic_rendering)
+            .add_device_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
-    for (uint32_t i = 0; i < requiredExtensionCount; ++i) {
-        builder.addInstanceExtension(requiredExtensions[i]);
+    for (uint32_t i = 0; i < required_extension_count; ++i) {
+        builder.add_instance_extension(required_extensions[i]);
     }
 
     auto context = builder.build();
     const auto surface = context.surface;
 
-    const auto queueFamilyIndex = findContextGraphicsPresentQueueFamily(context.device.physical, surface);
-    VkQueue graphicsQueue{};
-    vkGetDeviceQueue(context.device.logical, queueFamilyIndex, 0, &graphicsQueue);
+    const auto queue_family_index = find_context_graphics_present_queue_family(context.device.physical, surface);
+    VkQueue graphics_queue{};
+    vkGetDeviceQueue(context.device.logical, queue_family_index, 0, &graphics_queue);
 
     {
-    auto createSwapchain = [&context] {
+    auto create_swapchain = [&context] {
         return std::make_unique<vkz::swapchain>(
                 vkz::swapchain::builder(context)
-                        .setImageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+                        .set_image_usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
                         .build());
     };
 
-    auto swapchain = createSwapchain();
-    auto imageViews = createImageViews(context.device.logical, *swapchain);
+    auto swapchain = create_swapchain();
+    auto image_views = create_image_views(context.device.logical, *swapchain);
 
     vkz::imgui::init({
             .window = window,
-            .vulkanContext = &context,
-            .queueFamily = queueFamilyIndex,
-            .queue = graphicsQueue,
-            .minImageCount = 2,
-            .imageCount = swapchain->imageCount(),
-            .apiVersion = VK_API_VERSION_1_3,
-            .colorAttachmentFormat = swapchain->format(),
+            .vulkan_context = &context,
+            .queue_family = queue_family_index,
+            .queue = graphics_queue,
+            .min_image_count = 2,
+            .image_count = swapchain->image_count(),
+            .api_version = VK_API_VERSION_1_3,
+            .color_attachment_format = swapchain->format(),
     });
 
-    VkCommandPoolCreateInfo commandPoolCreateInfo{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-    commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-    commandPoolCreateInfo.queueFamilyIndex = queueFamilyIndex;
+    VkCommandPoolCreateInfo command_pool_create_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    command_pool_create_info.queueFamilyIndex = queue_family_index;
 
-    VkCommandPool commandPool{};
-    VKZ_CHECK_VULKAN(vkCreateCommandPool(context.device.logical, &commandPoolCreateInfo, nullptr, &commandPool));
+    VkCommandPool command_pool{};
+    VKZ_CHECK_VULKAN(vkCreateCommandPool(context.device.logical, &command_pool_create_info, nullptr, &command_pool));
 
-    VkSemaphoreCreateInfo semaphoreCreateInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    VkSemaphore imageAvailable{};
-    VkSemaphore renderFinished{};
-    VKZ_CHECK_VULKAN(vkCreateSemaphore(context.device.logical, &semaphoreCreateInfo, nullptr, &imageAvailable));
-    VKZ_CHECK_VULKAN(vkCreateSemaphore(context.device.logical, &semaphoreCreateInfo, nullptr, &renderFinished));
+    VkSemaphoreCreateInfo semaphore_create_info{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    VkSemaphore image_available{};
+    VkSemaphore render_finished{};
+    VKZ_CHECK_VULKAN(vkCreateSemaphore(context.device.logical, &semaphore_create_info, nullptr, &image_available));
+    VKZ_CHECK_VULKAN(vkCreateSemaphore(context.device.logical, &semaphore_create_info, nullptr, &render_finished));
 
-    VkFenceCreateInfo fenceCreateInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-    VkFence frameFence{};
-    VKZ_CHECK_VULKAN(vkCreateFence(context.device.logical, &fenceCreateInfo, nullptr, &frameFence));
+    VkFenceCreateInfo fence_create_info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    VkFence frame_fence{};
+    VKZ_CHECK_VULKAN(vkCreateFence(context.device.logical, &fence_create_info, nullptr, &frame_fence));
 
-    auto recreateSwapchain = [&] {
+    auto recreate_swapchain = [&] {
         vkDeviceWaitIdle(context.device.logical);
-        waitForDrawableWindow(window);
+        wait_for_drawable_window(window);
         if (glfwWindowShouldClose(window)) {
             return;
         }
 
-        destroyImageViews(context.device.logical, imageViews);
+        destroy_image_views(context.device.logical, image_views);
         swapchain.reset();
-        swapchain = createSwapchain();
-        imageViews = createImageViews(context.device.logical, *swapchain);
+        swapchain = create_swapchain();
+        image_views = create_image_views(context.device.logical, *swapchain);
     };
 
     bool show_demo_window = true;
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGuiIO& io = ImGui::GetIO();
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        waitForDrawableWindow(window);
+        wait_for_drawable_window(window);
         if (glfwWindowShouldClose(window)) {
             break;
         }
 
-        int framebufferWidth{};
-        int framebufferHeight{};
-        glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
-        if (static_cast<uint32_t>(framebufferWidth) != swapchain->width() ||
-            static_cast<uint32_t>(framebufferHeight) != swapchain->height()) {
-            recreateSwapchain();
+        int framebuffer_width{};
+        int framebuffer_height{};
+        glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+        if (static_cast<uint32_t>(framebuffer_width) != swapchain->width() ||
+            static_cast<uint32_t>(framebuffer_height) != swapchain->height()) {
+            recreate_swapchain();
             continue;
         }
 
-        uint32_t imageIndex{};
-        const auto acquireResult = vkAcquireNextImageKHR(
+        uint32_t image_index{};
+        const auto acquire_result = vkAcquireNextImageKHR(
                 context.device.logical,
                 swapchain->handle(),
                 UINT64_MAX,
-                imageAvailable,
+                image_available,
                 {},
-                &imageIndex);
+                &image_index);
 
-        if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
-            recreateSwapchain();
+        if (acquire_result == VK_ERROR_OUT_OF_DATE_KHR) {
+            recreate_swapchain();
             continue;
         }
-        VKZ_CHECK_VULKAN(acquireResult);
+        VKZ_CHECK_VULKAN(acquire_result);
 
-        vkz::imgui::newFrame();
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (show_demo_window)
+        vkz::imgui::new_frame();
+        if (show_demo_window) {
             ImGui::ShowDemoWindow(&show_demo_window);
+        }
 
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
         {
             static float f = 0.0f;
             static int counter = 0;
 
-            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+            ImGui::Begin("Hello, world!");
+            ImGui::Text("This is some useful text.");
+            ImGui::Checkbox("Demo Window", &show_demo_window);
             ImGui::Checkbox("Another Window", &show_another_window);
+            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
+            ImGui::ColorEdit3("clear color", reinterpret_cast<float*>(&clear_color));
 
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+            if (ImGui::Button("Button")) {
                 counter++;
+            }
             ImGui::SameLine();
             ImGui::Text("counter = %d", counter);
-
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::End();
         }
 
-        // 3. Show another simple window.
-        if (show_another_window)
-        {
-            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+        if (show_another_window) {
+            ImGui::Begin("Another Window", &show_another_window);
             ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me"))
+            if (ImGui::Button("Close Me")) {
                 show_another_window = false;
+            }
             ImGui::End();
         }
-        auto commandBuffer = beginCommandBuffer(context.device.logical, commandPool);
-        auto image = swapchain->getImage(imageIndex);
+
+        auto command_buffer = begin_command_buffer(context.device.logical, command_pool);
+        auto image = swapchain->get_image(image_index);
         VkImageSubresourceRange range{};
         range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         range.levelCount = 1;
         range.layerCount = 1;
 
-        vkz::barrier::pushAndFlush(
-                commandBuffer,
+        vkz::barrier::push_and_flush(
+                command_buffer,
                 image,
                 range,
                 VK_PIPELINE_STAGE_2_NONE,
@@ -351,20 +348,20 @@ int main() {
                 VK_IMAGE_LAYOUT_UNDEFINED,
                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-        vkz::render_info renderInfo{};
-        renderInfo.colorAttachments.push_back({
-                .imageView = imageViews[imageIndex],
+        vkz::render_info render_info{};
+        render_info.color_attachments.push_back({
+                .view = image_views[image_index],
                 .format = swapchain->format(),
-                .clearValue = {clear_color.x, clear_color.y, clear_color.z, clear_color.w},
+                .clear_value = {clear_color.x, clear_color.y, clear_color.z, clear_color.w},
         });
-        renderInfo.renderArea = {swapchain->width(), swapchain->height()};
+        render_info.render_area = {swapchain->width(), swapchain->height()};
 
-        vkz::render(commandBuffer, renderInfo, [&] {
-            vkz::imgui::render(commandBuffer);
+        vkz::render(command_buffer, render_info, [&] {
+            vkz::imgui::render(command_buffer);
         });
 
-        vkz::barrier::pushAndFlush(
-                commandBuffer,
+        vkz::barrier::push_and_flush(
+                command_buffer,
                 image,
                 range,
                 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -374,36 +371,36 @@ int main() {
                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-        submitAndFree(context.device.logical, graphicsQueue, commandPool, commandBuffer, imageAvailable, renderFinished,
-                      frameFence);
+        submit_and_free(context.device.logical, graphics_queue, command_pool, command_buffer, image_available, render_finished,
+                      frame_fence);
 
-        VkPresentInfoKHR presentInfo{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
-        const auto swapchainHandle = swapchain->handle();
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = &renderFinished;
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = &swapchainHandle;
-        presentInfo.pImageIndices = &imageIndex;
+        VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+        const auto swapchain_handle = swapchain->handle();
+        present_info.waitSemaphoreCount = 1;
+        present_info.pWaitSemaphores = &render_finished;
+        present_info.swapchainCount = 1;
+        present_info.pSwapchains = &swapchain_handle;
+        present_info.pImageIndices = &image_index;
 
-        const auto presentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
-        if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
-            recreateSwapchain();
+        const auto present_result = vkQueuePresentKHR(graphics_queue, &present_info);
+        if (present_result == VK_ERROR_OUT_OF_DATE_KHR || present_result == VK_SUBOPTIMAL_KHR) {
+            recreate_swapchain();
             continue;
         }
-        VKZ_CHECK_VULKAN(presentResult);
+        VKZ_CHECK_VULKAN(present_result);
     }
 
     vkDeviceWaitIdle(context.device.logical);
 
     vkz::imgui::destroy();
 
-    destroyImageViews(context.device.logical, imageViews);
+    destroy_image_views(context.device.logical, image_views);
     swapchain.reset();
 
-    vkDestroyFence(context.device.logical, frameFence, nullptr);
-    vkDestroySemaphore(context.device.logical, renderFinished, nullptr);
-    vkDestroySemaphore(context.device.logical, imageAvailable, nullptr);
-    vkDestroyCommandPool(context.device.logical, commandPool, nullptr);
+    vkDestroyFence(context.device.logical, frame_fence, nullptr);
+    vkDestroySemaphore(context.device.logical, render_finished, nullptr);
+    vkDestroySemaphore(context.device.logical, image_available, nullptr);
+    vkDestroyCommandPool(context.device.logical, command_pool, nullptr);
     }
 
     context = {};

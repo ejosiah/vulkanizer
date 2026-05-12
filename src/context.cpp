@@ -13,7 +13,7 @@
 
 namespace vkz {
     namespace {
-        VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
                 VkDebugUtilsMessageSeverityFlagBitsEXT severity,
                 VkDebugUtilsMessageTypeFlagsEXT,
                 const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
@@ -35,23 +35,23 @@ namespace vkz {
             return VK_FALSE;
         }
 
-        VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo() {
-            VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-            createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-            createInfo.messageSeverity =
+        VkDebugUtilsMessengerCreateInfoEXT debug_messenger_create_info() {
+            VkDebugUtilsMessengerCreateInfoEXT create_info{};
+            create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+            create_info.messageSeverity =
                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-            createInfo.messageType =
+            create_info.messageType =
                     VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
                     VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                     VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-            createInfo.pfnUserCallback = debugCallback;
-            return createInfo;
+            create_info.pfnUserCallback = debug_callback;
+            return create_info;
         }
 
-        uint32_t parseVersion(const std::string& value) {
+        uint32_t parse_version(const std::string& value) {
             if (value.empty()) {
                 return VK_MAKE_API_VERSION(0, 0, 0, 0);
             }
@@ -72,7 +72,7 @@ namespace vkz {
             return VK_MAKE_API_VERSION(0, parts[0], parts[1], parts[2]);
         }
 
-        std::vector<VkQueueFlagBits> queueBits(VkQueueFlags flags) {
+        std::vector<VkQueueFlagBits> queue_bits(VkQueueFlags flags) {
             std::vector<VkQueueFlagBits> bits;
 
             const VkQueueFlagBits knownBits[] = {
@@ -104,7 +104,7 @@ namespace vkz {
             });
         }
 
-        bool supportsInstanceLayers(const std::vector<const char*>& layers) {
+        bool supports_instance_layers(const std::vector<const char*>& layers) {
             uint32_t count{};
             VKZ_CHECK_VULKAN(vkEnumerateInstanceLayerProperties(&count, nullptr));
 
@@ -118,7 +118,7 @@ namespace vkz {
             });
         }
 
-        bool supportsInstanceExtensions(const std::vector<const char*>& extensions) {
+        bool supports_instance_extensions(const std::vector<const char*>& extensions) {
             uint32_t count{};
             VKZ_CHECK_VULKAN(vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr));
 
@@ -132,12 +132,12 @@ namespace vkz {
             });
         }
 
-        bool supportsDeviceExtensions(VkPhysicalDevice physicalDevice, const std::vector<const char*>& extensions) {
+        bool supports_device_extensions(VkPhysicalDevice physical_device, const std::vector<const char*>& extensions) {
             uint32_t count{};
-            VKZ_CHECK_VULKAN(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &count, nullptr));
+            VKZ_CHECK_VULKAN(vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count, nullptr));
 
             std::vector<VkExtensionProperties> available(count);
-            VKZ_CHECK_VULKAN(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &count, available.data()));
+            VKZ_CHECK_VULKAN(vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count, available.data()));
 
             return std::ranges::all_of(extensions, [&available](const char* extension) {
                 return std::ranges::any_of(available, [extension](const auto& properties) {
@@ -146,12 +146,12 @@ namespace vkz {
             });
         }
 
-        bool supportsDeviceLayers(VkPhysicalDevice physicalDevice, const std::vector<const char*>& layers) {
+        bool supports_device_layers(VkPhysicalDevice physical_device, const std::vector<const char*>& layers) {
             uint32_t count{};
-            VKZ_CHECK_VULKAN(vkEnumerateDeviceLayerProperties(physicalDevice, &count, nullptr));
+            VKZ_CHECK_VULKAN(vkEnumerateDeviceLayerProperties(physical_device, &count, nullptr));
 
             std::vector<VkLayerProperties> available(count);
-            VKZ_CHECK_VULKAN(vkEnumerateDeviceLayerProperties(physicalDevice, &count, available.data()));
+            VKZ_CHECK_VULKAN(vkEnumerateDeviceLayerProperties(physical_device, &count, available.data()));
 
             return std::ranges::all_of(layers, [&available](const char* layer) {
                 return std::ranges::any_of(available, [layer](const auto& properties) {
@@ -160,7 +160,7 @@ namespace vkz {
             });
         }
 
-        void destroyContext(context& context) {
+        void destroy_context(context& context) {
             if (context.device.logical) {
                 vkDeviceWaitIdle(context.device.logical);
                 vkDestroyDevice(context.device.logical, nullptr);
@@ -173,9 +173,9 @@ namespace vkz {
             }
 
 #ifndef NDEBUG
-            if (context.debugMessenger && vkDestroyDebugUtilsMessengerEXT) {
-                vkDestroyDebugUtilsMessengerEXT(context.instance, context.debugMessenger, nullptr);
-                context.debugMessenger = nullptr;
+            if (context.debug_messenger && vkDestroyDebugUtilsMessengerEXT) {
+                vkDestroyDebugUtilsMessengerEXT(context.instance, context.debug_messenger, nullptr);
+                context.debug_messenger = nullptr;
             }
 #endif
 
@@ -190,48 +190,48 @@ namespace vkz {
 
     class builder::Impl {
     public:
-        std::string appName{"vulkanizer"};
-        std::string engineName{"vulkanizer"};
-        VkApplicationInfo applicationInfo{
+        std::string app_name{"vulkanizer"};
+        std::string engine_name{"vulkanizer"};
+        VkApplicationInfo application_info{
                 VK_STRUCTURE_TYPE_APPLICATION_INFO,
                 nullptr,
-                appName.c_str(),
+                app_name.c_str(),
                 0,
-                engineName.c_str(),
+                engine_name.c_str(),
                 0,
                 VK_API_VERSION_1_3,
         };
 
-        std::vector<std::string> instanceExtensions;
-        std::vector<std::string> instanceValidationLayers;
-        std::vector<std::string> deviceExtensions;
-        std::vector<std::string> deviceValidationLayers;
+        std::vector<std::string> instance_extensions;
+        std::vector<std::string> instance_validation_layers;
+        std::vector<std::string> device_extensions;
+        std::vector<std::string> device_validation_layers;
 
-        std::vector<const char*> instanceExtensionPointers;
-        std::vector<const char*> instanceValidationLayerPointers;
-        std::vector<const char*> deviceExtensionPointers;
-        std::vector<const char*> deviceValidationLayerPointers;
+        std::vector<const char*> instance_extension_pointers;
+        std::vector<const char*> instance_validation_layer_pointers;
+        std::vector<const char*> device_extension_pointers;
+        std::vector<const char*> device_validation_layer_pointers;
 
-        VkPhysicalDeviceFeatures enabledFeatures{};
-        const surface_provider* surfaceProvider{};
+        VkPhysicalDeviceFeatures enabled_features{};
+        const surface_provider* surface_provider{};
         VkSurfaceKHR surface{};
 
-        VkQueueFlags queueFlags{VK_QUEUE_GRAPHICS_BIT};
-        VkQueueFlags uniqueQueueFlags{};
-        uint32_t numGraphicsQueues{1};
+        VkQueueFlags queue_flags{VK_QUEUE_GRAPHICS_BIT};
+        VkQueueFlags unique_queue_flags{};
+        uint32_t num_graphics_queues{1};
 
-        std::vector<VkQueueFamilyProperties> queueFamilies;
-        std::unordered_set<uint32_t> selectedQueueFamilies;
-        std::vector<std::vector<float>> queuePriorities;
+        std::vector<VkQueueFamilyProperties> queue_families;
+        std::unordered_set<uint32_t> selected_queue_families;
+        std::vector<std::vector<float>> queue_priorities;
 
-        void rebuildPointers() {
-            rebuildPointerList(instanceExtensionPointers, instanceExtensions);
-            rebuildPointerList(instanceValidationLayerPointers, instanceValidationLayers);
-            rebuildPointerList(deviceExtensionPointers, deviceExtensions);
-            rebuildPointerList(deviceValidationLayerPointers, deviceValidationLayers);
+        void rebuild_pointers() {
+            rebuild_pointer_list(instance_extension_pointers, instance_extensions);
+            rebuild_pointer_list(instance_validation_layer_pointers, instance_validation_layers);
+            rebuild_pointer_list(device_extension_pointers, device_extensions);
+            rebuild_pointer_list(device_validation_layer_pointers, device_validation_layers);
         }
 
-        static void destroyExtensionChain(void* extensions) {
+        static void destroy_extension_chain(void* extensions) {
             auto* node = static_cast<VkBaseOutStructure*>(extensions);
 
             while (node) {
@@ -241,25 +241,25 @@ namespace vkz {
             }
         }
 
-        context build(void* extensionChain) {
-            applicationInfo.pApplicationName = appName.c_str();
-            applicationInfo.pEngineName = engineName.c_str();
+        context build(void* extension_chain) {
+            application_info.pApplicationName = app_name.c_str();
+            application_info.pEngineName = engine_name.c_str();
 
             auto result = context{};
-            result.instance = createInstance();
+            result.instance = create_instance();
             volkLoadInstance(result.instance);
-            result.surface = createSurface(result.instance);
+            result.surface = create_surface(result.instance);
             surface = result.surface;
-            result.debugMessenger = createDebugMessenger(result.instance);
-            result.device.physical = pickPhysicalDevice(result.instance);
-            result.device.logical = createDevice(result.device.physical, extensionChain);
+            result.debug_messenger = create_debug_messenger(result.instance);
+            result.device.physical = pick_physical_device(result.instance);
+            result.device.logical = create_device(result.device.physical, extension_chain);
             volkLoadDevice(result.device.logical);
 
             return result;
         }
 
     private:
-        static void rebuildPointerList(std::vector<const char*>& pointers, const std::vector<std::string>& strings) {
+        static void rebuild_pointer_list(std::vector<const char*>& pointers, const std::vector<std::string>& strings) {
             pointers.clear();
             pointers.reserve(strings.size());
 
@@ -268,51 +268,51 @@ namespace vkz {
             }
         }
 
-        VkSurfaceKHR createSurface(VkInstance instance) const {
-            if (!surfaceProvider) {
+        VkSurfaceKHR create_surface(VkInstance instance) const {
+            if (!surface_provider) {
                 return {};
             }
 
-            return (*surfaceProvider)(instance);
+            return (*surface_provider)(instance);
         }
 
-        VkInstance createInstance() const {
+        VkInstance create_instance() const {
             VKZ_CHECK_VULKAN(volkInitialize());
 
-            if (!supportsInstanceLayers(instanceValidationLayerPointers)) {
+            if (!supports_instance_layers(instance_validation_layer_pointers)) {
                 VKZ_THROW("One or more requested Vulkan instance layers are not available")
             }
 
-            if (!supportsInstanceExtensions(instanceExtensionPointers)) {
+            if (!supports_instance_extensions(instance_extension_pointers)) {
                 VKZ_THROW("One or more requested Vulkan instance extensions are not available")
             }
 
-            VkInstanceCreateInfo createInfo{};
-            createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-            createInfo.pApplicationInfo = &applicationInfo;
-            createInfo.enabledExtensionCount = VKZ_COUNT(instanceExtensionPointers);
-            createInfo.ppEnabledExtensionNames = instanceExtensionPointers.data();
-            createInfo.enabledLayerCount = VKZ_COUNT(instanceValidationLayerPointers);
-            createInfo.ppEnabledLayerNames = instanceValidationLayerPointers.data();
+            VkInstanceCreateInfo create_info{};
+            create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+            create_info.pApplicationInfo = &application_info;
+            create_info.enabledExtensionCount = VKZ_COUNT(instance_extension_pointers);
+            create_info.ppEnabledExtensionNames = instance_extension_pointers.data();
+            create_info.enabledLayerCount = VKZ_COUNT(instance_validation_layer_pointers);
+            create_info.ppEnabledLayerNames = instance_validation_layer_pointers.data();
 
 #ifndef NDEBUG
-            VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-            if (contains(instanceExtensionPointers, VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-                debugCreateInfo = debugMessengerCreateInfo();
-                createInfo.pNext = &debugCreateInfo;
+            VkDebugUtilsMessengerCreateInfoEXT debug_create_info{};
+            if (contains(instance_extension_pointers, VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+                debug_create_info = debug_messenger_create_info();
+                create_info.pNext = &debug_create_info;
             }
 #endif
 
             VkInstance instance{};
-            VKZ_CHECK_VULKAN(vkCreateInstance(&createInfo, nullptr, &instance));
+            VKZ_CHECK_VULKAN(vkCreateInstance(&create_info, nullptr, &instance));
             return instance;
         }
 
-        VkDebugUtilsMessengerEXT createDebugMessenger(VkInstance instance) const {
+        VkDebugUtilsMessengerEXT create_debug_messenger(VkInstance instance) const {
 #ifdef NDEBUG
             return {};
 #else
-            if (!contains(instanceExtensionPointers, VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+            if (!contains(instance_extension_pointers, VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
                 return {};
             }
 
@@ -320,84 +320,84 @@ namespace vkz {
                 return {};
             }
 
-            const auto createInfo = debugMessengerCreateInfo();
+            const auto create_info = debug_messenger_create_info();
 
             VkDebugUtilsMessengerEXT messenger{};
-            VKZ_CHECK_VULKAN(vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &messenger));
+            VKZ_CHECK_VULKAN(vkCreateDebugUtilsMessengerEXT(instance, &create_info, nullptr, &messenger));
             return messenger;
 #endif
         }
 
-        VkPhysicalDevice pickPhysicalDevice(VkInstance instance) {
-            uint32_t deviceCount{};
-            VKZ_CHECK_VULKAN(vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr));
+        VkPhysicalDevice pick_physical_device(VkInstance instance) {
+            uint32_t device_count{};
+            VKZ_CHECK_VULKAN(vkEnumeratePhysicalDevices(instance, &device_count, nullptr));
 
-            if (deviceCount == 0) {
+            if (device_count == 0) {
                 VKZ_THROW("No Vulkan physical devices are available")
             }
 
-            std::vector<VkPhysicalDevice> devices(deviceCount);
-            VKZ_CHECK_VULKAN(vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data()));
+            std::vector<VkPhysicalDevice> devices(device_count);
+            VKZ_CHECK_VULKAN(vkEnumeratePhysicalDevices(instance, &device_count, devices.data()));
 
-            for (auto physicalDevice : devices) {
-                if (isSuitable(physicalDevice)) {
-                    return physicalDevice;
+            for (auto physical_device : devices) {
+                if (is_suitable(physical_device)) {
+                    return physical_device;
                 }
             }
 
             VKZ_THROW("No suitable Vulkan physical device was found")
         }
 
-        bool isSuitable(VkPhysicalDevice physicalDevice) {
-            if (!supportsDeviceExtensions(physicalDevice, deviceExtensionPointers)) {
+        bool is_suitable(VkPhysicalDevice physical_device) {
+            if (!supports_device_extensions(physical_device, device_extension_pointers)) {
                 return false;
             }
 
-            if (!supportsDeviceLayers(physicalDevice, deviceValidationLayerPointers)) {
+            if (!supports_device_layers(physical_device, device_validation_layer_pointers)) {
                 return false;
             }
 
-            uint32_t queueFamilyCount{};
-            vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
+            uint32_t queue_family_count{};
+            vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, nullptr);
 
-            queueFamilies.resize(queueFamilyCount);
-            vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
+            queue_families.resize(queue_family_count);
+            vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_families.data());
 
-            return selectQueueFamilies(physicalDevice);
+            return select_queue_families(physical_device);
         }
 
-        bool selectQueueFamilies(VkPhysicalDevice physicalDevice) {
-            selectedQueueFamilies.clear();
+        bool select_queue_families(VkPhysicalDevice physical_device) {
+            selected_queue_families.clear();
 
-            for (auto bit : queueBits(uniqueQueueFlags)) {
-                const auto family = findQueueFamily(physicalDevice, bit, surface, true);
-                if (family == invalidQueueFamily()) {
+            for (auto bit : queue_bits(unique_queue_flags)) {
+                const auto family = find_queue_family(physical_device, bit, surface, true);
+                if (family == invalid_queue_family()) {
                     return false;
                 }
 
-                selectedQueueFamilies.insert(family);
+                selected_queue_families.insert(family);
             }
 
-            for (auto bit : queueBits(queueFlags)) {
-                const auto family = findQueueFamily(physicalDevice, bit, surface, false);
-                if (family == invalidQueueFamily()) {
+            for (auto bit : queue_bits(queue_flags)) {
+                const auto family = find_queue_family(physical_device, bit, surface, false);
+                if (family == invalid_queue_family()) {
                     return false;
                 }
 
-                selectedQueueFamilies.insert(family);
+                selected_queue_families.insert(family);
             }
 
             return true;
         }
 
-        uint32_t findQueueFamily(
-                VkPhysicalDevice physicalDevice,
+        uint32_t find_queue_family(
+                VkPhysicalDevice physical_device,
                 VkQueueFlagBits flag,
                 VkSurfaceKHR surface,
                 bool unique) const {
-            for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
-                const auto& family = queueFamilies[i];
-                if (unique && selectedQueueFamilies.contains(i)) {
+            for (uint32_t i = 0; i < queue_families.size(); ++i) {
+                const auto& family = queue_families[i];
+                if (unique && selected_queue_families.contains(i)) {
                     continue;
                 }
 
@@ -406,9 +406,9 @@ namespace vkz {
                 }
 
                 if (surface) {
-                    VkBool32 supportsPresent{};
-                    VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &supportsPresent));
-                    if (!supportsPresent) {
+                    VkBool32 supports_present{};
+                    VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &supports_present));
+                    if (!supports_present) {
                         continue;
                     }
                 }
@@ -416,57 +416,57 @@ namespace vkz {
                 return i;
             }
 
-            return invalidQueueFamily();
+            return invalid_queue_family();
         }
 
-        static constexpr uint32_t invalidQueueFamily() {
+        static constexpr uint32_t invalid_queue_family() {
             return std::numeric_limits<uint32_t>::max();
         }
 
-        VkDevice createDevice(VkPhysicalDevice physicalDevice, void* extensionChain) {
-            queuePriorities.clear();
+        VkDevice create_device(VkPhysicalDevice physical_device, void* extension_chain) {
+            queue_priorities.clear();
 
-            std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-            queueCreateInfos.reserve(selectedQueueFamilies.size());
+            std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+            queue_create_infos.reserve(selected_queue_families.size());
 
-            for (auto familyIndex : selectedQueueFamilies) {
-                const auto queueCount = queueCountForFamily(familyIndex);
+            for (auto family_index : selected_queue_families) {
+                const auto queue_count = queue_count_for_family(family_index);
 
-                auto& priorities = queuePriorities.emplace_back(queueCount, 1.0f);
+                auto& priorities = queue_priorities.emplace_back(queue_count, 1.0f);
 
-                VkDeviceQueueCreateInfo createInfo{};
-                createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-                createInfo.queueFamilyIndex = familyIndex;
-                createInfo.queueCount = queueCount;
-                createInfo.pQueuePriorities = priorities.data();
+                VkDeviceQueueCreateInfo create_info{};
+                create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+                create_info.queueFamilyIndex = family_index;
+                create_info.queueCount = queue_count;
+                create_info.pQueuePriorities = priorities.data();
 
-                queueCreateInfos.push_back(createInfo);
+                queue_create_infos.push_back(create_info);
             }
 
-            VkDeviceCreateInfo createInfo{};
-            createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-            createInfo.pNext = extensionChain;
-            createInfo.queueCreateInfoCount = VKZ_COUNT(queueCreateInfos);
-            createInfo.pQueueCreateInfos = queueCreateInfos.data();
-            createInfo.enabledExtensionCount = VKZ_COUNT(deviceExtensionPointers);
-            createInfo.ppEnabledExtensionNames = deviceExtensionPointers.data();
-            createInfo.enabledLayerCount = VKZ_COUNT(deviceValidationLayerPointers);
-            createInfo.ppEnabledLayerNames = deviceValidationLayerPointers.data();
-            createInfo.pEnabledFeatures = &enabledFeatures;
+            VkDeviceCreateInfo create_info{};
+            create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+            create_info.pNext = extension_chain;
+            create_info.queueCreateInfoCount = VKZ_COUNT(queue_create_infos);
+            create_info.pQueueCreateInfos = queue_create_infos.data();
+            create_info.enabledExtensionCount = VKZ_COUNT(device_extension_pointers);
+            create_info.ppEnabledExtensionNames = device_extension_pointers.data();
+            create_info.enabledLayerCount = VKZ_COUNT(device_validation_layer_pointers);
+            create_info.ppEnabledLayerNames = device_validation_layer_pointers.data();
+            create_info.pEnabledFeatures = &enabled_features;
 
             VkDevice device{};
-            VKZ_CHECK_VULKAN(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device));
+            VKZ_CHECK_VULKAN(vkCreateDevice(physical_device, &create_info, nullptr, &device));
             return device;
         }
 
-        uint32_t queueCountForFamily(uint32_t familyIndex) const {
+        uint32_t queue_count_for_family(uint32_t family_index) const {
             auto count = 1u;
 
-            if (queueFamilies[familyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                count = std::max(count, numGraphicsQueues);
+            if (queue_families[family_index].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                count = std::max(count, num_graphics_queues);
             }
 
-            return std::min(count, queueFamilies[familyIndex].queueCount);
+            return std::min(count, queue_families[family_index].queueCount);
         }
     };
 
@@ -475,12 +475,12 @@ namespace vkz {
     }
 
     context::~context() {
-        destroyContext(*this);
+        destroy_context(*this);
     }
 
     context::context(context&& other) noexcept
         : instance{std::exchange(other.instance, nullptr)}
-        , debugMessenger{std::exchange(other.debugMessenger, nullptr)}
+        , debug_messenger{std::exchange(other.debug_messenger, nullptr)}
         , surface{std::exchange(other.surface, nullptr)}
         , device{std::exchange(other.device, {})} {
     }
@@ -490,10 +490,10 @@ namespace vkz {
             return *this;
         }
 
-        destroyContext(*this);
+        destroy_context(*this);
 
         instance = std::exchange(other.instance, nullptr);
-        debugMessenger = std::exchange(other.debugMessenger, nullptr);
+        debug_messenger = std::exchange(other.debug_messenger, nullptr);
         surface = std::exchange(other.surface, nullptr);
         device = std::exchange(other.device, {});
 
@@ -505,7 +505,7 @@ namespace vkz {
     }
 
     builder::~builder() {
-        Impl::destroyExtensionChain(_extensions);
+        Impl::destroy_extension_chain(_extensions);
         delete pimpl;
     }
 
@@ -519,7 +519,7 @@ namespace vkz {
             return *this;
         }
 
-        Impl::destroyExtensionChain(_extensions);
+        Impl::destroy_extension_chain(_extensions);
         delete pimpl;
         _extensions = std::exchange(other._extensions, nullptr);
         pimpl = std::exchange(other.pimpl, nullptr);
@@ -527,84 +527,84 @@ namespace vkz {
         return *this;
     }
 
-    builder& builder::appName(const std::string& appName) {
-        pimpl->appName = appName;
-        pimpl->applicationInfo.pApplicationName = pimpl->appName.c_str();
+    builder& builder::app_name(const std::string& app_name) {
+        pimpl->app_name = app_name;
+        pimpl->application_info.pApplicationName = pimpl->app_name.c_str();
         return *this;
     }
 
-    builder& builder::appVersion(const std::string& appVersion) {
-        pimpl->applicationInfo.applicationVersion = parseVersion(appVersion);
+    builder& builder::app_version(const std::string& app_version) {
+        pimpl->application_info.applicationVersion = parse_version(app_version);
         return *this;
     }
 
-    builder& builder::engineName(const std::string& engineName) {
-        pimpl->engineName = engineName;
-        pimpl->applicationInfo.pEngineName = pimpl->engineName.c_str();
+    builder& builder::engine_name(const std::string& engine_name) {
+        pimpl->engine_name = engine_name;
+        pimpl->application_info.pEngineName = pimpl->engine_name.c_str();
         return *this;
     }
 
-    builder& builder::engineVersion(const std::string& engineVersion) {
-        pimpl->applicationInfo.engineVersion = parseVersion(engineVersion);
+    builder& builder::engine_version(const std::string& engine_version) {
+        pimpl->application_info.engineVersion = parse_version(engine_version);
         return *this;
     }
 
-    builder& builder::apiVersion(uint apiVersion) {
-        pimpl->applicationInfo.apiVersion = apiVersion;
+    builder& builder::api_version(uint api_version) {
+        pimpl->application_info.apiVersion = api_version;
         return *this;
     }
 
-    builder& builder::addInstanceExtension(const std::string& extension) {
-        pimpl->instanceExtensions.push_back(extension);
-        pimpl->rebuildPointers();
+    builder& builder::add_instance_extension(const std::string& extension) {
+        pimpl->instance_extensions.push_back(extension);
+        pimpl->rebuild_pointers();
         return *this;
     }
 
-    builder& builder::addInstanceLayer(const std::string& layer) {
-        pimpl->instanceValidationLayers.push_back(layer);
-        pimpl->rebuildPointers();
+    builder& builder::add_instance_layer(const std::string& layer) {
+        pimpl->instance_validation_layers.push_back(layer);
+        pimpl->rebuild_pointers();
         return *this;
     }
 
-    builder& builder::addDeviceExtension(const std::string& extension) {
-        pimpl->deviceExtensions.push_back(extension);
-        pimpl->rebuildPointers();
+    builder& builder::add_device_extension(const std::string& extension) {
+        pimpl->device_extensions.push_back(extension);
+        pimpl->rebuild_pointers();
         return *this;
     }
 
-    builder& builder::addDeviceLayer(const std::string& layer) {
-        pimpl->deviceValidationLayers.push_back(layer);
-        pimpl->rebuildPointers();
+    builder& builder::add_device_layer(const std::string& layer) {
+        pimpl->device_validation_layers.push_back(layer);
+        pimpl->rebuild_pointers();
         return *this;
     }
 
-    builder& builder::enabledFeatures(const VkPhysicalDeviceFeatures& features) {
-        pimpl->enabledFeatures = features;
+    builder& builder::enabled_features(const VkPhysicalDeviceFeatures& features) {
+        pimpl->enabled_features = features;
         return *this;
     }
 
     builder& builder::surface(const surface_provider& surface) {
-        pimpl->surfaceProvider = &surface;
+        pimpl->surface_provider = &surface;
         return *this;
     }
 
-    builder& builder::addQueue(VkQueueFlagBits flag) {
-        pimpl->queueFlags |= flag;
+    builder& builder::add_queue(VkQueueFlagBits flag) {
+        pimpl->queue_flags |= flag;
         return *this;
     }
 
-    builder& builder::addUniqueQueue(VkQueueFlagBits flag) {
-        pimpl->uniqueQueueFlags |= flag;
+    builder& builder::add_unique_queue(VkQueueFlagBits flag) {
+        pimpl->unique_queue_flags |= flag;
         return *this;
     }
 
-    builder& builder::numGraphicsQueues(uint count) {
-        pimpl->numGraphicsQueues = std::max(1u, count);
+    builder& builder::num_graphics_queues(uint count) {
+        pimpl->num_graphics_queues = std::max(1u, count);
         return *this;
     }
 
     context builder::build() {
-        pimpl->rebuildPointers();
+        pimpl->rebuild_pointers();
         return pimpl->build(_extensions);
     }
 }
