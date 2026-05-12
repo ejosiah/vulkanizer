@@ -48,6 +48,7 @@ namespace {
         cone,
         cylinder,
         torus,
+        teapot,
         implicit,
     };
 
@@ -65,6 +66,7 @@ namespace {
         "Cone",
         "Cylinder",
         "Torus",
+        "Teapot",
         "Implicit",
     };
 
@@ -124,6 +126,10 @@ namespace {
                 return vkz::prim::cylinder(48, 96, 1.0f, 2.2f, color, TRIANGLES);
             case primitive_choice::torus:
                 return vkz::prim::torus(48, 96, 0.65f, 0.32f, glm::mat4{1}, color, TRIANGLES);
+            case primitive_choice::teapot: {
+                const auto xform = glm::scale(glm::mat4{1}, glm::vec3{0.55f});
+                return vkz::prim::teapot(16, xform, glm::mat4{1}, color);
+            }
             case primitive_choice::implicit:
                 return vkz::prim::implicit(
                     96,

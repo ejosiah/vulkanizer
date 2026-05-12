@@ -49,7 +49,7 @@ namespace vkz::prim {
     primitive cube(const glm::vec4& color = GRAY);
 
     [[maybe_unused]]
-    primitive teapot(glm::mat4 xform = glm::mat4{1}, glm::mat4 lidXform = glm::mat4{1}, const glm::vec4& color = GRAY);
+    primitive teapot(int resolution = 12, glm::mat4 xform = glm::mat4{1}, glm::mat4 lidXform = glm::mat4{1}, const glm::vec4& color = GRAY);
 
     /**
      * Generates mesh for a sphere

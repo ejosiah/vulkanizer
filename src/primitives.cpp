@@ -1,8 +1,11 @@
 #include "vulkanizer/primitives.hpp"
+#include "vulkanizer/detail/teapot.hpp"
 
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
+
+#include <algorithm>
 
 namespace vkz::prim {
     static constexpr auto PI = glm::pi<float>();
@@ -60,8 +63,49 @@ namespace vkz::prim {
         return primitive;
     }
 
+    primitive teapot(int resolution, glm::mat4 xform, glm::mat4 lidXform, const glm::vec4 &color) {
+        const int grid = std::max(1, resolution);
+        const int num_vertices = 32 * (grid + 1) * (grid + 1);
+        const int num_indices = grid * grid * 32;
+
+        auto positions = std::vector<glm::vec3>(num_vertices);
+        auto normals = std::vector<glm::vec3>(num_vertices);
+        auto uvs = std::vector<glm::vec2>(num_vertices);
+        auto indices = std::vector<uint32_t>(num_indices * 6);
+
+        teapot::generatePatches(
+            reinterpret_cast<float*>(positions.data()),
+            reinterpret_cast<float*>(normals.data()),
+            reinterpret_cast<float*>(uvs.data()),
+            indices.data(),
+            grid);
+
+        const auto rotMat = glm::mat3(glm::rotate(glm::mat4{1}, glm::radians(-90.0f), glm::vec3{1, 0, 0}));
+        for (int i = 0; i < num_vertices; ++i) {
+            positions[i] = rotMat * positions[i];
+            normals[i] = glm::inverseTranspose(rotMat) * normals[i];
+        }
+
+        teapot::moveLid(grid, reinterpret_cast<float*>(positions.data()), lidXform);
+
+        const auto nXform = glm::inverseTranspose(glm::mat3{xform});
+        for(auto i = 0; i < num_vertices; ++i) {
+            positions[i] = (xform * glm::vec4(positions[i], 1)).xyz();
+            normals[i] = glm::normalize(nXform * normals[i]);
+        }
+
+        primitive rtVal{};
+        rtVal.topology = topology::TRIANGLES;
+        for(auto i = 0; i < num_vertices; ++i) {
+            rtVal.vertices.emplace_back(color, positions[i], normals[i], glm::vec3{1, 0, 0}, glm::vec3{0, 0, 1}, uvs[i]);
+        }
+        rtVal.indices = indices;
+
+        return rtVal;
+    }
+
     primitive sphere(int rows, int columns, float radius, const glm::mat4 &xform, const glm::vec4 &color,
-                                topology topology) {
+                     topology topology) {
         const auto p = columns;
         const auto q = rows;
         const auto r = radius;
