@@ -4,28 +4,28 @@
 #include "builder_forwards.hpp"
 
 namespace vkz {
-    class Builder{
+    class builder_base{
     public:
-        explicit Builder(Device device, Builder* parent = nullptr)
+        explicit builder_base(vkz::device device, builder_base* parent = nullptr)
                 : _parent{ parent }
                 , _device{ device }
         {}
 
-        Builder() = default;
+        builder_base() = default;
 
         [[nodiscard]]
-        virtual Builder* parent() {
+        virtual builder_base* parent() {
             return _parent;
         }
 
 
         [[nodiscard]]
-        Device device() const {
+        vkz::device device() const {
             return _device;
         }
 
     protected:
-        Builder* _parent{};
-        Device _device{};
+        builder_base* _parent{};
+        vkz::device _device{};
     };
 }

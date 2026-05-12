@@ -6,27 +6,27 @@
 
 namespace vkz {
 
-    struct Device {
+    struct device {
         VkPhysicalDevice physical{};
         VkDevice logical{};
     };
 
-    struct ShaderInfo{
+    struct shader_info{
         VkShaderModule module{};
         VkShaderStageFlagBits stage{};
         const char* entry{"main"};
     };
 
-    template<VkObjectType objectType>
-    inline void setName(Device device, const std::string& objectName, void* ptr)  {
+    template<VkObjectType object_type>
+    inline void set_name(vkz::device device, const std::string& object_name, void* ptr)  {
 #ifndef NDEBUG
-        auto objectHandle = (uint64_t)ptr;
-        VkDebugUtilsObjectNameInfoEXT nameInfo{};
-        nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-        nameInfo.pObjectName = objectName.c_str();
-        nameInfo.objectType = objectType;
-        nameInfo.objectHandle = objectHandle;
-        vkSetDebugUtilsObjectNameEXT(device.logical, &nameInfo);
+        auto object_handle = (uint64_t)ptr;
+        VkDebugUtilsObjectNameInfoEXT name_info{};
+        name_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+        name_info.pObjectName = object_name.c_str();
+        name_info.objectType = object_type;
+        name_info.objectHandle = object_handle;
+        vkSetDebugUtilsObjectNameEXT(device.logical, &name_info);
 #endif
     }
 }
