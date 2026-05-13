@@ -51,6 +51,12 @@ namespace vkz::prim {
     [[maybe_unused]]
     primitive teapot(int resolution = 12, glm::mat4 xform = glm::mat4{1}, glm::mat4 lidXform = glm::mat4{1}, const glm::vec4& color = GRAY);
 
+    [[maybe_unused]]
+    primitive teacup(int resolution = 12, glm::mat4 xform = glm::mat4{1}, const glm::vec4& color = GRAY);
+
+    [[maybe_unused]]
+    primitive spoon(int resolution = 12, glm::mat4 xform = glm::mat4{1}, const glm::vec4& color = GRAY);
+
     /**
      * Generates mesh for a sphere
      * @param rows number of rows on the sphere

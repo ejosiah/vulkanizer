@@ -49,6 +49,8 @@ namespace {
         cylinder,
         torus,
         teapot,
+        teacup,
+        spoon,
         implicit,
     };
 
@@ -67,6 +69,8 @@ namespace {
         "Cylinder",
         "Torus",
         "Teapot",
+        "Teacup",
+        "Spoon",
         "Implicit",
     };
 
@@ -146,6 +150,16 @@ namespace {
             case primitive_choice::teapot: {
                 const auto xform = glm::scale(glm::mat4{1}, glm::vec3{0.55f});
                 return vkz::prim::teapot(16, xform, glm::mat4{1}, color);
+            }
+            case primitive_choice::teacup: {
+                auto xform = glm::translate(glm::mat4{1}, glm::vec3{0.0f, -0.45f, 0.0f});
+                xform = glm::scale(xform, glm::vec3{1.5f});
+                return vkz::prim::teacup(16, xform, color);
+            }
+            case primitive_choice::spoon: {
+                auto xform = glm::rotate(glm::mat4{1}, glm::radians(90.0f), glm::vec3{0.0f, 1.0f, 0.0f});
+                xform = glm::scale(xform, glm::vec3{2.2f});
+                return vkz::prim::spoon(16, xform, color);
             }
             case primitive_choice::implicit:
                 return vkz::prim::implicit(

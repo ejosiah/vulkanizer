@@ -1,5 +1,6 @@
 #include "vulkanizer/primitives.hpp"
 #include "vulkanizer/detail/teapot.hpp"
+#include "vulkanizer/detail/teasetdata.hpp"
 
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -9,6 +10,59 @@
 
 namespace vkz::prim {
     static constexpr auto PI = glm::pi<float>();
+
+    primitive make_patch_primitive(
+            int resolution,
+            int num_vertices,
+            std::vector<uint32_t> indices,
+            std::vector<glm::vec3> positions,
+            std::vector<glm::vec3> normals,
+            const std::vector<glm::vec2>& uvs,
+            const glm::mat4& xform,
+            const glm::vec4& color) {
+        const auto nXform = glm::inverseTranspose(glm::mat3{xform});
+        primitive rtVal{};
+        rtVal.topology = topology::TRIANGLES;
+
+        for (auto i = 0; i < num_vertices; ++i) {
+            positions[i] = (xform * glm::vec4(positions[i], 1)).xyz();
+            normals[i] = glm::normalize(nXform * normals[i]);
+            rtVal.vertices.emplace_back(color, positions[i], normals[i], glm::vec3{1, 0, 0}, glm::vec3{0, 0, 1}, uvs[i]);
+        }
+
+        rtVal.indices = std::move(indices);
+        return rtVal;
+    }
+
+    template<std::size_t PatchCount>
+    primitive indexed_patch_primitive(
+            int resolution,
+            const int (&patches)[PatchCount][16],
+            const float controls[][3],
+            const glm::mat4& xform,
+            const glm::vec4& color,
+            bool invertNormal) {
+        const int grid = std::max(1, resolution);
+        const int num_vertices = static_cast<int>(PatchCount) * (grid + 1) * (grid + 1);
+        const int num_indices = static_cast<int>(PatchCount) * grid * grid;
+
+        auto positions = std::vector<glm::vec3>(num_vertices);
+        auto normals = std::vector<glm::vec3>(num_vertices);
+        auto uvs = std::vector<glm::vec2>(num_vertices);
+        auto indices = std::vector<uint32_t>(num_indices * 6);
+
+        teapot::generatePatches(
+            reinterpret_cast<float*>(positions.data()),
+            reinterpret_cast<float*>(normals.data()),
+            reinterpret_cast<float*>(uvs.data()),
+            indices.data(),
+            grid,
+            patches,
+            controls,
+            invertNormal);
+
+        return make_patch_primitive(resolution, num_vertices, std::move(indices), std::move(positions), std::move(normals), uvs, xform, color);
+    }
     
     primitive cube(const glm::vec4 &color) {
         primitive primitive{};
@@ -88,20 +142,15 @@ namespace vkz::prim {
 
         teapot::moveLid(grid, reinterpret_cast<float*>(positions.data()), lidXform);
 
-        const auto nXform = glm::inverseTranspose(glm::mat3{xform});
-        for(auto i = 0; i < num_vertices; ++i) {
-            positions[i] = (xform * glm::vec4(positions[i], 1)).xyz();
-            normals[i] = glm::normalize(nXform * normals[i]);
-        }
+        return make_patch_primitive(resolution, num_vertices, std::move(indices), std::move(positions), std::move(normals), uvs, xform, color);
+    }
 
-        primitive rtVal{};
-        rtVal.topology = topology::TRIANGLES;
-        for(auto i = 0; i < num_vertices; ++i) {
-            rtVal.vertices.emplace_back(color, positions[i], normals[i], glm::vec3{1, 0, 0}, glm::vec3{0, 0, 1}, uvs[i]);
-        }
-        rtVal.indices = indices;
+    primitive teacup(int resolution, glm::mat4 xform, const glm::vec4& color) {
+        return indexed_patch_primitive(resolution, teaset::teacup_patches, teaset::teacup_controls, xform, color, true);
+    }
 
-        return rtVal;
+    primitive spoon(int resolution, glm::mat4 xform, const glm::vec4& color) {
+        return indexed_patch_primitive(resolution, teaset::teaspoon_patches, teaset::teaspoon_controls, xform, color, false);
     }
 
     primitive sphere(int rows, int columns, float radius, const glm::mat4 &xform, const glm::vec4 &color,

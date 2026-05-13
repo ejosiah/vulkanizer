@@ -5,6 +5,8 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include "teapotdata.hpp"
 
+#include <cstddef>
+
 namespace vkz::teapot {
 
     glm::vec3 evaluate(int gridU, int gridV, float *B, glm::vec3 patch[][4])
@@ -155,6 +157,24 @@ namespace vkz::teapot {
         }
     }
 
+    template<std::size_t PatchCount>
+    void getPatch(
+            const int (&patches)[PatchCount][16],
+            const float controls[][3],
+            int patchNum,
+            glm::vec3 patch[][4])
+    {
+        for (int u = 0; u < 4; u++) {
+            for (int v = 0; v < 4; v++) {
+                const auto controlIndex = patches[patchNum][v * 4 + u];
+                patch[u][v] = glm::vec3(
+                    controls[controlIndex][0],
+                    controls[controlIndex][1],
+                    controls[controlIndex][2]);
+            }
+        }
+    }
+
 
     void computeBasisFunctions(float * B, float * dB, int grid) {
         float inc = 1.0f / grid;
@@ -204,6 +224,33 @@ namespace vkz::teapot {
         // The spout
         buildPatchReflect(8, B, dB, v, n, tc, el, idx, elIndex, tcIndex, grid, false, true);
         buildPatchReflect(9, B, dB, v, n, tc, el, idx, elIndex, tcIndex, grid, false, true);
+
+        delete[] B;
+        delete[] dB;
+    }
+
+    template<std::size_t PatchCount>
+    inline void generatePatches(
+            float *v,
+            float *n,
+            float *tc,
+            unsigned int* el,
+            int grid,
+            const int (&patches)[PatchCount][16],
+            const float controls[][3],
+            bool invertNormal = false) {
+        float * B = new float[4 * (grid + 1)];
+        float * dB = new float[4 * (grid + 1)];
+
+        int idx = 0, elIndex = 0, tcIndex = 0;
+
+        computeBasisFunctions(B, dB, grid);
+
+        for (int patchNum = 0; patchNum < static_cast<int>(PatchCount); ++patchNum) {
+            glm::vec3 patch[4][4];
+            getPatch(patches, controls, patchNum, patch);
+            buildPatch(patch, B, dB, v, n, tc, el, idx, elIndex, tcIndex, grid, glm::mat3(1.0f), invertNormal);
+        }
 
         delete[] B;
         delete[] dB;
