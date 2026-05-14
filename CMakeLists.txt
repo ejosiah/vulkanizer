@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.26)
-project(vulkanizer)
+project(vulkanizer VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 20)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -69,7 +69,7 @@ configure_package_config_file(
 
 write_basic_package_version_file(
         ${CMAKE_CURRENT_BINARY_DIR}/vulkanizer-config-version.cmake
-        VERSION 0.1.0
+        VERSION ${PROJECT_VERSION}
         COMPATIBILITY SameMajorVersion)
 
 install(FILES
