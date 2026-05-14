@@ -8,7 +8,7 @@ namespace vkz {
 
     class swapchain {
     public:
-        class Builder;
+        class builder_base;
 
         ~swapchain();
 
@@ -20,11 +20,11 @@ namespace vkz {
 
         swapchain& operator=(swapchain&& other) = delete;
 
-        static Builder builder(const context& context);
+        static builder_base builder(const context& context);
 
-        [[nodiscard]] uint32_t imageCount() const;
+        [[nodiscard]] uint32_t image_count() const;
 
-        VkImage getImage(uint32_t index);
+        VkImage get_image(uint32_t index);
 
         [[nodiscard]] VkFormat format() const;
 
@@ -37,7 +37,7 @@ namespace vkz {
         operator VkSwapchainKHR() const;
 
     private:
-        friend class Builder;
+        friend class builder_base;
 
         swapchain(const context& context, VkSwapchainKHR swapchain, std::vector<VkImage> images, VkExtent2D extent, VkFormat format);
 
@@ -49,29 +49,29 @@ namespace vkz {
         uint32_t height_{};
     };
 
-    class swapchain::Builder {
+    class swapchain::builder_base {
     public:
-        explicit Builder(const context& context);
+        explicit builder_base(const context& context);
 
-        [[maybe_unused]] Builder& setMinImageCount(uint32_t value);
+        [[maybe_unused]] builder_base& set_min_image_count(uint32_t value);
 
-        [[maybe_unused]] Builder& setImageFormat(VkFormat format, VkColorSpaceKHR colorSpace);
+        [[maybe_unused]] builder_base& set_image_format(VkFormat format, VkColorSpaceKHR colorSpace);
 
-        [[maybe_unused]] Builder& setImageUsage(VkImageUsageFlags usage);
+        [[maybe_unused]] builder_base& set_image_usage(VkImageUsageFlags usage);
 
-        [[maybe_unused]] Builder& setExtent(uint32_t width, uint32_t height);
+        [[maybe_unused]] builder_base& set_extent(uint32_t width, uint32_t height);
 
-        [[maybe_unused]] Builder& setPreTransform(VkSurfaceTransformFlagBitsKHR transform);
+        [[maybe_unused]] builder_base& set_pre_transform(VkSurfaceTransformFlagBitsKHR transform);
 
-        [[maybe_unused]] Builder& setCompositeAlpha(VkCompositeAlphaFlagBitsKHR compositeAlpha);
+        [[maybe_unused]] builder_base& set_composite_alpha(VkCompositeAlphaFlagBitsKHR compositeAlpha);
 
-        [[maybe_unused]] Builder& setPresentMode(VkPresentModeKHR mode);
+        [[maybe_unused]] builder_base& set_present_mode(VkPresentModeKHR mode);
 
         swapchain build();
 
     private:
         const context& context_;
-        VkSwapchainCreateInfoKHR createInfo_{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+        VkSwapchainCreateInfoKHR create_info_{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
         VkFormat format_{};
         VkExtent2D extent_{};
     };

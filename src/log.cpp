@@ -1,5 +1,7 @@
 #include "vulkanizer/log.hpp"
 
+#include <stdexcept>
+
 namespace vkz {
     namespace {
         LogFn g_logger = nullptr;
@@ -12,7 +14,9 @@ namespace vkz {
     void log(LogLevel level, std::string_view message) {
         if (g_logger) {
             g_logger(level, message);
+            return;
         }
-        // else: intentionally silent (library must never decide policy)
+
+        throw std::runtime_error{"vkz logger is not installed"};
     }
 }

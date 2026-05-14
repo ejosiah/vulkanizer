@@ -1,14 +1,14 @@
 #pragma once
 
-#include "GraphicsPipelineBuilder.hpp"
-#include "ComputePipelineBuilder.hpp"
-#include "DescriptorSetBuilder.hpp"
+#include "graphics_pipeline_builder.hpp"
+#include "compute_pipeline_builder.hpp"
+#include "descriptor_set_builder.hpp"
 
 namespace vkz {
 
-    GraphicsPipelineBuilder graphics_pipeline_builder(Device device);
+    graphics_pipeline_builder make_graphics_pipeline_builder(vkz::device device);
 
-    ComputePipelineBuilder compute_pipeline_builder(Device device);
+    compute_pipeline_builder make_compute_pipeline_builder(vkz::device device);
 
-    DescriptorSetLayoutBuilder descriptorset_layout_builder(Device device);
+    descriptor_set_layout_builder make_descriptor_set_layout_builder(vkz::device device);
 }

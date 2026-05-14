@@ -5,74 +5,74 @@
 
 namespace vkz::barrier {
 
-    static std::vector<VkImageMemoryBarrier2> imageMemoryBarriers;
-    static std::vector<VkBufferMemoryBarrier2> bufferMemoryBarriers;
-    static std::vector<VkMemoryBarrier2> memoryBarriers;
-    static VkDependencyInfo dependencyInfo;
+    static std::vector<VkImageMemoryBarrier2> image_memory_barriers;
+    static std::vector<VkBufferMemoryBarrier2> buffer_memory_barriers;
+    static std::vector<VkMemoryBarrier2> memory_barriers;
+    static VkDependencyInfo dependency_info;
 
-    void gpuToCpu(VkCommandBuffer commandBuffer);
+    void gpu_to_cpu(VkCommandBuffer command_buffer);
 
-    void fragmentReadToComputeWrite(VkCommandBuffer commandBuffer);
+    void fragment_read_to_compute_write(VkCommandBuffer command_buffer);
 
-    void fragmentWriteToFragmentRead(VkCommandBuffer commandBuffer);
+    void fragment_write_to_fragment_read(VkCommandBuffer command_buffer);
 
-    void fragmentReadToFragmentWrite(VkCommandBuffer commandBuffer);
+    void fragment_read_to_fragment_write(VkCommandBuffer command_buffer);
 
-    void computeWriteToFragmentRead(VkCommandBuffer commandBuffer);
+    void compute_write_to_fragment_read(VkCommandBuffer command_buffer);
 
-    void computeWriteToRead(VkCommandBuffer commandBuffer);
+    void compute_write_to_read(VkCommandBuffer command_buffer);
 
-    void computeWriteToHostRead(VkCommandBuffer commandBuffer);
+    void compute_write_to_host_read(VkCommandBuffer command_buffer);
 
-    void computeWriteToTransferRead(VkCommandBuffer commandBuffer);
+    void compute_write_to_transfer_read(VkCommandBuffer command_buffer);
 
-    void computeWriteToDrawIndirect(VkCommandBuffer commandBuffer);
+    void compute_write_to_draw_indirect(VkCommandBuffer command_buffer);
 
-    void transferWriteToComputeRead(VkCommandBuffer commandBuffer);
+    void transfer_write_to_compute_read(VkCommandBuffer command_buffer);
 
-    void transferWriteToComputeWrite(VkCommandBuffer commandBuffer);
+    void transfer_write_to_compute_write(VkCommandBuffer command_buffer);
 
-    void transferWriteToFragmentRead(VkCommandBuffer commandBuffer);
+    void transfer_write_to_fragment_read(VkCommandBuffer command_buffer);
 
-    void accelerationStructureUpdateToRayTraceRead(VkCommandBuffer commandBuffer);
+    void acceleration_structure_update_to_ray_trace_read(VkCommandBuffer command_buffer);
 
-    void accelerationStructureUpdateToRayQueryRead(VkCommandBuffer commandBuffer);
+    void acceleration_structure_update_to_ray_query_read(VkCommandBuffer command_buffer);
 
-    void rayTraceReadToAccelerationStructureUpdate(VkCommandBuffer commandBuffer);
+    void ray_trace_read_to_acceleration_structure_update(VkCommandBuffer command_buffer);
 
-    void rayQueryReadToAccelerationStructureUpdate(VkCommandBuffer commandBuffer);
+    void ray_query_read_to_acceleration_structure_update(VkCommandBuffer command_buffer);
 
-    void rayTraceWriteToComputeRead(VkCommandBuffer commandBuffer);
+    void ray_trace_write_to_compute_read(VkCommandBuffer command_buffer);
 
-    void rayTraceWriteToFragmentRead(VkCommandBuffer commandBuffer);
+    void ray_trace_write_to_fragment_read(VkCommandBuffer command_buffer);
 
 
-    void push(VkImage& image, VkImageSubresourceRange subresourceRange,
-                    VkPipelineStageFlags2 srcStageMask,VkPipelineStageFlags2 dstStageMask,
-                    VkAccessFlags2 srcAccessMask, VkAccessFlags2 dstAccessMask,
-                    VkImageLayout oldLayout, VkImageLayout newLayout);
+    void push(VkImage& image, VkImageSubresourceRange subresource_range,
+                    VkPipelineStageFlags2 src_stage_mask,VkPipelineStageFlags2 dst_stage_mask,
+                    VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask,
+                    VkImageLayout old_layout, VkImageLayout new_layout);
 
-    void pushAndFlush(VkCommandBuffer commandBuffer, VkImage& image, VkImageSubresourceRange subresourceRange,
-                             VkPipelineStageFlags2 srcStageMask,VkPipelineStageFlags2 dstStageMask,
-                             VkAccessFlags2 srcAccessMask, VkAccessFlags2 dstAccessMask,
-                             VkImageLayout oldLayout, VkImageLayout newLayout);
+    void push_and_flush(VkCommandBuffer command_buffer, VkImage& image, VkImageSubresourceRange subresource_range,
+                             VkPipelineStageFlags2 src_stage_mask,VkPipelineStageFlags2 dst_stage_mask,
+                             VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask,
+                             VkImageLayout old_layout, VkImageLayout new_layout);
 
-    void push(VkPipelineStageFlags2 srcStageMask,VkPipelineStageFlags2 dstStageMask,
-                        VkAccessFlags2 srcAccessMask, VkAccessFlags2 dstAccessMask);
+    void push(VkPipelineStageFlags2 src_stage_mask,VkPipelineStageFlags2 dst_stage_mask,
+                        VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask);
 
-    void pushAndFlush(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 srcStageMask,VkPipelineStageFlags2 dstStageMask,
-                        VkAccessFlags2 srcAccessMask, VkAccessFlags2 dstAccessMask);
+    void push_and_flush(VkCommandBuffer command_buffer, VkPipelineStageFlags2 src_stage_mask,VkPipelineStageFlags2 dst_stage_mask,
+                        VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask);
 
-    void release(VkImage& image, VkImageSubresourceRange subresourceRange,
-                        VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
-                        VkImageLayout oldLayout, VkImageLayout newLayout,
-                        uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex);
+    void release(VkImage& image, VkImageSubresourceRange subresource_range,
+                        VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask,
+                        VkImageLayout old_layout, VkImageLayout new_layout,
+                        uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
 
-    void acquire(VkImage& image, VkImageSubresourceRange subresourceRange,
-                        VkImageLayout oldLayout, VkImageLayout newLayout,
-                        uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex);
+    void acquire(VkImage& image, VkImageSubresourceRange subresource_range,
+                        VkImageLayout old_layout, VkImageLayout new_layout,
+                        uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
 
-    void flush(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlag = 0);
+    void flush(VkCommandBuffer command_buffer, VkDependencyFlags dependency_flag = 0);
 
     bool flushed();
 }

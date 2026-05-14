@@ -53,7 +53,7 @@ namespace vkz::spdlog_adapter {
 }
 #endif
 
-#ifdef VKZ_IOSTREAM_ADAPTOR
+#ifdef VKZ_IOSTREAM_ADAPTER
 #include <ostream>
 #include <mutex>
 

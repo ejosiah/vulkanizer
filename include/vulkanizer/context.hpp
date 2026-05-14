@@ -14,7 +14,7 @@ namespace vkz {
     class builder;
 
     template <typename T>
-    concept VulkanStructure =
+    concept vulkan_structure =
         requires(T t) {
             { t.sType } -> std::convertible_to<VkStructureType>;
             { t.pNext } -> std::convertible_to<const void*>;
@@ -34,11 +34,12 @@ namespace vkz {
         context& operator=(context&& other) noexcept;
 
         VkInstance instance{};
-        VkDebugUtilsMessengerEXT debugMessenger{};
+        VkDebugUtilsMessengerEXT debug_messenger{};
         VkSurfaceKHR surface{};
-        Device device{};
+        device device{};
+        uint32_t api_version{VK_API_VERSION_1_3};
 
-        static vkz::builder builder();
+        static builder builder();
     };
 
     class builder {
@@ -55,36 +56,36 @@ namespace vkz {
 
         builder& operator=(builder&& other) noexcept;
 
-        builder& appName(const std::string& appName);
+        builder& app_name(const std::string& app_name);
 
-        builder& appVersion(const std::string& appVersion);
+        builder& app_version(const std::string& app_version);
 
-        builder& engineName(const std::string& engineName);
+        builder& engine_name(const std::string& engine_name);
 
-        builder& engineVersion(const std::string& engineVersion);
+        builder& engine_version(const std::string& engine_version);
 
-        builder& apiVersion(uint apiVersion);
+        builder& api_version(uint api_version);
 
-        builder& addInstanceExtension(const std::string& extension);
+        builder& add_instance_extension(const std::string& extension);
 
-        builder& addInstanceLayer(const std::string& layer);
+        builder& add_instance_layer(const std::string& layer);
 
-        builder& addDeviceExtension(const std::string& extension);
+        builder& add_device_extension(const std::string& extension);
 
-        builder& addDeviceLayer(const std::string& layer);
+        builder& add_device_layer(const std::string& layer);
 
-        builder& enabledFeatures(const VkPhysicalDeviceFeatures& features);
+        builder& enabled_features(const VkPhysicalDeviceFeatures& features);
 
         builder& surface(const surface_provider& surface);
 
-        builder& addQueue(VkQueueFlagBits flag);
+        builder& add_queue(VkQueueFlagBits flag);
 
-        builder& addUniqueQueue(VkQueueFlagBits flag);
+        builder& add_unique_queue(VkQueueFlagBits flag);
 
-        builder& numGraphicsQueues(uint count);
+        builder& num_graphics_queues(uint count);
 
-        template <VulkanStructure T>
-        builder& addExtension(const T& extension) {
+        template <vulkan_structure T>
+        builder& add_extension(const T& extension) {
             static_assert(std::is_trivially_copyable_v<T>);
             auto* next = static_cast<T*>(::operator new(sizeof(T)));
             std::memcpy(next, &extension, sizeof(T));

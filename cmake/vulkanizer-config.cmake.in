@@ -1,0 +1,11 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(volk)
+find_dependency(glfw3)
+find_dependency(imgui)
+find_dependency(glm)
+find_dependency(VulkanMemoryAllocator)
+
+include("${CMAKE_CURRENT_LIST_DIR}/vulkanizer-targets.cmake")

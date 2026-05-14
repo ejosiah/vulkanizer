@@ -8,53 +8,83 @@
 #include <map>
 
 namespace vkz {
+    class buffer_builder;
+    class image_builder;
+    class image_view_builder;
+    class sampler_builder;
+    struct context;
+    struct vma_memory_allocator;
+    struct mapping;
 
-    struct Buffer {
+    struct buffer {
         VkBuffer _{};
-        VkBufferCreateInfo info{};
+        VkBufferCreateInfo create_info{};
         VmaAllocation allocation{};
+        VmaAllocator allocator{};
+
+        [[nodiscard]] mapping map() const;
+
+        static buffer_builder builder(vma_memory_allocator& allocator);
+
+        static buffer build(vma_memory_allocator& allocator);
 
         operator VkBuffer() const {
             return _;
         }
     };
 
-    struct Image {
+    struct image {
         VkImage handle{};
-        VkImageCreateInfo info{};
+        VkImageCreateInfo create_info{};
         VmaAllocation allocation{};
         VkImageLayout layout{VK_IMAGE_LAYOUT_UNDEFINED};
+
+        static image_builder builder(vma_memory_allocator& allocator);
+
+        static image build(vma_memory_allocator& allocator);
 
         operator VkImage() const {
             return handle;
         }
     };
 
-    struct ImageView {
+    struct image_view {
         VkImageView handle{};
-        VkImageViewCreateInfo info{};
+        VkImageViewCreateInfo create_info{};
+
+        static image_view_builder builder(VkDevice device);
+
+        static image_view build(VkDevice device, VkImage image, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
+
+        static image_view build(VkDevice device, const vkz::image& image);
 
         operator VkImageView() const {
             return handle;
         }
     };
 
-    struct Sampler {
+    struct sampler {
         VkSampler handle{};
-        VkSamplerCreateInfo info{};
+        VkSamplerCreateInfo create_info{};
+
+        static sampler_builder builder(VkDevice device);
+
+        static sampler build(VkDevice device);
 
         operator VkSampler() const {
             return handle;
         }
     };
 
-    struct Texture {
-        Image image;
-        ImageView imageView;
+    struct texture {
+        image image;
+        image_view image_view;
+        sampler sampler;
     };
 
-    struct Mapping {
-        friend class VulkanGraphicsService;
+    struct mapping {
+        friend struct buffer;
+
         void* _{};
 
         template<typename T>
@@ -80,22 +110,182 @@ namespace vkz {
 
     };
 
-    struct VmaMemoryAllocator {
+    struct vma_memory_allocator {
         VkInstance instance{VK_NULL_HANDLE};
-        VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
+        VkPhysicalDevice physical_device{VK_NULL_HANDLE};
         VkDevice device{VK_NULL_HANDLE};
         VmaAllocator allocator{VK_NULL_HANDLE};
 
-        void init();
+        static vma_memory_allocator create(const context& context);
 
         void destroy();
 
-        Buffer allocate(VkBufferCreateInfo createInfo, VmaMemoryUsage usage);
+        buffer allocate(VkBufferCreateInfo create_info, VmaMemoryUsage usage);
 
-        Image allocate(VkImageCreateInfo createInfo, VmaMemoryUsage usage = VMA_MEMORY_USAGE_GPU_ONLY);
+        image allocate(VkImageCreateInfo create_info, VmaMemoryUsage usage = VMA_MEMORY_USAGE_GPU_ONLY);
 
-        void deallocate(Buffer buffer);
+        buffer_builder make_buffer_builder();
 
-        void deallocate(Image image);
+        image_builder make_image_builder();
+
+        void deallocate(buffer buffer);
+
+        void deallocate(image image);
+    };
+
+    class buffer_builder {
+    public:
+        explicit buffer_builder(vma_memory_allocator& allocator);
+
+        buffer_builder& flags(VkBufferCreateFlags value);
+
+        buffer_builder& size(VkDeviceSize value);
+
+        buffer_builder& usage(VkBufferUsageFlags value);
+
+        buffer_builder& sharing_mode(VkSharingMode value);
+
+        buffer_builder& queue_families(const uint32_t* indices, uint32_t count);
+
+        buffer_builder& memory_usage(VmaMemoryUsage value);
+
+        buffer_builder& next(const void* value);
+
+        [[nodiscard]] const VkBufferCreateInfo& create_info() const;
+
+        buffer build() const;
+
+    private:
+        vma_memory_allocator* allocator_{};
+        VkBufferCreateInfo create_info_{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        VmaMemoryUsage memory_usage_{VMA_MEMORY_USAGE_AUTO};
+    };
+
+    class image_builder {
+    public:
+        explicit image_builder(vma_memory_allocator& allocator);
+
+        image_builder& flags(VkImageCreateFlags value);
+
+        image_builder& type(VkImageType value);
+
+        image_builder& format(VkFormat value);
+
+        image_builder& extent(VkExtent3D value);
+
+        image_builder& extent(uint32_t width, uint32_t height, uint32_t depth = 1);
+
+        image_builder& mip_levels(uint32_t value);
+
+        image_builder& array_layers(uint32_t value);
+
+        image_builder& samples(VkSampleCountFlagBits value);
+
+        image_builder& tiling(VkImageTiling value);
+
+        image_builder& usage(VkImageUsageFlags value);
+
+        image_builder& sharing_mode(VkSharingMode value);
+
+        image_builder& queue_families(const uint32_t* indices, uint32_t count);
+
+        image_builder& initial_layout(VkImageLayout value);
+
+        image_builder& memory_usage(VmaMemoryUsage value);
+
+        image_builder& next(const void* value);
+
+        [[nodiscard]] const VkImageCreateInfo& create_info() const;
+
+        image build() const;
+
+    private:
+        vma_memory_allocator* allocator_{};
+        VkImageCreateInfo create_info_{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+        VmaMemoryUsage memory_usage_{VMA_MEMORY_USAGE_GPU_ONLY};
+    };
+
+    class image_view_builder {
+    public:
+        explicit image_view_builder(VkDevice device);
+
+        image_view_builder& flags(VkImageViewCreateFlags value);
+
+        image_view_builder& image(VkImage value);
+
+        image_view_builder& image(const vkz::image& value);
+
+        image_view_builder& view_type(VkImageViewType value);
+
+        image_view_builder& format(VkFormat value);
+
+        image_view_builder& components(VkComponentMapping value);
+
+        image_view_builder& subresource_range(VkImageSubresourceRange value);
+
+        image_view_builder& aspect_mask(VkImageAspectFlags value);
+
+        image_view_builder& base_mip_level(uint32_t value);
+
+        image_view_builder& level_count(uint32_t value);
+
+        image_view_builder& base_array_layer(uint32_t value);
+
+        image_view_builder& layer_count(uint32_t value);
+
+        image_view_builder& next(const void* value);
+
+        [[nodiscard]] const VkImageViewCreateInfo& create_info() const;
+
+        image_view build() const;
+
+    private:
+        VkDevice device_{VK_NULL_HANDLE};
+        VkImageViewCreateInfo create_info_{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    };
+
+    class sampler_builder {
+    public:
+        explicit sampler_builder(VkDevice device);
+
+        sampler_builder& flags(VkSamplerCreateFlags value);
+
+        sampler_builder& mag_filter(VkFilter value);
+
+        sampler_builder& min_filter(VkFilter value);
+
+        sampler_builder& mipmap_mode(VkSamplerMipmapMode value);
+
+        sampler_builder& address_mode(VkSamplerAddressMode value);
+
+        sampler_builder& address_mode_u(VkSamplerAddressMode value);
+
+        sampler_builder& address_mode_v(VkSamplerAddressMode value);
+
+        sampler_builder& address_mode_w(VkSamplerAddressMode value);
+
+        sampler_builder& mip_lod_bias(float value);
+
+        sampler_builder& anisotropy(bool enabled, float max = 1.0f);
+
+        sampler_builder& compare(bool enabled, VkCompareOp op = VK_COMPARE_OP_ALWAYS);
+
+        sampler_builder& min_lod(float value);
+
+        sampler_builder& max_lod(float value);
+
+        sampler_builder& border_color(VkBorderColor value);
+
+        sampler_builder& unnormalized_coordinates(bool enabled);
+
+        sampler_builder& next(const void* value);
+
+        [[nodiscard]] const VkSamplerCreateInfo& create_info() const;
+
+        sampler build() const;
+
+    private:
+        VkDevice device_{VK_NULL_HANDLE};
+        VkSamplerCreateInfo create_info_{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     };
 }
