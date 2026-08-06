@@ -1,11 +1,11 @@
-#include "vulkan_app.hpp"
+#include <vulkanizer/vulkan_app.hpp>
 
 #include <vulkanizer/log.hpp>
 #include <vulkanizer/status.hpp>
 
 namespace {
     vkz::context create_context(
-            const vkz::test::vulkan_app_create_info& create_info,
+            const vkz::vulkan_app_create_info& create_info,
             const vkz::surface_provider& surface_provider) {
         uint32_t required_extension_count{};
         const char** required_extensions = glfwGetRequiredInstanceExtensions(&required_extension_count);
@@ -52,7 +52,7 @@ namespace {
     }
 }
 
-namespace vkz::test {
+namespace vkz {
 
     glfw_surface_provider::glfw_surface_provider(GLFWwindow* window)
         : window_{window} {
@@ -83,6 +83,7 @@ namespace vkz::test {
     vulkan_app::vulkan_app(const vulkan_app_create_info& create_info)
         : surface_provider_{nullptr} {
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwWindowHint(GLFW_RESIZABLE, create_info.resizable ? GLFW_TRUE : GLFW_FALSE);
         window_.reset(glfwCreateWindow(
             static_cast<int>(create_info.width),
             static_cast<int>(create_info.height),
@@ -282,4 +283,102 @@ namespace vkz::test {
         image_views.clear();
     }
 
+    glfw_input_adaptor::glfw_input_adaptor(GLFWwindow *window) : window_{window} {}
+
+    void glfw_input_adaptor::bind() {
+        glfwSetWindowUserPointer(window_, &input_device_);
+        glfwSetKeyCallback(window_, onKeyPress);
+        glfwSetMouseButtonCallback(window_, onMouseClick);
+        glfwSetCursorPosCallback(window_, onMouseMove);
+        glfwSetScrollCallback(window_, onMouseWheelMove);
+    }
+
+    void glfw_input_adaptor::onKeyPress(GLFWwindow *window, int key, int scancode, int action, int mods) {
+        auto input_source = static_cast<camera::input_device*>(glfwGetWindowUserPointer(window));
+        camera::button* button{};
+
+        if(key == GLFW_KEY_W) {
+            button = &input_source->mappings[camera::mapping::forward];
+        }
+        if(key == GLFW_KEY_S) {
+            button = &input_source->mappings[camera::mapping::back];
+        }
+
+        if(key == GLFW_KEY_A) {
+            button = &input_source->mappings[camera::mapping::left];
+        }
+        if(key == GLFW_KEY_D) {
+            button = &input_source->mappings[camera::mapping::right];
+        }
+        if(key == GLFW_KEY_E) {
+            button = &input_source->mappings[camera::mapping::up];
+        }
+        if(key == GLFW_KEY_Q) {
+            button = &input_source->mappings[camera::mapping::down];
+        }
+
+        if (!button) {
+            return;
+        }
+
+        if(action == GLFW_PRESS) {
+            button->pressed = true;
+            button->held = true;
+        } else if(action == GLFW_REPEAT) {
+            button->held = true;
+            button->pressed = false;
+        } else if (action == GLFW_RELEASE) {
+            button->pressed = button->held = false;
+        }
+    }
+
+    void glfw_input_adaptor::onMouseClick(GLFWwindow *window, int mbutton, int action, int mods) {
+        auto input_source = static_cast<camera::input_device*>(glfwGetWindowUserPointer(window));
+        camera::button* button{};
+
+        if(mbutton == GLFW_MOUSE_BUTTON_LEFT) {
+            button = &input_source->mappings[camera::mapping::mouse_left];
+        }
+        if(mbutton == GLFW_MOUSE_BUTTON_MIDDLE) {
+            button = &input_source->mappings[camera::mapping::mouse_middle];
+        }
+        if(mbutton == GLFW_MOUSE_BUTTON_RIGHT) {
+            button = &input_source->mappings[camera::mapping::mouse_right];
+        }
+
+        if (!button) {
+            return;
+        }
+
+        if(action == GLFW_PRESS) {
+            button->pressed = true;
+            button->held = true;
+        } else if(action == GLFW_REPEAT) {
+            button->held = true;
+            button->pressed = false;
+        } else if (action == GLFW_RELEASE) {
+            button->pressed = button->held = false;
+        }
+
+    }
+
+    void glfw_input_adaptor::onMouseMove(GLFWwindow *window, double x, double y) {
+        auto input_source = static_cast<camera::input_device*>(glfwGetWindowUserPointer(window));
+        input_source->mouse.position.x = static_cast<float>(x);
+        input_source->mouse.position.y = static_cast<float>(y);
+
+        const auto left_mouse_button = input_source->mappings[camera::mapping::mouse_left];
+        static glm::vec2 previous_position{};
+
+        if(left_mouse_button.held) {
+            input_source->mouse.relative_position += previous_position - input_source->mouse.position;
+        }
+        previous_position = input_source->mouse.position;
+    }
+
+    void glfw_input_adaptor::onMouseWheelMove(GLFWwindow *window, double xOffset, double yOffset) {
+        auto input_source = static_cast<camera::input_device*>(glfwGetWindowUserPointer(window));
+        input_source->mouse.scroll_offset.x = static_cast<float>(xOffset);
+        input_source->mouse.scroll_offset.y = static_cast<float>(yOffset);
+    }
 }

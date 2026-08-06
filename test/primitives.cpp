@@ -1,6 +1,6 @@
 #define VKZ_IOSTREAM_ADAPTER
 
-#include "vulkan_app.hpp"
+#include <vulkanizer/vulkan_app.hpp>
 
 #include <vulkanizer/barrier.hpp>
 #include <vulkanizer/graphics_pipeline_builder.hpp>
@@ -223,7 +223,7 @@ namespace {
 int main() {
     vkz::iostream_adapter::install(std::cout);
 
-    vkz::test::vulkan_app app{{window_width, window_height, "vulkanizer primitive test"}};
+    vkz::vulkan_app app{{window_width, window_height, "vulkanizer primitive test"}};
     auto& context = app.context();
     auto* window = app.window();
     const auto queue_family_index = app.queue_family_index();
@@ -231,8 +231,8 @@ int main() {
     auto allocator = vkz::vma_memory_allocator::create(context);
 
     auto swapchain = app.create_swapchain();
-    auto swapchain_image_views = vkz::test::create_swapchain_image_views(context.device.logical, *swapchain);
-    const auto depth_format = vkz::test::pick_depth_format(context.device.physical);
+    auto swapchain_image_views = vkz::create_swapchain_image_views(context.device.logical, *swapchain);
+    const auto depth_format = vkz::pick_depth_format(context.device.physical);
     const auto sample_count = pick_sample_count(context.device.physical);
 
     auto color_image =
@@ -324,10 +324,10 @@ int main() {
             .name("primitive_test")
             .build(pipeline_layout);
 
-    VkCommandPool command_pool = vkz::test::create_command_pool(context.device.logical, queue_family_index);
-    VkSemaphore image_available = vkz::test::create_semaphore(context.device.logical);
-    VkSemaphore render_finished = vkz::test::create_semaphore(context.device.logical);
-    VkFence frame_fence = vkz::test::create_fence(context.device.logical);
+    VkCommandPool command_pool = vkz::create_command_pool(context.device.logical, queue_family_index);
+    VkSemaphore image_available = vkz::create_semaphore(context.device.logical);
+    VkSemaphore render_finished = vkz::create_semaphore(context.device.logical);
+    VkFence frame_fence = vkz::create_fence(context.device.logical);
 
     auto primitive_selection = primitive_choice::cube;
     auto implicit_selection = implicit_choice::paraboloid;
@@ -378,7 +378,7 @@ int main() {
         ImGui::SliderFloat("Distance", &camera_distance, 3.0f, 12.0f);
         ImGui::End();
 
-        auto command_buffer = vkz::test::begin_command_buffer(context.device.logical, command_pool);
+        auto command_buffer = vkz::begin_command_buffer(context.device.logical, command_pool);
         auto image = swapchain->get_image(image_index);
 
         VkImageSubresourceRange color_range{};
@@ -475,7 +475,7 @@ int main() {
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-        vkz::test::submit_and_free(
+        vkz::submit_and_free(
             context.device.logical,
             graphics_queue,
             command_pool,
@@ -508,7 +508,7 @@ int main() {
     vkDestroyImageView(context.device.logical, depth_view.handle, nullptr);
     allocator.deallocate(color_image);
     allocator.deallocate(depth_image);
-    vkz::test::destroy_image_views(context.device.logical, swapchain_image_views);
+    vkz::destroy_image_views(context.device.logical, swapchain_image_views);
     swapchain.reset();
     allocator.destroy();
     return 0;

@@ -3,14 +3,17 @@
 #include <vulkanizer/context.hpp>
 #include <vulkanizer/memory.hpp>
 #include <vulkanizer/swapchain.hpp>
+#include <vulkanizer/camera/controller.hpp>
 
+#ifndef GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_NONE
+#endif
 #include <GLFW/glfw3.h>
 
 #include <memory>
 #include <vector>
 
-namespace vkz::test {
+namespace vkz {
 
     struct vulkan_app_create_info {
         uint32_t width{};
@@ -19,6 +22,7 @@ namespace vkz::test {
         bool synchronization2{true};
         bool dynamic_rendering{true};
         bool multiview{};
+        bool resizable{true};
     };
 
     class glfw_surface_provider final : public surface_provider {
@@ -44,6 +48,24 @@ namespace vkz::test {
         void operator()(GLFWwindow* window) const;
     };
 
+    struct glfw_input_adaptor : public camera::input_adaptor {
+
+        explicit glfw_input_adaptor(GLFWwindow* window);
+
+        void bind() override;
+
+    private:
+        static void onMouseClick(GLFWwindow* window, int button, int action, int mods);
+
+        static void onMouseMove(GLFWwindow* window, double x, double y);
+
+        static void onKeyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+        static void onMouseWheelMove(GLFWwindow* window, double xOffset, double yOffset);
+
+        GLFWwindow* window_{};
+    };
+
     class vulkan_app {
     public:
         explicit vulkan_app(const vulkan_app_create_info& create_info);
@@ -64,8 +86,8 @@ namespace vkz::test {
         void poll_events() const;
         void wait_for_drawable_window() const;
 
-        std::unique_ptr<vkz::swapchain> create_swapchain(
-            VkImageUsageFlags image_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) const;
+        [[nodiscard]]
+        std::unique_ptr<vkz::swapchain> create_swapchain(VkImageUsageFlags image_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) const;
 
     private:
         glfw_runtime runtime_;

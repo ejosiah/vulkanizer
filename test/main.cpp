@@ -1,6 +1,6 @@
 #define VKZ_IOSTREAM_ADAPTER
 
-#include "vulkan_app.hpp"
+#include <vulkanizer/vulkan_app.hpp>
 
 #include <vulkanizer/barrier.hpp>
 #include <vulkanizer/imgui.hpp>
@@ -20,7 +20,7 @@ namespace {
 int main() {
     vkz::iostream_adapter::install(std::cout);
 
-    vkz::test::vulkan_app app{{window_width, window_height, "vulkanizer context test"}};
+    vkz::vulkan_app app{{window_width, window_height, "vulkanizer context test"}};
     auto& context = app.context();
     const auto queue_family_index = app.queue_family_index();
     const auto graphics_queue = app.graphics_queue();
@@ -28,7 +28,7 @@ int main() {
 
     {
     auto swapchain = app.create_swapchain();
-    auto image_views = vkz::test::create_swapchain_image_views(context.device.logical, *swapchain);
+    auto image_views = vkz::create_swapchain_image_views(context.device.logical, *swapchain);
 
     vkz::imgui::init({
             .window = window,
@@ -41,10 +41,10 @@ int main() {
             .color_attachment_format = swapchain->format(),
     });
 
-    VkCommandPool command_pool = vkz::test::create_command_pool(context.device.logical, queue_family_index);
-    VkSemaphore image_available = vkz::test::create_semaphore(context.device.logical);
-    VkSemaphore render_finished = vkz::test::create_semaphore(context.device.logical);
-    VkFence frame_fence = vkz::test::create_fence(context.device.logical);
+    VkCommandPool command_pool = vkz::create_command_pool(context.device.logical, queue_family_index);
+    VkSemaphore image_available = vkz::create_semaphore(context.device.logical);
+    VkSemaphore render_finished = vkz::create_semaphore(context.device.logical);
+    VkFence frame_fence = vkz::create_fence(context.device.logical);
 
     auto recreate_swapchain = [&] {
         vkDeviceWaitIdle(context.device.logical);
@@ -53,10 +53,10 @@ int main() {
             return;
         }
 
-        vkz::test::destroy_image_views(context.device.logical, image_views);
+        vkz::destroy_image_views(context.device.logical, image_views);
         swapchain.reset();
         swapchain = app.create_swapchain();
-        image_views = vkz::test::create_swapchain_image_views(context.device.logical, *swapchain);
+        image_views = vkz::create_swapchain_image_views(context.device.logical, *swapchain);
     };
 
     bool show_demo_window = true;
@@ -129,7 +129,7 @@ int main() {
             ImGui::End();
         }
 
-        auto command_buffer = vkz::test::begin_command_buffer(context.device.logical, command_pool);
+        auto command_buffer = vkz::begin_command_buffer(context.device.logical, command_pool);
         auto image = swapchain->get_image(image_index);
         VkImageSubresourceRange range{};
         range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -170,7 +170,7 @@ int main() {
                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-        vkz::test::submit_and_free(context.device.logical, graphics_queue, command_pool, command_buffer, image_available, render_finished,
+        vkz::submit_and_free(context.device.logical, graphics_queue, command_pool, command_buffer, image_available, render_finished,
                       frame_fence);
 
         VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
@@ -193,7 +193,7 @@ int main() {
 
     vkz::imgui::destroy();
 
-    vkz::test::destroy_image_views(context.device.logical, image_views);
+    vkz::destroy_image_views(context.device.logical, image_views);
     swapchain.reset();
 
     vkDestroyFence(context.device.logical, frame_fence, nullptr);

@@ -1,10 +1,26 @@
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.24)
 project(vulkanizer VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 20)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 option(VULKANIZER_BUILD_TESTS "Build vulkanizer tests" ON)
+
+# CLion may configure its build directory directly instead of using Conan's
+# generated preset. In that case, make CMakeDeps packages discoverable from
+# the Conan output nested beneath the active build directory.
+set(VULKANIZER_CONAN_GENERATORS "${CMAKE_BINARY_DIR}/build/generators")
+if(EXISTS "${VULKANIZER_CONAN_GENERATORS}/volk-config.cmake")
+    list(PREPEND CMAKE_PREFIX_PATH "${VULKANIZER_CONAN_GENERATORS}")
+
+    # This directory contains dependencies installed for Debug only. Limit a
+    # multi-config generator so it does not request nonexistent Release libs.
+    if(CMAKE_CONFIGURATION_TYPES
+            AND EXISTS "${VULKANIZER_CONAN_GENERATORS}/volk-debug-x86_64-data.cmake"
+            AND NOT EXISTS "${VULKANIZER_CONAN_GENERATORS}/volk-release-x86_64-data.cmake")
+        set(CMAKE_CONFIGURATION_TYPES Debug CACHE STRING "Available configurations" FORCE)
+    endif()
+endif()
 
 find_package(volk REQUIRED)
 find_package(glfw3 REQUIRED)
