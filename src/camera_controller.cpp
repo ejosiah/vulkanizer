@@ -1,5 +1,6 @@
 #include "vulkanizer/camera/controller.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace vkz::camera {
@@ -57,10 +58,10 @@ namespace vkz::camera {
                 camera_.currentVelocity[axis] = Scalar(0);
             }
             if (positive_button.held || positive_button.pressed) {
-                direction_[axis] += Scalar(1);
+                direction_[axis] += static_cast<Scalar>(std::max(positive_button.speed, 0.0f));
             }
             if (negative_button.held || negative_button.pressed) {
-                direction_[axis] -= Scalar(1);
+                direction_[axis] -= static_cast<Scalar>(std::max(negative_button.speed, 0.0f));
             }
         };
 

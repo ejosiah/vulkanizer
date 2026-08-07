@@ -230,6 +230,7 @@ int main() {
 
     while (!app.should_close()) {
         app.poll_events();
+        input.process_game_pad_input();
         const auto now = std::chrono::steady_clock::now();
         const float dt = std::chrono::duration<float>(now - previous).count(); previous = now;
         controller->process_input();

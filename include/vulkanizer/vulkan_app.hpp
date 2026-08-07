@@ -12,6 +12,7 @@
 
 #include <memory>
 #include <vector>
+#include <optional>
 
 namespace vkz {
 
@@ -54,7 +55,17 @@ namespace vkz {
 
         void bind() override;
 
+        void process_game_pad_input();
+
     private:
+        void bind_keyboard_and_mouse();
+
+        void bind_game_pad();
+
+        void merge_directional_input();
+
+        static float apply_dead_zone(float value);
+
         static void onMouseClick(GLFWwindow* window, int button, int action, int mods);
 
         static void onMouseMove(GLFWwindow* window, double x, double y);
@@ -64,6 +75,9 @@ namespace vkz {
         static void onMouseWheelMove(GLFWwindow* window, double xOffset, double yOffset);
 
         GLFWwindow* window_{};
+        std::optional<int> game_pad_;
+        camera::input_device keyboard_input_{};
+        camera::input_device game_pad_input_{};
     };
 
     class vulkan_app {

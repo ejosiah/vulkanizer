@@ -8,6 +8,7 @@
 namespace vkz::camera {
 
     struct button {
+        float speed{1.0f};
         bool pressed{};
         bool held{};
     };
