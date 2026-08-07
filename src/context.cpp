@@ -479,15 +479,43 @@ namespace vkz {
         return {};
     }
 
+    context context::create_not_owned(
+            VkInstance instance,
+            vkz::device device,
+            VkSurfaceKHR surface,
+            VkDebugUtilsMessengerEXT debug_messenger,
+            uint32_t api_version) {
+        if (instance && volkGetLoadedInstance() != instance) {
+            VKZ_THROW("Cannot create a non-owning context: the supplied Vulkan instance is not loaded by Volk")
+        }
+        if (device.logical && volkGetLoadedDevice() != device.logical) {
+            VKZ_THROW("Cannot create a non-owning context: the supplied Vulkan device is not loaded by Volk")
+        }
+
+        context result;
+        result.instance = instance;
+        result.debug_messenger = debug_messenger;
+        result.surface = surface;
+        result.device = device;
+        result.api_version = api_version;
+        result.owns_components_ = false;
+
+        return result;
+    }
+
     context::~context() {
-        destroy_context(*this);
+        if (owns_components_) {
+            destroy_context(*this);
+        }
     }
 
     context::context(context&& other) noexcept
         : instance{std::exchange(other.instance, nullptr)}
         , debug_messenger{std::exchange(other.debug_messenger, nullptr)}
         , surface{std::exchange(other.surface, nullptr)}
-        , device{std::exchange(other.device, {})} {
+        , device{std::exchange(other.device, {})}
+        , api_version{std::exchange(other.api_version, VK_API_VERSION_1_3)}
+        , owns_components_{std::exchange(other.owns_components_, false)} {
     }
 
     context& context::operator=(context&& other) noexcept {
@@ -495,12 +523,16 @@ namespace vkz {
             return *this;
         }
 
-        destroy_context(*this);
+        if (owns_components_) {
+            destroy_context(*this);
+        }
 
         instance = std::exchange(other.instance, nullptr);
         debug_messenger = std::exchange(other.debug_messenger, nullptr);
         surface = std::exchange(other.surface, nullptr);
         device = std::exchange(other.device, {});
+        api_version = std::exchange(other.api_version, VK_API_VERSION_1_3);
+        owns_components_ = std::exchange(other.owns_components_, false);
 
         return *this;
     }

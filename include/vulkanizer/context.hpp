@@ -40,6 +40,16 @@ namespace vkz {
         uint32_t api_version{VK_API_VERSION_1_3};
 
         static builder builder();
+
+        static context create_not_owned(
+            VkInstance instance,
+            vkz::device device,
+            VkSurfaceKHR surface = {},
+            VkDebugUtilsMessengerEXT debug_messenger = {},
+            uint32_t api_version = VK_API_VERSION_1_3);
+
+    private:
+        bool owns_components_{true};
     };
 
     class builder {
