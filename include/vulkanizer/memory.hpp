@@ -237,7 +237,7 @@ namespace vkz {
 
         [[nodiscard]] const VkImageViewCreateInfo& create_info() const;
 
-        image_view build() const;
+        [[nodiscard]] image_view build() const;
 
     private:
         VkDevice device_{VK_NULL_HANDLE};
@@ -282,7 +282,7 @@ namespace vkz {
 
         [[nodiscard]] const VkSamplerCreateInfo& create_info() const;
 
-        sampler build() const;
+        [[nodiscard]] sampler build() const;
 
     private:
         VkDevice device_{VK_NULL_HANDLE};

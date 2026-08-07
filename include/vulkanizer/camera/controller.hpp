@@ -7,30 +7,6 @@
 
 namespace vkz::camera {
 
-    template<typename Scalar>
-    class controller_t {
-    public:
-        using camera = camera_t<Scalar>;
-        using movement_ptr = std::unique_ptr<movement_t<Scalar>>;
-
-        controller_t(camera& camera, movement_type movement_type);
-
-        virtual ~controller_t() = default;
-
-        controller_t(const controller_t&) = delete;
-        controller_t& operator=(const controller_t&) = delete;
-        controller_t(controller_t&&) = delete;
-        controller_t& operator=(controller_t&&) = delete;
-
-        virtual  void update(float dt) {};
-
-        virtual void process_input() = 0;
-
-    protected:
-        camera& camera_;
-        movement_ptr movement_;
-    };
-
     struct button {
         bool pressed{};
         bool held{};
@@ -58,17 +34,24 @@ namespace vkz::camera {
     };
 
     template<typename Scalar>
-    class keyboard_and_mouse_controller_t final : public controller_t<Scalar> {
-        using Base = controller_t<Scalar>;
-        using Vec3 = glm::vec<3, Scalar, glm::defaultp>;
-        using camera = typename Base::camera;
-
+    class controller_t {
     public:
-        keyboard_and_mouse_controller_t(camera& camera, movement_type movement_type, input_device& joystick);
+        using camera = camera_t<Scalar>;
+        using movement_ptr = std::unique_ptr<movement_t<Scalar>>;
+        using Vec3 = glm::vec<3, Scalar, glm::defaultp>;
 
-        void process_input() override;
+        controller_t(camera& camera, movement_type movement_type, input_device& device);
 
-        void update(float dt) override;
+        virtual ~controller_t() = default;
+
+        controller_t(const controller_t&) = delete;
+        controller_t& operator=(const controller_t&) = delete;
+        controller_t(controller_t&&) = delete;
+        controller_t& operator=(controller_t&&) = delete;
+
+        void update(float dt);
+
+        void process_input();
 
     private:
         void process_movement_input();
@@ -76,7 +59,9 @@ namespace vkz::camera {
 
         [[nodiscard]] const button& mapped_button(mapping value) const;
 
-        input_device* device_;
+        camera& camera_;
+        movement_ptr movement_;
+        input_device* device_{};
         Vec3 direction_{};
         float zoom_delta{0.1};
     };
@@ -96,6 +81,4 @@ namespace vkz::camera {
 
     using controller = controller_t<float>;
     using dcontroller = controller_t<double>;
-    using joystick_controller = keyboard_and_mouse_controller_t<float>;
-    using djoystick_controller = keyboard_and_mouse_controller_t<double>;
 }

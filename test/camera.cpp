@@ -149,7 +149,7 @@ int main() {
     initializer.look_at(camera.eyes, {0, 0, 0}, {0, 1, 0});
     initializer.perspective(65, float(width) / height, 0.05f, 1000);
     auto movement = vkz::camera::movement_type::spectator;
-    auto controller = std::make_unique<vkz::camera::joystick_controller>(camera, movement, input.get_device());
+    auto controller = std::make_unique<vkz::camera::controller>(camera, movement, input.get_device());
 
     auto swapchain = app.create_swapchain();
     auto swap_views = vkz::create_swapchain_image_views(device, *swapchain);
@@ -240,7 +240,7 @@ int main() {
         int selected = movement == vkz::camera::movement_type::spectator ? 0 : 1;
         if (ImGui::Combo("Movement", &selected, "Spectator\0First person\0")) {
             movement = selected == 0 ? vkz::camera::movement_type::spectator : vkz::camera::movement_type::first_person;
-            controller = std::make_unique<vkz::camera::joystick_controller>(camera, movement, input.get_device());
+            controller = std::make_unique<vkz::camera::controller>(camera, movement, input.get_device());
         }
         ImGui::Text("WASD move, Q/E down/up, hold left mouse to look, wheel zoom");
         ImGui::Text("Position %.2f, %.2f, %.2f", camera.eyes.x, camera.eyes.y, camera.eyes.z);

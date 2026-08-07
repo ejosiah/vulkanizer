@@ -53,15 +53,15 @@ namespace vkz {
     protected:
         shader_builder &add_shader(const shader_source &source, VkShaderStageFlagBits stage);
 
-        bool has_vertex_shader() const;
+        [[nodiscard]] bool has_vertex_shader() const;
 
-        bool has_tess_control_shader() const;
+        [[nodiscard]] bool has_tess_control_shader() const;
 
-        bool has_tess_eval_shader() const;
+        [[nodiscard]] bool has_tess_eval_shader() const;
 
-        bool mesh_shaderSupported() const;
+        [[nodiscard]] bool mesh_shaderSupported() const;
 
-        bool task_shader_supported() const;
+        [[nodiscard]] bool task_shader_supported() const;
 
     private:
         std::vector<VkPipelineShaderStageCreateInfo> _vk_stages;

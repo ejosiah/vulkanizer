@@ -91,7 +91,7 @@ vkz::glfw_input_adaptor input(app.window());
 input.bind();
 
 vkz::camera::camera camera;
-vkz::camera::joystick_controller controller{
+vkz::camera::controller controller{
     camera,
     vkz::camera::movement_type::spectator,
     input.get_device(),

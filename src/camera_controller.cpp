@@ -5,8 +5,8 @@
 namespace vkz::camera {
 
     template<typename Scalar>
-    controller_t<Scalar>::controller_t(camera& camera, movement_type movement_type)
-        : camera_(camera) {
+    controller_t<Scalar>::controller_t(camera& camera, movement_type movement_type, input_device& device)
+        : camera_(camera), device_(&device) {
         switch (movement_type) {
             case movement_type::spectator:
                 movement_ = std::make_unique<spectator_t<Scalar>>(camera_);
@@ -20,21 +20,14 @@ namespace vkz::camera {
     }
 
     template<typename Scalar>
-    keyboard_and_mouse_controller_t<Scalar>::keyboard_and_mouse_controller_t(
-            camera& camera,
-            movement_type movement_type,
-            input_device& joystick)
-        : Base(camera, movement_type), device_(&joystick) {}
-
-    template<typename Scalar>
-    void keyboard_and_mouse_controller_t<Scalar>::process_input() {
+    void controller_t<Scalar>::process_input() {
         process_movement_input();
         process_zoom_input();
     }
 
     template<typename Scalar>
-    void keyboard_and_mouse_controller_t<Scalar>::update(float dt) {
-        this->movement_->update(dt, device_->mouse.relative_position, direction_);
+    void controller_t<Scalar>::update(float dt) {
+        movement_->update(dt, device_->mouse.relative_position, direction_);
         device_->mouse.relative_position = {};
         device_->mouse.scroll_offset = {};
         for (auto& [mapping, button] : device_->mappings) {
@@ -43,14 +36,14 @@ namespace vkz::camera {
     }
 
     template<typename Scalar>
-    const button& keyboard_and_mouse_controller_t<Scalar>::mapped_button(mapping value) const {
+    const button& controller_t<Scalar>::mapped_button(mapping value) const {
         static constexpr button released{};
         const auto entry = device_->mappings.find(value);
         return entry == device_->mappings.end() ? released : entry->second;
     }
 
     template<typename Scalar>
-    void keyboard_and_mouse_controller_t<Scalar>::process_movement_input() {
+    void controller_t<Scalar>::process_movement_input() {
         direction_ = Vec3(0);
 
         const auto process_axis = [this](
@@ -61,7 +54,7 @@ namespace vkz::camera {
             const auto& negative_button = mapped_button(negative);
 
             if (positive_button.pressed || negative_button.pressed) {
-                this->camera_.currentVelocity[axis] = Scalar(0);
+                camera_.currentVelocity[axis] = Scalar(0);
             }
             if (positive_button.held || positive_button.pressed) {
                 direction_[axis] += Scalar(1);
@@ -77,8 +70,8 @@ namespace vkz::camera {
     }
 
     template<typename Scalar>
-    void keyboard_and_mouse_controller_t<Scalar>::process_zoom_input() {
-        if (!this->movement_->handle_zoom()) {
+    void controller_t<Scalar>::process_zoom_input() {
+        if (!movement_->handle_zoom()) {
             return;
         }
 
@@ -92,7 +85,7 @@ namespace vkz::camera {
         }
 
         if (amount != Scalar(0)) {
-            this->movement_->zoom(amount);
+            movement_->zoom(amount);
         }
     }
 
@@ -118,6 +111,4 @@ namespace vkz::camera {
 
     template class controller_t<float>;
     template class controller_t<double>;
-    template class keyboard_and_mouse_controller_t<float>;
-    template class keyboard_and_mouse_controller_t<double>;
 }
