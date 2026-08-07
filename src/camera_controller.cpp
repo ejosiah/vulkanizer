@@ -20,45 +20,45 @@ namespace vkz::camera {
     }
 
     template<typename Scalar>
-    joystick_controller_t<Scalar>::joystick_controller_t(
+    keyboard_and_mouse_controller_t<Scalar>::keyboard_and_mouse_controller_t(
             camera& camera,
             movement_type movement_type,
             input_device& joystick)
-        : Base(camera, movement_type), joystick_(&joystick) {}
+        : Base(camera, movement_type), device_(&joystick) {}
 
     template<typename Scalar>
-    void joystick_controller_t<Scalar>::processInput() {
-        processMovementInput();
-        processZoomInput();
+    void keyboard_and_mouse_controller_t<Scalar>::process_input() {
+        process_movement_input();
+        process_zoom_input();
     }
 
     template<typename Scalar>
-    void joystick_controller_t<Scalar>::update(float dt) {
-        this->movement_->update(dt, joystick_->mouse.relative_position, direction_);
-        joystick_->mouse.relative_position = {};
-        joystick_->mouse.scroll_offset = {};
-        for (auto& [mapping, button] : joystick_->mappings) {
+    void keyboard_and_mouse_controller_t<Scalar>::update(float dt) {
+        this->movement_->update(dt, device_->mouse.relative_position, direction_);
+        device_->mouse.relative_position = {};
+        device_->mouse.scroll_offset = {};
+        for (auto& [mapping, button] : device_->mappings) {
             button.pressed = false;
         }
     }
 
     template<typename Scalar>
-    const button& joystick_controller_t<Scalar>::mappedButton(mapping value) const {
+    const button& keyboard_and_mouse_controller_t<Scalar>::mapped_button(mapping value) const {
         static constexpr button released{};
-        const auto entry = joystick_->mappings.find(value);
-        return entry == joystick_->mappings.end() ? released : entry->second;
+        const auto entry = device_->mappings.find(value);
+        return entry == device_->mappings.end() ? released : entry->second;
     }
 
     template<typename Scalar>
-    void joystick_controller_t<Scalar>::processMovementInput() {
+    void keyboard_and_mouse_controller_t<Scalar>::process_movement_input() {
         direction_ = Vec3(0);
 
         const auto process_axis = [this](
             mapping positive,
             mapping negative,
             int axis) {
-            const auto& positive_button = mappedButton(positive);
-            const auto& negative_button = mappedButton(negative);
+            const auto& positive_button = mapped_button(positive);
+            const auto& negative_button = mapped_button(negative);
 
             if (positive_button.pressed || negative_button.pressed) {
                 this->camera_.currentVelocity[axis] = Scalar(0);
@@ -77,14 +77,14 @@ namespace vkz::camera {
     }
 
     template<typename Scalar>
-    void joystick_controller_t<Scalar>::processZoomInput() {
+    void keyboard_and_mouse_controller_t<Scalar>::process_zoom_input() {
         if (!this->movement_->handle_zoom()) {
             return;
         }
 
         auto amount = Scalar(0);
-        if(joystick_->mouse.scroll_offset.y != 0) {
-            if (joystick_->mouse.scroll_offset.y > 0) {
+        if(device_->mouse.scroll_offset.y != 0) {
+            if (device_->mouse.scroll_offset.y > 0) {
                 amount = -static_cast<Scalar>(zoom_delta);
             } else {
                 amount = static_cast<Scalar>(zoom_delta);
@@ -108,16 +108,16 @@ namespace vkz::camera {
         input_device_.mappings[mapping::mouse_right] = button{};
     }
 
-    input_device& input_adaptor::get_joystick() noexcept {
+    input_device& input_adaptor::get_device() noexcept {
         return input_device_;
     }
 
-    const input_device& input_adaptor::get_joystick() const noexcept {
+    const input_device& input_adaptor::get_device() const noexcept {
         return input_device_;
     }
 
     template class controller_t<float>;
     template class controller_t<double>;
-    template class joystick_controller_t<float>;
-    template class joystick_controller_t<double>;
+    template class keyboard_and_mouse_controller_t<float>;
+    template class keyboard_and_mouse_controller_t<double>;
 }

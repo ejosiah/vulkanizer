@@ -94,11 +94,11 @@ vkz::camera::camera camera;
 vkz::camera::joystick_controller controller{
     camera,
     vkz::camera::movement_type::spectator,
-    input.get_joystick(),
+    input.get_device(),
 };
 
 // Once per frame:
-controller.processInput();
+controller.process_input();
 controller.update(delta_seconds);
 ```
 

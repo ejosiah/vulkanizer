@@ -38,7 +38,7 @@ namespace vkz::camera {
     movement_t<Scalar>::movement_t(movement_t::camera &camera) : camera_(camera) {}
     
     template<typename Scalar>
-    void movement_t<Scalar>::lookAt(const Vec3 &eye, const Vec3 &target, const Vec3 &up) {
+    void movement_t<Scalar>::look_at(const Vec3 &eye, const Vec3 &target, const Vec3 &up) {
         camera_.eyes = eye;
         camera_.target = target;
     
@@ -55,11 +55,11 @@ namespace vkz::camera {
         camera_.accumPitchDegrees = glm::degrees(std::asin(view[1][2]));
     
         camera_.orientation = Quat(view);
-        updateViewMatrix();
+        update_view_matrix();
     }
     
     template<typename Scalar>
-    void movement_t<Scalar>::updateViewMatrix() {
+    void movement_t<Scalar>::update_view_matrix() {
         auto& view = camera_.view;
         view = glm::mat4_cast(camera_.orientation);
     
@@ -75,7 +75,7 @@ namespace vkz::camera {
     }
     
     template<typename Scalar>
-    void movement_t<Scalar>::rotateSmoothly(Scalar headingDegrees, Scalar pitchDegrees, Scalar rollDegrees) {
+    void movement_t<Scalar>::rotate_smoothly(Scalar headingDegrees, Scalar pitchDegrees, Scalar rollDegrees) {
         headingDegrees *= camera_.rotationSpeed;
         pitchDegrees *= camera_.rotationSpeed;
         rollDegrees *= camera_.rotationSpeed;
@@ -84,7 +84,7 @@ namespace vkz::camera {
     }
 
     template<typename Scalar>
-    void movement_t<Scalar>::updateVelocity(const movement_t::Vec3 &direction, Scalar dt) {
+    void movement_t<Scalar>::update_velocity(const movement_t::Vec3 &direction, Scalar dt) {
 
         const auto acceleration = camera_.acceleration;
         const auto velocity = camera_.velocity;
@@ -143,7 +143,7 @@ namespace vkz::camera {
     }
 
     template<typename Scalar>
-    void movement_t<Scalar>::updatePosition(const movement_t::Vec3 &direction, Scalar dt) {
+    void movement_t<Scalar>::update_position(const movement_t::Vec3 &direction, Scalar dt) {
         using namespace glm;
         const auto currentVelocity = camera_.currentVelocity;
         const auto acceleration = camera_.acceleration;
@@ -163,7 +163,7 @@ namespace vkz::camera {
             move(displacement.x, displacement.y, displacement.z);
         }
 
-        updateVelocity(direction, dt);
+        update_velocity(direction, dt);
     }
 
     template<typename Scalar>
@@ -172,14 +172,14 @@ namespace vkz::camera {
         camera_.eyes.y += direction.y * amount.y;
         camera_.eyes.z += direction.z * amount.z;
 
-        updateViewMatrix();
+        update_view_matrix();
     }
 
     template<typename Scalar>
-    void movement_t<Scalar>::updatePosition(const movement_t::Vec3 &newPosition) {
+    void movement_t<Scalar>::update_position(const movement_t::Vec3 &newPosition) {
         camera_.eyes = newPosition;
-        positionChanged();
-        updateViewMatrix();
+        position_changed();
+        update_view_matrix();
     }
 
     template<typename Scalar>
@@ -193,7 +193,7 @@ namespace vkz::camera {
         eyes += WORLD_YAXIS_T<Scalar> * dy;
         eyes += forwards * dz;
 
-        updatePosition(eyes);
+        update_position(eyes);
     }
 
     template<typename Scalar>
@@ -203,8 +203,8 @@ namespace vkz::camera {
     }
 
     template<typename Scalar>
-    void movement_t<Scalar>::undoRoll() {
-        lookAt(camera_.eyes, camera_.eyes + camera_.viewDir, WORLD_YAXIS_T<Scalar>);
+    void movement_t<Scalar>::undo_roll() {
+        look_at(camera_.eyes, camera_.eyes + camera_.viewDir, WORLD_YAXIS_T<Scalar>);
     }
 
     template<typename Scalar>
@@ -261,15 +261,15 @@ namespace vkz::camera {
             rot = glm::angleAxis(glm::radians(pitchDegrees), WORLD_XAXIS_T<Scalar>);
             camera.orientation = rot * camera.orientation;
         }
-        this->updateViewMatrix();
+        this->update_view_matrix();
     }
 
     template<typename Scalar>
     void spectator_t<Scalar>::update(Scalar dt, Base::Vec2 rotation_delta, Base::Vec3 position_delta) {
         const auto dx = -rotation_delta.x;
         const auto dy = -rotation_delta.y;
-        this->rotateSmoothly(dx, dy, Scalar(0));
-        this->updatePosition(position_delta, static_cast<Scalar>(dt));
+        this->rotate_smoothly(dx, dy, Scalar(0));
+        this->update_position(position_delta, static_cast<Scalar>(dt));
     }
     
     template<typename Scalar>
@@ -286,8 +286,8 @@ namespace vkz::camera {
         eyes += camera.xAxis * dx;
         eyes += WORLD_YAXIS_T<Scalar> * dy;
         eyes += forwards * dz;
-    
-        this->updatePosition(eyes);    
+
+        this->update_position(eyes);
     }
 
     template class spectator_t<float>;

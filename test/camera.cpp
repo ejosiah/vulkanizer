@@ -146,10 +146,10 @@ int main() {
     camera.velocity = {8, 8, 8};
     camera.rotationSpeed = 0.15f;
     vkz::camera::spectator initializer(camera);
-    initializer.lookAt(camera.eyes, {0, 0, 0}, {0, 1, 0});
+    initializer.look_at(camera.eyes, {0, 0, 0}, {0, 1, 0});
     initializer.perspective(65, float(width) / height, 0.05f, 1000);
     auto movement = vkz::camera::movement_type::spectator;
-    auto controller = std::make_unique<vkz::camera::joystick_controller>(camera, movement, input.get_joystick());
+    auto controller = std::make_unique<vkz::camera::joystick_controller>(camera, movement, input.get_device());
 
     auto swapchain = app.create_swapchain();
     auto swap_views = vkz::create_swapchain_image_views(device, *swapchain);
@@ -232,7 +232,7 @@ int main() {
         app.poll_events();
         const auto now = std::chrono::steady_clock::now();
         const float dt = std::chrono::duration<float>(now - previous).count(); previous = now;
-        controller->processInput();
+        controller->process_input();
         controller->update(dt);
         uint32_t index{}; VKZ_CHECK_VULKAN(vkAcquireNextImageKHR(device, swapchain->handle(), UINT64_MAX, available, {}, &index));
         vkz::imgui::new_frame();
@@ -240,7 +240,7 @@ int main() {
         int selected = movement == vkz::camera::movement_type::spectator ? 0 : 1;
         if (ImGui::Combo("Movement", &selected, "Spectator\0First person\0")) {
             movement = selected == 0 ? vkz::camera::movement_type::spectator : vkz::camera::movement_type::first_person;
-            controller = std::make_unique<vkz::camera::joystick_controller>(camera, movement, input.get_joystick());
+            controller = std::make_unique<vkz::camera::joystick_controller>(camera, movement, input.get_device());
         }
         ImGui::Text("WASD move, Q/E down/up, hold left mouse to look, wheel zoom");
         ImGui::Text("Position %.2f, %.2f, %.2f", camera.eyes.x, camera.eyes.y, camera.eyes.z);

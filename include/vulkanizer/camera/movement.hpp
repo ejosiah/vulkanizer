@@ -21,9 +21,9 @@ namespace vkz::camera {
 
         virtual ~movement_t() = default;
 
-        virtual void lookAt(const Vec3 &eye, const Vec3 &target, const Vec3 &up);
+        virtual void look_at(const Vec3 &eye, const Vec3 &target, const Vec3 &up);
 
-        virtual void rotateSmoothly(Scalar headingDegrees, Scalar pitchDegrees, Scalar rollDegrees);
+        virtual void rotate_smoothly(Scalar headingDegrees, Scalar pitchDegrees, Scalar rollDegrees);
 
         virtual void rotate(Scalar headingDegrees, Scalar pitchDegrees, Scalar rollDegrees) = 0;
 
@@ -31,13 +31,13 @@ namespace vkz::camera {
 
         virtual void move(const Vec3 &direction, const Vec3 &amount);
         
-        void updatePosition(const Vec3& newPosition);
+        void update_position(const Vec3& newPosition);
         
-        virtual void positionChanged() {};
+        virtual void position_changed() {};
 
-        void updatePosition(const Vec3& direction, Scalar dt);
+        void update_position(const Vec3& direction, Scalar dt);
 
-        void updateVelocity(const Vec3& direction, Scalar dt);
+        void update_velocity(const Vec3& direction, Scalar dt);
 
         virtual void update(Scalar dt, Vec2 rotation_delta, Vec3 position_delta) = 0;
 
@@ -46,7 +46,7 @@ namespace vkz::camera {
             return camera_;
         }
 
-        virtual void undoRoll();
+        virtual void undo_roll();
 
         virtual void zoom(Scalar amount);
 
@@ -57,7 +57,7 @@ namespace vkz::camera {
         [[nodiscard]] virtual bool handle_zoom() const;
 
     protected:
-        virtual void updateViewMatrix();
+        virtual void update_view_matrix();
 
     protected:
         camera& camera_;
