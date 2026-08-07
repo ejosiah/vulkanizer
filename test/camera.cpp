@@ -10,6 +10,7 @@
 #include <vulkanizer/memory.hpp>
 #include <vulkanizer/render.hpp>
 #include <vulkanizer/status.hpp>
+#include <vulkanizer/glfw_input_adaptor.hpp>
 
 #include <imgui.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -145,6 +146,7 @@ int main() {
     camera.acceleration = {18, 18, 18};
     camera.velocity = {8, 8, 8};
     camera.rotationSpeed = 0.15f;
+    camera.horizontal_fov = true;
     vkz::camera::spectator initializer(camera);
     initializer.look_at(camera.eyes, {0, 0, 0}, {0, 1, 0});
     initializer.perspective(65, float(width) / height, 0.05f, 1000);
