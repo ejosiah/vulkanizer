@@ -18,12 +18,12 @@ class VulkanizerConan(ConanFile):
     source_tag = f"v{version}"
 
     def requirements(self):
-        self.requires("volk/1.3.296.0")
-        self.requires("glfw/3.4")
-        self.requires("imgui/1.92.7")
-        self.requires("glm/1.0.1")
-        self.requires("vulkan-memory-allocator/3.3.0")
-        self.requires("glslang/11.7.0")
+        self.requires("volk/1.3.296.0", transitive_headers=True)
+        self.requires("glfw/3.4", transitive_headers=True)
+        self.requires("imgui/1.92.7", transitive_headers=True)
+        self.requires("glm/1.0.1", transitive_headers=True)
+        self.requires("vulkan-memory-allocator/3.3.0", transitive_headers=True)
+        self.requires("glslang/11.7.0", transitive_headers=True)
 
     def source(self):
         git = Git(self)
