@@ -5,8 +5,10 @@ Vulkanizer is a small C++20 helper library for building Vulkan applications. It 
 The library currently provides:
 
 - Vulkan instance, device, surface, queue, and swapchain setup
+- Owning and non-owning Vulkan contexts
 - A reusable GLFW-based `vulkan_app`
-- Spectator and first-person camera controllers with a GLFW input adaptor
+- Spectator and first-person camera controllers
+- A standalone GLFW input adaptor with combined keyboard, mouse, and gamepad input
 - Graphics and compute pipeline builders
 - Dynamic rendering and synchronization helpers
 - Vulkan Memory Allocator-backed buffers and images
@@ -48,7 +50,7 @@ To create the Conan package locally:
 conan create . --build=missing
 ```
 
-This repository currently produces `vulkanizer/1.1.0`.
+This repository currently produces `vulkanizer/2.1.0`.
 
 ## Use from CMake
 
@@ -84,9 +86,11 @@ int main() {
 
 ## Camera input
 
-Create an input adaptor for the application window, bind it, and pass its input device to a camera controller:
+The GLFW input adaptor is provided by its own header. Create it for the application window, bind it, and pass its source-agnostic input device to a camera controller:
 
 ```cpp
+#include <vulkanizer/glfw_input_adaptor.hpp>
+
 vkz::glfw_input_adaptor input(app.window());
 input.bind();
 
@@ -98,9 +102,12 @@ vkz::camera::controller controller{
 };
 
 // Once per frame:
+input.process_game_pad_input();
 controller.process_input();
 controller.update(delta_seconds);
 ```
+
+Keyboard and gamepad state are merged, so either source can remain active without an idle source cancelling it. When multiple sources hold the same direction, the strongest input speed is used.
 
 Default controls are:
 
@@ -111,6 +118,9 @@ Default controls are:
 | `Q` / `E` | Down / up |
 | Left mouse drag | Look around |
 | Mouse wheel | Zoom |
+| D-pad or left stick | Move horizontally |
+| Left / right trigger | Down / up |
+| Right stick | Look around |
 
 Construct the controller with `movement_type::spectator` for free-flight movement or `movement_type::first_person` for movement constrained relative to world up.
 
@@ -118,10 +128,10 @@ Construct the controller with `movement_type::spectator` for free-flight movemen
 
 The executables under `test/` are interactive examples:
 
-- `vulkanizer_context_test` — application, swapchain, and Dear ImGui setup
-- `vulkanizer_primitive_test` — generated primitive rendering
-- `vulkanizer_csm_test` — cascaded shadow mapping
-- `vulkanizer_camera_test` — camera input, movement switching, cubemap skybox, and an infinite checkerboard floor
+- `vulkanizer_context_test` - application, swapchain, and Dear ImGui setup
+- `vulkanizer_primitive_test` - generated primitive rendering
+- `vulkanizer_csm_test` - cascaded shadow mapping
+- `vulkanizer_camera_test` - camera input, movement switching, cubemap skybox, and an infinite checkerboard floor
 
 On a Visual Studio Debug build, the camera example can be run with:
 
