@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(vulkanizer VERSION 2.1.0)
+project(vulkanizer VERSION 2.2.0)
 set(CMAKE_CXX_STANDARD 20)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -27,6 +27,7 @@ find_package(glfw3 REQUIRED)
 find_package(imgui REQUIRED)
 find_package(glm)
 find_package(VulkanMemoryAllocator)
+find_package(glslang REQUIRED)
 
 set(IMGUI_BINDINGS_DIR "")
 foreach(CONFIG_TYPE DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
@@ -58,7 +59,14 @@ add_library(vulkanizer STATIC
         "${IMGUI_BINDINGS_DIR}/imgui_impl_glfw.cpp"
         "${IMGUI_BINDINGS_DIR}/imgui_impl_vulkan.cpp")
 add_library(vulkanizer::vulkanizer ALIAS vulkanizer)
-target_link_libraries(vulkanizer PUBLIC volk::volk glfw glm::glm GPUOpen::VulkanMemoryAllocator imgui::imgui)
+target_link_libraries(vulkanizer PUBLIC
+        volk::volk
+        glfw
+        glm::glm
+        GPUOpen::VulkanMemoryAllocator
+        imgui::imgui
+        glslang::glslang
+        glslang::SPIRV)
 
 target_include_directories(vulkanizer PUBLIC ${INCLUDE_DIRS} ${INSTALL_INCLUDE_DIRS})
 target_include_directories(vulkanizer PRIVATE "${IMGUI_BINDINGS_DIR}")

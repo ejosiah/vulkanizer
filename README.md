@@ -10,6 +10,7 @@ The library currently provides:
 - Spectator and first-person camera controllers
 - A standalone GLFW input adaptor with combined keyboard, mouse, and gamepad input
 - Graphics and compute pipeline builders
+- In-process inline GLSL compilation through glslang
 - Dynamic rendering and synchronization helpers
 - Vulkan Memory Allocator-backed buffers and images
 - Descriptor, primitive, transform, CSM, and Dear ImGui utilities
@@ -50,7 +51,7 @@ To create the Conan package locally:
 conan create . --build=missing
 ```
 
-This repository currently produces `vulkanizer/2.1.0`.
+This repository currently produces `vulkanizer/2.2.0`.
 
 ## Use from CMake
 

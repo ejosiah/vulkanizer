@@ -3,13 +3,17 @@
 #include "vulkanizer/creators.hpp"
 #include "vulkanizer/detail/shader_stage_builder.hpp"
 
+#include <glslang/Public/ShaderLang.h>
+#ifdef ENABLE_OPT
+#undef ENABLE_OPT
+#endif
+#include <glslang/SPIRV/GlslangToSpv.h>
 
-#include <stdexcept>
 #include <algorithm>
-#include <chrono>
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
+#include <array>
+#include <cstddef>
+#include <cstring>
+#include <stdexcept>
 
 namespace vkz {
     namespace {
@@ -18,60 +22,91 @@ namespace vkz {
             return first != std::string::npos && source.compare(first, 8, "#version") == 0;
         }
 
-        const char* glsl_stage_name(VkShaderStageFlagBits stage) {
+        EShLanguage glsl_stage(VkShaderStageFlagBits stage) {
             switch (stage) {
                 case VK_SHADER_STAGE_VERTEX_BIT:
-                    return "vertex";
+                    return EShLangVertex;
                 case VK_SHADER_STAGE_FRAGMENT_BIT:
-                    return "fragment";
+                    return EShLangFragment;
                 case VK_SHADER_STAGE_GEOMETRY_BIT:
-                    return "geometry";
+                    return EShLangGeometry;
                 case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
-                    return "tesscontrol";
+                    return EShLangTessControl;
                 case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
-                    return "tesseval";
+                    return EShLangTessEvaluation;
+                case VK_SHADER_STAGE_COMPUTE_BIT:
+                    return EShLangCompute;
+#ifdef VK_SHADER_STAGE_TASK_BIT_EXT
+                case VK_SHADER_STAGE_TASK_BIT_EXT:
+                    return EShLangTaskNV;
+#endif
+#ifdef VK_SHADER_STAGE_MESH_BIT_EXT
+                case VK_SHADER_STAGE_MESH_BIT_EXT:
+                    return EShLangMeshNV;
+#endif
                 default:
                     throw std::runtime_error{"Inline GLSL shader stage is not supported"};
             }
         }
 
-        std::vector<uint32_t> compile_inline_glsl(const std::string& source, VkShaderStageFlagBits stage) {
-            const auto id = std::chrono::steady_clock::now().time_since_epoch().count();
-            const auto base = std::filesystem::temp_directory_path() / ("vkz-inline-shader-" + std::to_string(id));
-            const auto source_path = base.string() + ".glsl";
-            const auto output_path = base.string() + ".spv";
+        const TBuiltInResource& glsl_resources() {
+            static const auto resources = [] {
+                TBuiltInResource value{};
+                constexpr auto integer_count = offsetof(TBuiltInResource, limits) / sizeof(int);
+                std::array<int, integer_count> integer_limits{};
+                integer_limits.fill(1024);
+                std::memcpy(&value, integer_limits.data(), sizeof(integer_limits));
+                value.minProgramTexelOffset = -8;
+                value.maxProgramTexelOffset = 7;
+                value.maxComputeWorkGroupCountX = 65535;
+                value.maxComputeWorkGroupCountY = 65535;
+                value.maxComputeWorkGroupCountZ = 65535;
+                value.limits = {true, true, true, true, true, true, true, true, true};
+                return value;
+            }();
+            return resources;
+        }
 
-            {
-                std::ofstream file{source_path, std::ios::binary};
-                if (!file) {
-                    throw std::runtime_error{"Failed to write inline GLSL shader source"};
+        struct glslang_process {
+            glslang_process() {
+                if (!glslang::InitializeProcess()) {
+                    throw std::runtime_error{"Failed to initialize glslang"};
                 }
-                file << source;
             }
 
-            const std::string command =
-                "glslc -fshader-stage=" + std::string{glsl_stage_name(stage)} +
-                " \"" + source_path + "\" -o \"" + output_path + "\"";
+            ~glslang_process() {
+                glslang::FinalizeProcess();
+            }
+        };
 
-            if (std::system(command.c_str()) != 0) {
-                std::filesystem::remove(source_path);
-                throw std::runtime_error{"Failed to compile inline GLSL shader with glslc"};
+        std::vector<uint32_t> compile_inline_glsl(const std::string& source, VkShaderStageFlagBits stage) {
+            static const glslang_process process;
+            const auto language = glsl_stage(stage);
+            const char* strings[]{source.c_str()};
+
+            glslang::TShader shader{language};
+            shader.setStrings(strings, 1);
+            shader.setEnvInput(glslang::EShSourceGlsl, language, glslang::EShClientVulkan, 460);
+            shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
+            shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_5);
+
+            constexpr auto messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
+            if (!shader.parse(&glsl_resources(), 460, false, messages)) {
+                throw std::runtime_error{
+                    std::string{"Failed to compile inline GLSL shader:\n"} +
+                    shader.getInfoLog() + shader.getInfoDebugLog()};
             }
 
-            std::ifstream file{output_path, std::ios::binary | std::ios::ate};
-            if (!file) {
-                std::filesystem::remove(source_path);
-                std::filesystem::remove(output_path);
-                throw std::runtime_error{"Failed to read compiled inline GLSL shader"};
+            glslang::TProgram program;
+            program.addShader(&shader);
+            if (!program.link(messages)) {
+                throw std::runtime_error{
+                    std::string{"Failed to link inline GLSL shader:\n"} +
+                    program.getInfoLog() + program.getInfoDebugLog()};
             }
 
-            const auto size = file.tellg();
-            std::vector<uint32_t> spirv(static_cast<size_t>(size) / sizeof(uint32_t));
-            file.seekg(0);
-            file.read(reinterpret_cast<char*>(spirv.data()), size);
-
-            // std::filesystem::remove(source_path);
-            // std::filesystem::remove(output_path);
+            std::vector<uint32_t> spirv;
+            glslang::GlslangToSpv(*program.getIntermediate(language), spirv);
             return spirv;
         }
     }

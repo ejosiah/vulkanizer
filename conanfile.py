@@ -5,7 +5,7 @@ from conan.tools.scm import Git
 
 class VulkanizerConan(ConanFile):
     name = "vulkanizer"
-    version = "2.1.0"
+    version = "2.2.0"
     package_type = "static-library"
 
     license = "MIT"
@@ -23,6 +23,7 @@ class VulkanizerConan(ConanFile):
         self.requires("imgui/1.92.7")
         self.requires("glm/1.0.1")
         self.requires("vulkan-memory-allocator/3.3.0")
+        self.requires("glslang/11.7.0")
 
     def source(self):
         git = Git(self)
