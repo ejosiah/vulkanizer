@@ -7,6 +7,8 @@
 #include <cinttypes>
 #include <map>
 
+#include "vkz.hpp"
+
 namespace vkz {
     class buffer_builder;
     class image_builder;
@@ -28,6 +30,8 @@ namespace vkz {
 
         static buffer build(vma_memory_allocator& allocator);
 
+        void destroy();
+
         operator VkBuffer() const {
             return _;
         }
@@ -37,11 +41,14 @@ namespace vkz {
         VkImage handle{};
         VkImageCreateInfo create_info{};
         VmaAllocation allocation{};
+        VmaAllocator allocator{};
         VkImageLayout layout{VK_IMAGE_LAYOUT_UNDEFINED};
 
         static image_builder builder(vma_memory_allocator& allocator);
 
         static image build(vma_memory_allocator& allocator);
+
+        void destroy();
 
         operator VkImage() const {
             return handle;
@@ -51,12 +58,15 @@ namespace vkz {
     struct image_view {
         VkImageView handle{};
         VkImageViewCreateInfo create_info{};
+        VkDevice device{};
 
         static image_view_builder builder(VkDevice device);
 
         static image_view build(VkDevice device, VkImage image, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
 
         static image_view build(VkDevice device, const vkz::image& image);
+
+        void destroy();
 
         operator VkImageView() const {
             return handle;
@@ -66,10 +76,13 @@ namespace vkz {
     struct sampler {
         VkSampler handle{};
         VkSamplerCreateInfo create_info{};
+        VkDevice device{};
 
         static sampler_builder builder(VkDevice device);
 
         static sampler build(VkDevice device);
+
+        void destroy();
 
         operator VkSampler() const {
             return handle;
@@ -80,6 +93,8 @@ namespace vkz {
         image image;
         image_view image_view;
         sampler sampler;
+
+        void destroy();
     };
 
     struct mapping {
@@ -118,6 +133,8 @@ namespace vkz {
 
         static vma_memory_allocator create(const context& context);
 
+        static vma_memory_allocator create_not_owned(VmaAllocator allocator);
+
         void destroy();
 
         buffer allocate(VkBufferCreateInfo create_info, VmaMemoryUsage usage);
@@ -131,6 +148,9 @@ namespace vkz {
         void deallocate(buffer buffer);
 
         void deallocate(image image);
+
+    private:
+        bool owns_allocator {};
     };
 
     class buffer_builder {
@@ -159,6 +179,9 @@ namespace vkz {
         vma_memory_allocator* allocator_{};
         VkBufferCreateInfo create_info_{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
         VmaMemoryUsage memory_usage_{VMA_MEMORY_USAGE_AUTO};
+        void* data_{};
+        VkDeviceSize data_size_{};
+
     };
 
     class image_builder {
@@ -197,7 +220,7 @@ namespace vkz {
 
         [[nodiscard]] const VkImageCreateInfo& create_info() const;
 
-        image build() const;
+        [[nodiscard]] image build() const;
 
     private:
         vma_memory_allocator* allocator_{};
@@ -208,6 +231,8 @@ namespace vkz {
     class image_view_builder {
     public:
         explicit image_view_builder(VkDevice device);
+
+        explicit image_view_builder(vkz::device device);
 
         image_view_builder& flags(VkImageViewCreateFlags value);
 
@@ -247,6 +272,8 @@ namespace vkz {
     class sampler_builder {
     public:
         explicit sampler_builder(VkDevice device);
+
+        explicit sampler_builder(vkz::device device);
 
         sampler_builder& flags(VkSamplerCreateFlags value);
 

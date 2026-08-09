@@ -21,12 +21,28 @@ namespace vkz {
         return builder(allocator).build();
     }
 
+    void buffer::destroy() {
+        if (_ && allocator) {
+            vmaDestroyBuffer(allocator, _, allocation);
+            _ = VK_NULL_HANDLE;
+            allocation = VK_NULL_HANDLE;
+        }
+    }
+
     image_builder image::builder(vma_memory_allocator& allocator) {
         return image_builder{allocator};
     }
 
     image image::build(vma_memory_allocator& allocator) {
         return builder(allocator).build();
+    }
+
+    void image::destroy() {
+        if (handle && allocator) {
+            vmaDestroyImage(allocator, handle, allocation);
+            handle = VK_NULL_HANDLE;
+            allocation = VK_NULL_HANDLE;
+        }
     }
 
     image_view_builder image_view::builder(VkDevice device) {
@@ -41,12 +57,32 @@ namespace vkz {
         return builder(device).image(image).build();
     }
 
+    void image_view::destroy() {
+        if (handle && device) {
+            vkDestroyImageView(device, handle, nullptr);
+            handle = VK_NULL_HANDLE;
+        }
+    }
+
     sampler_builder sampler::builder(VkDevice device) {
         return sampler_builder{device};
     }
 
     sampler sampler::build(VkDevice device) {
         return builder(device).build();
+    }
+
+    void sampler::destroy() {
+        if (handle && device) {
+            vkDestroySampler(device, handle, nullptr);
+            handle = VK_NULL_HANDLE;
+        }
+    }
+
+    void texture::destroy() {
+        sampler.destroy();
+        image_view.destroy();
+        image.destroy();
     }
 
     vma_memory_allocator vma_memory_allocator::create(const context& context) {
@@ -69,11 +105,29 @@ namespace vkz {
         create_info.pVulkanFunctions = &vulkan_functions;
 
         VKZ_CHECK_VULKAN(vmaCreateAllocator(&create_info, &result.allocator));
+        result.owns_allocator = true;
+        return result;
+    }
+
+    vma_memory_allocator vma_memory_allocator::create_not_owned(VmaAllocator allocator) {
+        if (!allocator) {
+            VKZ_THROW("Cannot create a non-owning memory allocator from a null VmaAllocator")
+        }
+
+        VmaAllocatorInfo allocator_info{};
+        vmaGetAllocatorInfo(allocator, &allocator_info);
+
+        vma_memory_allocator result{};
+        result.instance = allocator_info.instance;
+        result.physical_device = allocator_info.physicalDevice;
+        result.device = allocator_info.device;
+        result.allocator = allocator;
+        result.owns_allocator = false;
         return result;
     }
 
     void vma_memory_allocator::destroy() {
-        if (allocator) {
+        if (owns_allocator && allocator) {
             vmaDestroyAllocator(allocator);
             allocator = VK_NULL_HANDLE;
         }
@@ -101,6 +155,7 @@ namespace vkz {
 
         image result{};
         result.create_info = create_info;
+        result.allocator = allocator;
         result.layout = create_info.initialLayout;
 
         VKZ_CHECK_VULKAN(vmaCreateImage(allocator, &create_info, &allocation_info, &result.handle, &result.allocation, nullptr));
@@ -278,6 +333,8 @@ namespace vkz {
         return allocator_->allocate(create_info_, memory_usage_);
     }
 
+    image_view_builder::image_view_builder(vkz::device device) : image_view_builder(device.logical) {}
+
     image_view_builder::image_view_builder(VkDevice device)
             : device_{device} {
         create_info_.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -364,10 +421,13 @@ namespace vkz {
 
         image_view result{};
         result.create_info = create_info_;
+        result.device = device_;
 
         VKZ_CHECK_VULKAN(vkCreateImageView(device_, &create_info_, nullptr, &result.handle));
         return result;
     }
+
+    sampler_builder::sampler_builder(vkz::device device) : sampler_builder(device.logical) {}
 
     sampler_builder::sampler_builder(VkDevice device)
             : device_{device} {
@@ -475,6 +535,7 @@ namespace vkz {
 
         sampler result{};
         result.create_info = create_info_;
+        result.device = device_;
 
         VKZ_CHECK_VULKAN(vkCreateSampler(device_, &create_info_, nullptr, &result.handle));
         return result;
