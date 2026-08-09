@@ -189,7 +189,7 @@ int main() {
     vkz::barrier::push_and_flush(upload, cube_handle, cube_range, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
         VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     vkz::submit_and_free(device, queue, pool, upload);
-    allocator.deallocate(staging);
+    staging.destroy();
     auto cube_view = vkz::image_view::builder(device).image(cube_image).view_type(VK_IMAGE_VIEW_TYPE_CUBE)
         .format(VK_FORMAT_R8G8B8A8_SRGB).aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT).level_count(1).layer_count(6).build();
     auto cube_sampler = vkz::sampler::builder(device).mag_filter(VK_FILTER_LINEAR).min_filter(VK_FILTER_LINEAR)
@@ -286,8 +286,8 @@ int main() {
     vkz::imgui::destroy(); vkDestroyPipeline(device, floor_pipeline, nullptr); vkDestroyPipeline(device, sky_pipeline, nullptr);
     vkDestroyPipelineLayout(device, floor_layout, nullptr); vkDestroyPipelineLayout(device, sky_layout, nullptr);
     vkDestroyDescriptorPool(device, descriptor_pool, nullptr); vkDestroyDescriptorSetLayout(device, descriptor_layout, nullptr);
-    allocator.deallocate(quad_buffer); vkDestroySampler(device, cube_sampler, nullptr); vkDestroyImageView(device, cube_view, nullptr); allocator.deallocate(cube_image);
-    vkDestroyImageView(device, depth_view, nullptr); allocator.deallocate(depth_image); vkz::destroy_image_views(device, swap_views);
+    quad_buffer.destroy(); cube_sampler.destroy(); cube_view.destroy(); cube_image.destroy();
+    depth_view.destroy(); depth_image.destroy(); vkz::destroy_image_views(device, swap_views);
     vkDestroyFence(device, fence, nullptr); vkDestroySemaphore(device, finished, nullptr); vkDestroySemaphore(device, available, nullptr);
     vkDestroyCommandPool(device, pool, nullptr); swapchain.reset(); allocator.destroy();
 #ifdef _WIN32

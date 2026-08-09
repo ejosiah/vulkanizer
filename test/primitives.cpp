@@ -209,12 +209,12 @@ namespace {
         return result;
     }
 
-    void destroy_mesh(vkz::vma_memory_allocator& allocator, mesh& mesh) {
+    void destroy_mesh(mesh& mesh) {
         if (mesh.vertex_buffer._) {
-            allocator.deallocate(mesh.vertex_buffer);
+            mesh.vertex_buffer.destroy();
         }
         if (mesh.index_buffer._) {
-            allocator.deallocate(mesh.index_buffer);
+            mesh.index_buffer.destroy();
         }
         mesh = {};
     }
@@ -360,7 +360,7 @@ int main() {
         if (ImGui::Combo("Primitive", &primitive_index, primitive_labels.data(), static_cast<int>(primitive_labels.size()))) {
             primitive_selection = static_cast<primitive_choice>(primitive_index);
             vkDeviceWaitIdle(context.device.logical);
-            destroy_mesh(allocator, current_mesh);
+            destroy_mesh(current_mesh);
             current_mesh = create_mesh(allocator, make_primitive(primitive_selection, implicit_selection));
         }
 
@@ -369,7 +369,7 @@ int main() {
             if (ImGui::Combo("Function", &implicit_index, implicit_labels.data(), static_cast<int>(implicit_labels.size()))) {
                 implicit_selection = static_cast<implicit_choice>(implicit_index);
                 vkDeviceWaitIdle(context.device.logical);
-                destroy_mesh(allocator, current_mesh);
+                destroy_mesh(current_mesh);
                 current_mesh = create_mesh(allocator, make_primitive(primitive_selection, implicit_selection));
             }
         }
@@ -496,7 +496,7 @@ int main() {
 
     vkDeviceWaitIdle(context.device.logical);
 
-    destroy_mesh(allocator, current_mesh);
+    destroy_mesh(current_mesh);
     vkDestroySemaphore(context.device.logical, render_finished, nullptr);
     vkDestroySemaphore(context.device.logical, image_available, nullptr);
     vkDestroyFence(context.device.logical, frame_fence, nullptr);
@@ -504,10 +504,10 @@ int main() {
     vkDestroyPipeline(context.device.logical, pipeline, nullptr);
     vkDestroyPipelineLayout(context.device.logical, pipeline_layout, nullptr);
     vkz::imgui::destroy();
-    vkDestroyImageView(context.device.logical, color_view.handle, nullptr);
-    vkDestroyImageView(context.device.logical, depth_view.handle, nullptr);
-    allocator.deallocate(color_image);
-    allocator.deallocate(depth_image);
+    color_view.destroy();
+    depth_view.destroy();
+    color_image.destroy();
+    depth_image.destroy();
     vkz::destroy_image_views(context.device.logical, swapchain_image_views);
     swapchain.reset();
     allocator.destroy();
