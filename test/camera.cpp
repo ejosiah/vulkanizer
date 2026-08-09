@@ -3,6 +3,7 @@
 #include <vulkanizer/vulkan_app.hpp>
 #include <vulkanizer/barrier.hpp>
 #include <vulkanizer/commands.hpp>
+#include <vulkanizer/descriptor_pool.hpp>
 #include <vulkanizer/descriptor_set_builder.hpp>
 #include <vulkanizer/graphics_pipeline_builder.hpp>
 #include <vulkanizer/imgui.hpp>
@@ -192,13 +193,12 @@ int main() {
 
     auto descriptor_layout = vkz::descriptor_set_layout_builder{context.device}.binding(0).descriptor_count(1)
         .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT).create_layout();
-    VkDescriptorPoolSize pool_size{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1};
-    VkDescriptorPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-    pool_info.maxSets = 1; pool_info.poolSizeCount = 1; pool_info.pPoolSizes = &pool_size;
-    VkDescriptorPool descriptor_pool{}; VKZ_CHECK_VULKAN(vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptor_pool));
-    VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-    alloc_info.descriptorPool = descriptor_pool; alloc_info.descriptorSetCount = 1; alloc_info.pSetLayouts = &descriptor_layout;
-    VkDescriptorSet descriptor{}; VKZ_CHECK_VULKAN(vkAllocateDescriptorSets(device, &alloc_info, &descriptor));
+    vkz::descriptor_pool descriptor_pool{
+        context.device,
+        1,
+        {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}},
+    };
+    auto descriptor = descriptor_pool.allocate(descriptor_layout);
     VkDescriptorImageInfo image_info{cube_sampler, cube_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
     write.dstSet = descriptor; write.descriptorCount = 1; write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; write.pImageInfo = &image_info;
@@ -286,7 +286,7 @@ int main() {
     vkDeviceWaitIdle(device);
     vkz::imgui::destroy(); vkDestroyPipeline(device, floor_pipeline, nullptr); vkDestroyPipeline(device, sky_pipeline, nullptr);
     vkDestroyPipelineLayout(device, floor_layout, nullptr); vkDestroyPipelineLayout(device, sky_layout, nullptr);
-    vkDestroyDescriptorPool(device, descriptor_pool, nullptr); vkDestroyDescriptorSetLayout(device, descriptor_layout, nullptr);
+    descriptor_pool.destroy(); vkDestroyDescriptorSetLayout(device, descriptor_layout, nullptr);
     quad_buffer.destroy(); cube_sampler.destroy(); cube_view.destroy(); cube_image.destroy();
     depth_view.destroy(); depth_image.destroy(); vkz::destroy_image_views(device, swap_views);
     vkDestroySemaphore(device, finished, nullptr); vkDestroySemaphore(device, available, nullptr);

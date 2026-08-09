@@ -5,7 +5,7 @@ from conan.tools.scm import Git
 
 class VulkanizerConan(ConanFile):
     name = "vulkanizer"
-    version = "2.5.0"
+    version = "2.6.0"
     package_type = "static-library"
 
     license = "MIT"

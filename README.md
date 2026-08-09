@@ -15,6 +15,7 @@ The library currently provides:
 - Command pools, scoped command buffers, ring fences, and batched queue submission
 - Vulkan Memory Allocator-backed buffers and images with explicit cleanup and non-owning allocator support
 - Reusable staging-buffer memory with aligned borrowing, GPU transfer helpers, and explicit range returns
+- Descriptor-pool creation, allocation, freeing, resetting, and explicit cleanup
 - Descriptor, primitive, transform, CSM, and Dear ImGui utilities
 
 ## Requirements
@@ -53,7 +54,7 @@ To create the Conan package locally:
 conan create . --build=missing
 ```
 
-This repository currently produces `vulkanizer/2.5.0`.
+This repository currently produces `vulkanizer/2.6.0`.
 
 ## Use from CMake
 
