@@ -92,15 +92,6 @@ namespace {
     pixels load_rgba(const std::string&) { throw std::runtime_error("The camera test JPEG loader currently requires WIC"); }
 #endif
 
-    vkz::buffer upload_buffer(vkz::vma_memory_allocator& allocator, const void* data, size_t size) {
-        auto buffer = vkz::buffer::builder(allocator).size(size)
-            .usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
-        auto mapped = buffer.map();
-        std::memcpy(mapped.as<void>(), data, size);
-        mapped.unmap();
-        return buffer;
-    }
-
     VkPipeline make_pipeline(vkz::context& context, VkFormat color, VkFormat depth,
             const char* vert, const char* frag, VkDescriptorSetLayout descriptors, VkPipelineLayout& layout) {
         vkz::graphics_pipeline_builder pipeline_builder{context.device};
@@ -170,7 +161,9 @@ int main() {
     const auto face_size = faces[0].rgba.size();
     std::vector<uint8_t> cube_pixels(face_size * faces.size());
     for (size_t i = 0; i < faces.size(); ++i) std::memcpy(cube_pixels.data() + i * face_size, faces[i].rgba.data(), face_size);
-    auto staging = upload_buffer(allocator, cube_pixels.data(), cube_pixels.size());
+    vkz::staging_buffer staging{allocator, cube_pixels.size()};
+    auto staging_memory = staging.borrow(cube_pixels.size());
+    staging_memory.copy_from(cube_pixels.data());
     auto cube_image = vkz::image::builder(allocator).flags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
         .format(VK_FORMAT_R8G8B8A8_SRGB).extent(faces[0].width, faces[0].height).array_layers(6)
         .usage(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).build();
@@ -182,14 +175,15 @@ int main() {
             VK_ACCESS_2_NONE, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         std::array<VkBufferImageCopy, 6> copies{};
         for (uint32_t i = 0; i < 6; ++i) {
-            copies[i].bufferOffset = face_size * i;
+            copies[i].bufferOffset = staging_memory.offset() + face_size * i;
             copies[i].imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, i, 1};
             copies[i].imageExtent = {faces[0].width, faces[0].height, 1};
         }
-        vkCmdCopyBufferToImage(upload, staging, cube_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6, copies.data());
+        vkCmdCopyBufferToImage(upload, staging.handle(), cube_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6, copies.data());
         vkz::barrier::push_and_flush(upload, cube_handle, cube_range, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
             VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
+    staging.return_memory(staging_memory);
     staging.destroy();
     auto cube_view = vkz::image_view::builder(device).image(cube_image).view_type(VK_IMAGE_VIEW_TYPE_CUBE)
         .format(VK_FORMAT_R8G8B8A8_SRGB).aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT).level_count(1).layer_count(6).build();

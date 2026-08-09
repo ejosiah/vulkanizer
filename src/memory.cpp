@@ -4,6 +4,11 @@
 #include "vulkanizer/context.hpp"
 #include "vulkanizer/status.hpp"
 
+#include <algorithm>
+#include <cstring>
+#include <limits>
+#include <utility>
+
 namespace vkz {
     mapping buffer::map() const {
         mapping mapping{};
@@ -49,6 +54,10 @@ namespace vkz {
         return image_view_builder{device};
     }
 
+    image_view_builder image_view::builder(vkz::device device) {
+        return image_view_builder{device};
+    }
+
     image_view image_view::build(VkDevice device, VkImage image, VkFormat format) {
         return builder(device).image(image).format(format).build();
     }
@@ -65,6 +74,10 @@ namespace vkz {
     }
 
     sampler_builder sampler::builder(VkDevice device) {
+        return sampler_builder{device};
+    }
+
+    sampler_builder sampler::builder(vkz::device device) {
         return sampler_builder{device};
     }
 
@@ -180,6 +193,260 @@ namespace vkz {
         if (image.handle) {
             vmaDestroyImage(allocator, image.handle, image.allocation);
         }
+    }
+
+    staging_buffer::borrowed_memory::borrowed_memory(
+            staging_buffer* owner,
+            uint64_t id,
+            VkDeviceSize offset,
+            VkDeviceSize size)
+        : owner_{owner}
+        , id_{id}
+        , offset_{offset}
+        , size_{size} {
+    }
+
+    staging_buffer::borrowed_memory::borrowed_memory(borrowed_memory&& other) noexcept
+        : owner_{std::exchange(other.owner_, nullptr)}
+        , id_{std::exchange(other.id_, 0)}
+        , offset_{std::exchange(other.offset_, 0)}
+        , size_{std::exchange(other.size_, 0)} {
+    }
+
+    void* staging_buffer::borrowed_memory::data() const {
+        if (!valid()) {
+            VKZ_THROW("Cannot access returned staging memory")
+        }
+        return static_cast<std::byte*>(owner_->mapping_._) + offset_;
+    }
+
+    VkDeviceSize staging_buffer::borrowed_memory::offset() const {
+        return offset_;
+    }
+
+    VkDeviceSize staging_buffer::borrowed_memory::size() const {
+        return size_;
+    }
+
+    VkBuffer staging_buffer::borrowed_memory::source_buffer() const {
+        if (!valid()) {
+            VKZ_THROW("Cannot access returned staging memory")
+        }
+        return owner_->buffer_;
+    }
+
+    bool staging_buffer::borrowed_memory::valid() const {
+        return owner_ && id_;
+    }
+
+    void staging_buffer::borrowed_memory::copy_from(
+            const void* source,
+            VkDeviceSize size,
+            VkDeviceSize destination_offset) const {
+        if (!source) {
+            VKZ_THROW("Cannot upload from a null source")
+        }
+        const auto upload_size = size == VK_WHOLE_SIZE ? size_ - destination_offset : size;
+        owner_->validate_subrange(*this, destination_offset, upload_size);
+        std::memcpy(static_cast<std::byte*>(data()) + destination_offset, source, static_cast<std::size_t>(upload_size));
+        VKZ_CHECK_VULKAN(vmaFlushAllocation(
+            owner_->buffer_.allocator,
+            owner_->buffer_.allocation,
+            offset_ + destination_offset,
+            upload_size));
+    }
+
+    void staging_buffer::borrowed_memory::upload(
+            const void* source,
+            VkDeviceSize size,
+            VkDeviceSize destination_offset) const {
+        copy_from(source, size, destination_offset);
+    }
+
+    void staging_buffer::borrowed_memory::copy_to(
+            VkCommandBuffer command_buffer,
+            VkBuffer destination,
+            VkDeviceSize destination_offset,
+            VkDeviceSize size,
+            VkDeviceSize source_offset) const {
+        if (!command_buffer || !destination) {
+            VKZ_THROW("A valid command buffer and destination buffer are required for a staging copy")
+        }
+        const auto copy_size = size == VK_WHOLE_SIZE ? size_ - source_offset : size;
+        owner_->validate_subrange(*this, source_offset, copy_size);
+
+        const VkBufferCopy region{
+            .srcOffset = offset_ + source_offset,
+            .dstOffset = destination_offset,
+            .size = copy_size,
+        };
+        vkCmdCopyBuffer(command_buffer, source_buffer(), destination, 1, &region);
+    }
+
+    void staging_buffer::borrowed_memory::copy_to(
+            VkCommandBuffer command_buffer,
+            const buffer& destination,
+            VkDeviceSize destination_offset,
+            VkDeviceSize size,
+            VkDeviceSize source_offset) const {
+        copy_to(command_buffer, destination._, destination_offset, size, source_offset);
+    }
+
+    staging_buffer::staging_buffer(vma_memory_allocator& allocator, VkDeviceSize capacity)
+        : capacity_{capacity} {
+        if (!capacity_) {
+            VKZ_THROW("Staging buffer capacity must be greater than zero")
+        }
+
+        buffer_ = buffer::builder(allocator)
+            .size(capacity_)
+            .usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+            .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+            .build();
+        mapping_ = buffer_.map();
+        free_ranges_.push_back({0, capacity_});
+    }
+
+    staging_buffer::borrowed_memory staging_buffer::borrow(VkDeviceSize size, VkDeviceSize alignment) {
+        if (!size) {
+            VKZ_THROW("Cannot borrow an empty staging memory range")
+        }
+        if (!alignment) {
+            VKZ_THROW("Staging memory alignment must be greater than zero")
+        }
+
+        std::scoped_lock lock{mutex_};
+        for (auto iterator = free_ranges_.begin(); iterator != free_ranges_.end(); ++iterator) {
+            const auto aligned_offset = align_up(iterator->offset, alignment);
+            if (aligned_offset < iterator->offset) {
+                continue;
+            }
+            const auto padding = aligned_offset - iterator->offset;
+            if (padding > iterator->size || size > iterator->size - padding) {
+                continue;
+            }
+
+            const auto original = *iterator;
+            iterator = free_ranges_.erase(iterator);
+            if (padding) {
+                iterator = free_ranges_.insert(iterator, {original.offset, padding});
+                ++iterator;
+            }
+
+            const auto used_end = aligned_offset + size;
+            const auto original_end = original.offset + original.size;
+            if (used_end < original_end) {
+                free_ranges_.insert(iterator, {used_end, original_end - used_end});
+            }
+
+            const auto id = next_id_++;
+            borrowed_ranges_.emplace(id, range{aligned_offset, size});
+            return {this, id, aligned_offset, size};
+        }
+
+        VKZ_THROW("Insufficient contiguous staging buffer capacity")
+    }
+
+    void staging_buffer::return_memory(borrowed_memory& memory) {
+        std::scoped_lock lock{mutex_};
+        if (!owns(memory)) {
+            VKZ_THROW("Cannot return staging memory that is invalid, foreign, or already returned")
+        }
+
+        const auto iterator = borrowed_ranges_.find(memory.id_);
+        free_ranges_.push_back(iterator->second);
+        borrowed_ranges_.erase(iterator);
+        merge_free_ranges();
+
+        memory.owner_ = nullptr;
+        memory.id_ = 0;
+        memory.offset_ = 0;
+        memory.size_ = 0;
+    }
+
+    void staging_buffer::destroy() {
+        std::scoped_lock lock{mutex_};
+        if (!borrowed_ranges_.empty()) {
+            VKZ_THROW("Cannot destroy a staging buffer while memory is borrowed")
+        }
+        mapping_.unmap();
+        buffer_.destroy();
+        free_ranges_.clear();
+        capacity_ = 0;
+    }
+
+    VkDeviceSize staging_buffer::capacity() const {
+        return capacity_;
+    }
+
+    VkDeviceSize staging_buffer::available() const {
+        std::scoped_lock lock{mutex_};
+        VkDeviceSize result{};
+        for (const auto& range : free_ranges_) {
+            result += range.size;
+        }
+        return result;
+    }
+
+    std::size_t staging_buffer::outstanding_borrows() const {
+        std::scoped_lock lock{mutex_};
+        return borrowed_ranges_.size();
+    }
+
+    VkBuffer staging_buffer::handle() const {
+        return buffer_;
+    }
+
+    VkDeviceSize staging_buffer::align_up(VkDeviceSize value, VkDeviceSize alignment) {
+        const auto remainder = value % alignment;
+        if (!remainder) {
+            return value;
+        }
+        const auto increment = alignment - remainder;
+        if (value > std::numeric_limits<VkDeviceSize>::max() - increment) {
+            return std::numeric_limits<VkDeviceSize>::max();
+        }
+        return value + increment;
+    }
+
+    bool staging_buffer::owns(const borrowed_memory& memory) const {
+        if (memory.owner_ != this || !memory.id_) {
+            return false;
+        }
+        const auto iterator = borrowed_ranges_.find(memory.id_);
+        return iterator != borrowed_ranges_.end()
+            && iterator->second.offset == memory.offset_
+            && iterator->second.size == memory.size_;
+    }
+
+    void staging_buffer::validate_subrange(
+            const borrowed_memory& memory,
+            VkDeviceSize offset,
+            VkDeviceSize size) const {
+        std::scoped_lock lock{mutex_};
+        if (!owns(memory)) {
+            VKZ_THROW("Cannot use staging memory that is invalid, foreign, or already returned")
+        }
+        if (offset > memory.size_ || size > memory.size_ - offset) {
+            VKZ_THROW("Staging memory operation exceeds the borrowed range")
+        }
+    }
+
+    void staging_buffer::merge_free_ranges() {
+        std::ranges::sort(free_ranges_, {}, &range::offset);
+        std::vector<range> merged;
+        merged.reserve(free_ranges_.size());
+        for (const auto& current : free_ranges_) {
+            if (merged.empty() || merged.back().offset + merged.back().size < current.offset) {
+                merged.push_back(current);
+            } else {
+                const auto end = std::max(
+                    merged.back().offset + merged.back().size,
+                    current.offset + current.size);
+                merged.back().size = end - merged.back().offset;
+            }
+        }
+        free_ranges_ = std::move(merged);
     }
 
     buffer_builder::buffer_builder(vma_memory_allocator& allocator)

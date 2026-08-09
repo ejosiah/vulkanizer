@@ -6,6 +6,9 @@
 #include <cassert>
 #include <cinttypes>
 #include <map>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
 
 #include "vkz.hpp"
 
@@ -17,6 +20,7 @@ namespace vkz {
     struct context;
     struct vma_memory_allocator;
     struct mapping;
+    class staging_buffer;
 
     struct buffer {
         VkBuffer _{};
@@ -62,6 +66,8 @@ namespace vkz {
 
         static image_view_builder builder(VkDevice device);
 
+        static image_view_builder builder(vkz::device device);
+
         static image_view build(VkDevice device, VkImage image, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
 
         static image_view build(VkDevice device, const vkz::image& image);
@@ -79,6 +85,8 @@ namespace vkz {
         VkDevice device{};
 
         static sampler_builder builder(VkDevice device);
+
+        static sampler_builder builder(vkz::device device);
 
         static sampler build(VkDevice device);
 
@@ -99,6 +107,7 @@ namespace vkz {
 
     struct mapping {
         friend struct buffer;
+        friend class staging_buffer;
 
         void* _{};
 
@@ -151,6 +160,92 @@ namespace vkz {
 
     private:
         bool owns_allocator {};
+    };
+
+    class staging_buffer {
+    public:
+        class borrowed_memory {
+            friend class staging_buffer;
+
+        public:
+            borrowed_memory() = default;
+            borrowed_memory(const borrowed_memory&) = delete;
+            borrowed_memory& operator=(const borrowed_memory&) = delete;
+            borrowed_memory(borrowed_memory&& other) noexcept;
+            borrowed_memory& operator=(borrowed_memory&& other) = delete;
+
+            [[nodiscard]] void* data() const;
+
+            template<typename T>
+            [[nodiscard]] T* as() const {
+                return static_cast<T*>(data());
+            }
+
+            [[nodiscard]] VkDeviceSize offset() const;
+            [[nodiscard]] VkDeviceSize size() const;
+            [[nodiscard]] VkBuffer source_buffer() const;
+            [[nodiscard]] bool valid() const;
+
+            void copy_from(const void* source, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize destination_offset = 0) const;
+            void upload(const void* source, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize destination_offset = 0) const;
+
+            void copy_to(
+                VkCommandBuffer command_buffer,
+                VkBuffer destination,
+                VkDeviceSize destination_offset = 0,
+                VkDeviceSize size = VK_WHOLE_SIZE,
+                VkDeviceSize source_offset = 0) const;
+
+            void copy_to(
+                VkCommandBuffer command_buffer,
+                const buffer& destination,
+                VkDeviceSize destination_offset = 0,
+                VkDeviceSize size = VK_WHOLE_SIZE,
+                VkDeviceSize source_offset = 0) const;
+
+        private:
+            borrowed_memory(staging_buffer* owner, uint64_t id, VkDeviceSize offset, VkDeviceSize size);
+
+            staging_buffer* owner_{};
+            uint64_t id_{};
+            VkDeviceSize offset_{};
+            VkDeviceSize size_{};
+        };
+
+        staging_buffer(vma_memory_allocator& allocator, VkDeviceSize capacity);
+
+        staging_buffer(const staging_buffer&) = delete;
+        staging_buffer& operator=(const staging_buffer&) = delete;
+        staging_buffer(staging_buffer&&) = delete;
+        staging_buffer& operator=(staging_buffer&&) = delete;
+
+        [[nodiscard]] borrowed_memory borrow(VkDeviceSize size, VkDeviceSize alignment = 1);
+        void return_memory(borrowed_memory& memory);
+        void destroy();
+
+        [[nodiscard]] VkDeviceSize capacity() const;
+        [[nodiscard]] VkDeviceSize available() const;
+        [[nodiscard]] std::size_t outstanding_borrows() const;
+        [[nodiscard]] VkBuffer handle() const;
+
+    private:
+        struct range {
+            VkDeviceSize offset{};
+            VkDeviceSize size{};
+        };
+
+        [[nodiscard]] static VkDeviceSize align_up(VkDeviceSize value, VkDeviceSize alignment);
+        [[nodiscard]] bool owns(const borrowed_memory& memory) const;
+        void validate_subrange(const borrowed_memory& memory, VkDeviceSize offset, VkDeviceSize size) const;
+        void merge_free_ranges();
+
+        buffer buffer_{};
+        mapping mapping_{};
+        VkDeviceSize capacity_{};
+        std::vector<range> free_ranges_;
+        std::unordered_map<uint64_t, range> borrowed_ranges_;
+        uint64_t next_id_{1};
+        mutable std::mutex mutex_;
     };
 
     class buffer_builder {
