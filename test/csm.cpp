@@ -3,6 +3,7 @@
 #include <vulkanizer/vulkan_app.hpp>
 
 #include <vulkanizer/barrier.hpp>
+#include <vulkanizer/commands.hpp>
 #include <vulkanizer/csm.hpp>
 #include <vulkanizer/descriptor_set_builder.hpp>
 #include <vulkanizer/graphics_pipeline_builder.hpp>
@@ -229,10 +230,13 @@ int main() {
     auto swapchain = app.create_swapchain();
     auto swapchain_image_views = vkz::create_swapchain_image_views(context.device.logical, *swapchain);
 
-    VkCommandPool command_pool = vkz::create_command_pool(
+    vkz::fenced_command_pools commands{
         context.device.logical,
+        graphics_queue,
         queue_family_index,
-        VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+        VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        1,
+    };
 
     auto color_image =
         vkz::image::builder(allocator)
@@ -336,29 +340,34 @@ int main() {
         objects.push_back({cube_buffer, static_cast<uint32_t>(cube_vertices.size()), transform});
     }
 
-    auto initial_transition_command_buffer = vkz::begin_command_buffer(context.device.logical, command_pool);
-    const auto csm_id = vkz::csm::create({
-        .device = context.device,
-        .depth_format = depth_format,
-        .memory_allocator = allocator,
-        .vertex_shader_include = R"(
+    const auto csm_id = [&] {
+        vkz::scope_command_buffer initial_transition_command_buffer{
+            context.device.logical,
+            queue_family_index,
+            graphics_queue,
+        };
+        return vkz::csm::create({
+            .device = context.device,
+            .depth_format = depth_format,
+            .memory_allocator = allocator,
+            .vertex_shader_include = R"(
 layout(location = 0) in vec3 position;
 mat4 get_model_matrix() {
     return mat4(1.0);
 }
 )",
-        .vertex_shader_position_offset = offsetof(vertex, position),
-        .vertex_shader_position_stride = sizeof(vertex),
-        .descriptor_pool = descriptor_pool,
-        .initial_transition_command_buffer = initial_transition_command_buffer,
-        .debug_render_pass = render_pass,
-        .debug_resolution = {swapchain->width(), swapchain->height()},
-        .debug_samples = sample_count,
-        .in_flight_frames = max_frames_in_flight,
-        .num_cascades = 6,
-        .size = 2048,
-    });
-    vkz::submit_and_free(context.device.logical, graphics_queue, command_pool, initial_transition_command_buffer);
+            .vertex_shader_position_offset = offsetof(vertex, position),
+            .vertex_shader_position_stride = sizeof(vertex),
+            .descriptor_pool = descriptor_pool,
+            .initial_transition_command_buffer = initial_transition_command_buffer,
+            .debug_render_pass = render_pass,
+            .debug_resolution = {swapchain->width(), swapchain->height()},
+            .debug_samples = sample_count,
+            .in_flight_frames = max_frames_in_flight,
+            .num_cascades = 6,
+            .size = 2048,
+        });
+    }();
 
     auto scene_descriptor_set_layout =
         vkz::descriptor_set_layout_builder{context.device}
@@ -466,7 +475,6 @@ mat4 get_model_matrix() {
 
     VkSemaphore image_available = vkz::create_semaphore(context.device.logical);
     VkSemaphore render_finished = vkz::create_semaphore(context.device.logical);
-    VkFence frame_fence = vkz::create_fence(context.device.logical);
 
     bool freeze_shadow_map = false;
     bool freeze_pressed = false;
@@ -581,7 +589,8 @@ mat4 get_model_matrix() {
             std::memcpy(split_cpu, split_depth.data(), sizeof(float) * split_depth.size());
         }
 
-        auto command_buffer = vkz::begin_command_buffer(context.device.logical, command_pool);
+        commands.set_cycle_and_wait(current_frame);
+        auto command_buffer = commands.create_command_buffer();
 
         if (!freeze_shadow_map) {
             vkz::csm::capture(csm_id, [&](VkPipelineLayout layout) {
@@ -626,7 +635,11 @@ mat4 get_model_matrix() {
         vkz::imgui::render(command_buffer);
         vkCmdEndRenderPass(command_buffer);
 
-        vkz::submit_and_free(context.device.logical, graphics_queue, command_pool, command_buffer, image_available, render_finished, frame_fence);
+        VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
+        commands.enqueue(command_buffer);
+        commands.enqueue_wait(image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        commands.enqueue_signal(render_finished);
+        VKZ_CHECK_VULKAN(commands.execute());
 
         VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
         const auto swapchain_handle = swapchain->handle();
@@ -644,7 +657,6 @@ mat4 get_model_matrix() {
 
     vkDestroySemaphore(context.device.logical, render_finished, nullptr);
     vkDestroySemaphore(context.device.logical, image_available, nullptr);
-    vkDestroyFence(context.device.logical, frame_fence, nullptr);
     vkDestroyPipeline(context.device.logical, scene_pipeline, nullptr);
     vkDestroyPipelineLayout(context.device.logical, scene_pipeline_layout, nullptr);
     vkDestroyDescriptorSetLayout(context.device.logical, scene_descriptor_set_layout, nullptr);
@@ -665,7 +677,6 @@ mat4 get_model_matrix() {
     color_image.destroy();
     vkz::destroy_image_views(context.device.logical, swapchain_image_views);
     swapchain.reset();
-    vkDestroyCommandPool(context.device.logical, command_pool, nullptr);
     allocator.destroy();
     return 0;
 }

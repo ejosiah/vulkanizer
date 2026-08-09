@@ -7,6 +7,7 @@ vulkanizer_add_test_executable(vulkanizer_context_test main.cpp)
 vulkanizer_add_test_executable(vulkanizer_csm_test csm.cpp)
 vulkanizer_add_test_executable(vulkanizer_primitive_test primitives.cpp)
 vulkanizer_add_test_executable(vulkanizer_camera_test camera.cpp)
+vulkanizer_add_test_executable(vulkanizer_commands_test commands.cpp)
 
 find_program(GLSLC_EXECUTABLE glslc)
 if(NOT GLSLC_EXECUTABLE)

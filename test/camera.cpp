@@ -2,6 +2,7 @@
 
 #include <vulkanizer/vulkan_app.hpp>
 #include <vulkanizer/barrier.hpp>
+#include <vulkanizer/commands.hpp>
 #include <vulkanizer/descriptor_set_builder.hpp>
 #include <vulkanizer/graphics_pipeline_builder.hpp>
 #include <vulkanizer/imgui.hpp>
@@ -173,22 +174,22 @@ int main() {
     auto cube_image = vkz::image::builder(allocator).flags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
         .format(VK_FORMAT_R8G8B8A8_SRGB).extent(faces[0].width, faces[0].height).array_layers(6)
         .usage(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).build();
-    auto pool = vkz::create_command_pool(device, family);
-    auto upload = vkz::begin_command_buffer(device, pool);
-    VkImageSubresourceRange cube_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6};
-    VkImage cube_handle = cube_image;
-    vkz::barrier::push_and_flush(upload, cube_handle, cube_range, VK_PIPELINE_STAGE_2_NONE, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-        VK_ACCESS_2_NONE, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    std::array<VkBufferImageCopy, 6> copies{};
-    for (uint32_t i = 0; i < 6; ++i) {
-        copies[i].bufferOffset = face_size * i;
-        copies[i].imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, i, 1};
-        copies[i].imageExtent = {faces[0].width, faces[0].height, 1};
+    {
+        vkz::scope_command_buffer upload{device, family, queue};
+        VkImageSubresourceRange cube_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6};
+        VkImage cube_handle = cube_image;
+        vkz::barrier::push_and_flush(upload, cube_handle, cube_range, VK_PIPELINE_STAGE_2_NONE, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+            VK_ACCESS_2_NONE, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        std::array<VkBufferImageCopy, 6> copies{};
+        for (uint32_t i = 0; i < 6; ++i) {
+            copies[i].bufferOffset = face_size * i;
+            copies[i].imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, i, 1};
+            copies[i].imageExtent = {faces[0].width, faces[0].height, 1};
+        }
+        vkCmdCopyBufferToImage(upload, staging, cube_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6, copies.data());
+        vkz::barrier::push_and_flush(upload, cube_handle, cube_range, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+            VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
-    vkCmdCopyBufferToImage(upload, staging, cube_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6, copies.data());
-    vkz::barrier::push_and_flush(upload, cube_handle, cube_range, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-        VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    vkz::submit_and_free(device, queue, pool, upload);
     staging.destroy();
     auto cube_view = vkz::image_view::builder(device).image(cube_image).view_type(VK_IMAGE_VIEW_TYPE_CUBE)
         .format(VK_FORMAT_R8G8B8A8_SRGB).aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT).level_count(1).layer_count(6).build();
@@ -227,7 +228,8 @@ int main() {
         .min_image_count = 2, .image_count = swapchain->image_count(), .api_version = VK_API_VERSION_1_3,
         .color_attachment_format = swapchain->format()});
     auto available = vkz::create_semaphore(device), finished = vkz::create_semaphore(device);
-    auto fence = vkz::create_fence(device);
+    vkz::fenced_command_pools commands{device, queue, family, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, 1};
+    uint32_t frame{};
     auto previous = std::chrono::steady_clock::now();
 
     while (!app.should_close()) {
@@ -252,7 +254,8 @@ int main() {
 
 //        constants.view = glm::lookAt({0, 1, 5}, glm::vec3{0}, {0, 1, 0});
 //        constants.projection = glm::perspective(glm::radians(65.0f), camera.aspect_ratio, 0.1f, 100.f);
-        auto cmd = vkz::begin_command_buffer(device, pool); VkImage color = swapchain->get_image(index);
+        commands.set_cycle_and_wait(frame++);
+        auto cmd = commands.create_command_buffer(); VkImage color = swapchain->get_image(index);
         VkImageSubresourceRange color_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         vkz::barrier::push_and_flush(cmd, color, color_range, VK_PIPELINE_STAGE_2_NONE, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_ACCESS_2_NONE, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -277,7 +280,11 @@ int main() {
         });
         vkz::barrier::push_and_flush(cmd, color, color_range, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_NONE,
             VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-        vkz::submit_and_free(device, queue, pool, cmd, available, finished, fence);
+        VKZ_CHECK_VULKAN(vkEndCommandBuffer(cmd));
+        commands.enqueue(cmd);
+        commands.enqueue_wait(available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        commands.enqueue_signal(finished);
+        VKZ_CHECK_VULKAN(commands.execute());
         const auto handle = swapchain->handle(); VkPresentInfoKHR present{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
         present.waitSemaphoreCount=1; present.pWaitSemaphores=&finished; present.swapchainCount=1; present.pSwapchains=&handle; present.pImageIndices=&index;
         VKZ_CHECK_VULKAN(vkQueuePresentKHR(queue, &present));
@@ -288,8 +295,8 @@ int main() {
     vkDestroyDescriptorPool(device, descriptor_pool, nullptr); vkDestroyDescriptorSetLayout(device, descriptor_layout, nullptr);
     quad_buffer.destroy(); cube_sampler.destroy(); cube_view.destroy(); cube_image.destroy();
     depth_view.destroy(); depth_image.destroy(); vkz::destroy_image_views(device, swap_views);
-    vkDestroyFence(device, fence, nullptr); vkDestroySemaphore(device, finished, nullptr); vkDestroySemaphore(device, available, nullptr);
-    vkDestroyCommandPool(device, pool, nullptr); swapchain.reset(); allocator.destroy();
+    vkDestroySemaphore(device, finished, nullptr); vkDestroySemaphore(device, available, nullptr);
+    swapchain.reset(); allocator.destroy();
 #ifdef _WIN32
     CoUninitialize();
 #endif

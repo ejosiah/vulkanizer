@@ -3,6 +3,7 @@
 #include <vulkanizer/vulkan_app.hpp>
 
 #include <vulkanizer/barrier.hpp>
+#include <vulkanizer/commands.hpp>
 #include <vulkanizer/graphics_pipeline_builder.hpp>
 #include <vulkanizer/imgui.hpp>
 #include <vulkanizer/io.hpp>
@@ -324,10 +325,16 @@ int main() {
             .name("primitive_test")
             .build(pipeline_layout);
 
-    VkCommandPool command_pool = vkz::create_command_pool(context.device.logical, queue_family_index);
+    vkz::fenced_command_pools commands{
+        context.device.logical,
+        graphics_queue,
+        queue_family_index,
+        VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        1,
+    };
     VkSemaphore image_available = vkz::create_semaphore(context.device.logical);
     VkSemaphore render_finished = vkz::create_semaphore(context.device.logical);
-    VkFence frame_fence = vkz::create_fence(context.device.logical);
+    uint32_t frame{};
 
     auto primitive_selection = primitive_choice::cube;
     auto implicit_selection = implicit_choice::paraboloid;
@@ -378,7 +385,8 @@ int main() {
         ImGui::SliderFloat("Distance", &camera_distance, 3.0f, 12.0f);
         ImGui::End();
 
-        auto command_buffer = vkz::begin_command_buffer(context.device.logical, command_pool);
+        commands.set_cycle_and_wait(frame++);
+        auto command_buffer = commands.create_command_buffer();
         auto image = swapchain->get_image(image_index);
 
         VkImageSubresourceRange color_range{};
@@ -475,14 +483,11 @@ int main() {
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-        vkz::submit_and_free(
-            context.device.logical,
-            graphics_queue,
-            command_pool,
-            command_buffer,
-            image_available,
-            render_finished,
-            frame_fence);
+        VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
+        commands.enqueue(command_buffer);
+        commands.enqueue_wait(image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        commands.enqueue_signal(render_finished);
+        VKZ_CHECK_VULKAN(commands.execute());
 
         VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
         const auto swapchain_handle = swapchain->handle();
@@ -499,8 +504,6 @@ int main() {
     destroy_mesh(current_mesh);
     vkDestroySemaphore(context.device.logical, render_finished, nullptr);
     vkDestroySemaphore(context.device.logical, image_available, nullptr);
-    vkDestroyFence(context.device.logical, frame_fence, nullptr);
-    vkDestroyCommandPool(context.device.logical, command_pool, nullptr);
     vkDestroyPipeline(context.device.logical, pipeline, nullptr);
     vkDestroyPipelineLayout(context.device.logical, pipeline_layout, nullptr);
     vkz::imgui::destroy();

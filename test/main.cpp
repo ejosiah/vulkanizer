@@ -3,6 +3,7 @@
 #include <vulkanizer/vulkan_app.hpp>
 
 #include <vulkanizer/barrier.hpp>
+#include <vulkanizer/commands.hpp>
 #include <vulkanizer/imgui.hpp>
 #include <vulkanizer/log.hpp>
 #include <vulkanizer/render.hpp>
@@ -41,10 +42,16 @@ int main() {
             .color_attachment_format = swapchain->format(),
     });
 
-    VkCommandPool command_pool = vkz::create_command_pool(context.device.logical, queue_family_index);
+    vkz::fenced_command_pools commands{
+        context.device.logical,
+        graphics_queue,
+        queue_family_index,
+        VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        1,
+    };
     VkSemaphore image_available = vkz::create_semaphore(context.device.logical);
     VkSemaphore render_finished = vkz::create_semaphore(context.device.logical);
-    VkFence frame_fence = vkz::create_fence(context.device.logical);
+    uint32_t frame{};
 
     auto recreate_swapchain = [&] {
         vkDeviceWaitIdle(context.device.logical);
@@ -129,7 +136,8 @@ int main() {
             ImGui::End();
         }
 
-        auto command_buffer = vkz::begin_command_buffer(context.device.logical, command_pool);
+        commands.set_cycle_and_wait(frame++);
+        auto command_buffer = commands.create_command_buffer();
         auto image = swapchain->get_image(image_index);
         VkImageSubresourceRange range{};
         range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -170,8 +178,11 @@ int main() {
                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-        vkz::submit_and_free(context.device.logical, graphics_queue, command_pool, command_buffer, image_available, render_finished,
-                      frame_fence);
+        VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
+        commands.enqueue(command_buffer);
+        commands.enqueue_wait(image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        commands.enqueue_signal(render_finished);
+        VKZ_CHECK_VULKAN(commands.execute());
 
         VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
         const auto swapchain_handle = swapchain->handle();
@@ -196,10 +207,8 @@ int main() {
     vkz::destroy_image_views(context.device.logical, image_views);
     swapchain.reset();
 
-    vkDestroyFence(context.device.logical, frame_fence, nullptr);
     vkDestroySemaphore(context.device.logical, render_finished, nullptr);
     vkDestroySemaphore(context.device.logical, image_available, nullptr);
-    vkDestroyCommandPool(context.device.logical, command_pool, nullptr);
     }
 
     return 0;

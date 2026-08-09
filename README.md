@@ -12,7 +12,8 @@ The library currently provides:
 - Graphics and compute pipeline builders
 - In-process inline GLSL compilation through glslang
 - Dynamic rendering and synchronization helpers
-- Vulkan Memory Allocator-backed buffers and images
+- Command pools, scoped command buffers, ring fences, and batched queue submission
+- Vulkan Memory Allocator-backed buffers and images with explicit cleanup and non-owning allocator support
 - Descriptor, primitive, transform, CSM, and Dear ImGui utilities
 
 ## Requirements
@@ -51,7 +52,7 @@ To create the Conan package locally:
 conan create . --build=missing
 ```
 
-This repository currently produces `vulkanizer/2.3.0`.
+This repository currently produces `vulkanizer/2.4.0`.
 
 ## Use from CMake
 
