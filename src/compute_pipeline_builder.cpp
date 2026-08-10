@@ -42,6 +42,14 @@ vkz::compute_pipeline_layout_builder &vkz::compute_pipeline_builder::layout() {
     return *_pipeline_layout_builder;
 }
 
+vkz::compute_pipeline_builder &vkz::compute_pipeline_builder::name(const std::string &value) {
+    if (parent()) {
+        parent()->name(value);
+    }
+    _name = value;
+    return *this;
+}
+
 VkPipeline vkz::compute_pipeline_builder::build() {
     if (parent()) {
         return parent()->build();

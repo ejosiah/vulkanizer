@@ -27,6 +27,8 @@ namespace vkz {
 
         compute_pipeline_layout_builder& layout();
 
+        compute_pipeline_builder& name(const std::string& value);
+
         VkPipeline build();
 
         VkPipeline build(VkPipelineLayout& pipeline_layout);

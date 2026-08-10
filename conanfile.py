@@ -1,11 +1,10 @@
 from conan import ConanFile
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
-from conan.tools.scm import Git
 
 
 class VulkanizerConan(ConanFile):
     name = "vulkanizer"
-    version = "0.0.0"
+    version = "0.0.1"
     package_type = "static-library"
 
     license = "MIT"
@@ -14,8 +13,7 @@ class VulkanizerConan(ConanFile):
     topics = ("vulkan", "imgui", "glfw")
 
     settings = "os", "compiler", "build_type", "arch"
-    source_url = "https://github.com/ejosiah/vulkanizer.git"
-    source_tag = f"v{version}"
+    exports_sources = "CMakeLists.txt", "cmake/*", "include/*", "src/*"
 
     def requirements(self):
         self.requires("volk/1.3.296.0", transitive_headers=True)
@@ -24,11 +22,6 @@ class VulkanizerConan(ConanFile):
         self.requires("glm/1.0.1", transitive_headers=True)
         self.requires("vulkan-memory-allocator/3.3.0", transitive_headers=True)
         self.requires("glslang/11.7.0", transitive_headers=True)
-
-    def source(self):
-        git = Git(self)
-        git.clone(url=self.source_url, target=".")
-        git.checkout(self.source_tag)
 
     def layout(self):
         cmake_layout(self)
