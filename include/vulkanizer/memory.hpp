@@ -64,13 +64,10 @@ namespace vkz {
         VkImageViewCreateInfo create_info{};
         VkDevice device{};
 
-        static image_view_builder builder(VkDevice device);
-
         static image_view_builder builder(vkz::device device);
 
-        static image_view build(VkDevice device, VkImage image, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
-
-        static image_view build(VkDevice device, const vkz::image& image);
+        static image_view build(vkz::device device, const vkz::image& image,
+                                VkFormat format = VK_FORMAT_UNDEFINED);
 
         void destroy();
 
@@ -84,11 +81,9 @@ namespace vkz {
         VkSamplerCreateInfo create_info{};
         VkDevice device{};
 
-        static sampler_builder builder(VkDevice device);
-
         static sampler_builder builder(vkz::device device);
 
-        static sampler build(VkDevice device);
+        static sampler build(vkz::device device);
 
         void destroy();
 
@@ -325,13 +320,9 @@ namespace vkz {
 
     class image_view_builder {
     public:
-        explicit image_view_builder(VkDevice device);
-
         explicit image_view_builder(vkz::device device);
 
         image_view_builder& flags(VkImageViewCreateFlags value);
-
-        image_view_builder& image(VkImage value);
 
         image_view_builder& image(const vkz::image& value);
 
@@ -360,14 +351,12 @@ namespace vkz {
         [[nodiscard]] image_view build() const;
 
     private:
-        VkDevice device_{VK_NULL_HANDLE};
+        vkz::device device_{};
         VkImageViewCreateInfo create_info_{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     };
 
     class sampler_builder {
     public:
-        explicit sampler_builder(VkDevice device);
-
         explicit sampler_builder(vkz::device device);
 
         sampler_builder& flags(VkSamplerCreateFlags value);
@@ -407,7 +396,7 @@ namespace vkz {
         [[nodiscard]] sampler build() const;
 
     private:
-        VkDevice device_{VK_NULL_HANDLE};
+        vkz::device device_{};
         VkSamplerCreateInfo create_info_{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     };
 }

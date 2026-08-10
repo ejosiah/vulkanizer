@@ -106,11 +106,11 @@ namespace vkz {
     }
 
 
-    graphics_pipeline_builder &graphics_pipeline_builder::layout(VkPipelineLayout layout) {
+    graphics_pipeline_builder &graphics_pipeline_builder::layout(const vkz::pipeline& pipeline) {
         if (parent()) {
-            return parent()->layout(layout);
+            return parent()->layout(pipeline);
         }
-        _pipeline_layout = layout;
+        _pipeline_layout = pipeline.layout;
         return *this;
     }
 
@@ -138,9 +138,9 @@ namespace vkz {
         return *_pipeline_layout_builder;
     }
 
-    VkPipeline graphics_pipeline_builder::build() {
+    VkPipeline graphics_pipeline_builder::build_native() {
         if (parent()) {
-            return parent()->build();
+            return parent()->build_native();
         }
         if (!_pipeline_layout) {
             throw std::runtime_error{"either provide or create a pipeline_layout"};
@@ -149,13 +149,19 @@ namespace vkz {
         return build(unused);
     }
 
+    vkz::pipeline graphics_pipeline_builder::build() {
+        vkz::pipeline result{ .device = device() };
+        result.handle = build(result.layout);
+
+        return result;
+    }
 
     VkPipeline graphics_pipeline_builder::build(VkPipelineLayout &pipeline_layout) {
         if (parent()) {
             return parent()->build(pipeline_layout);
         }
         auto info = create_info();
-        pipeline_layout = std::move(_pipeline_layout_owned);
+        pipeline_layout = _pipeline_layout_owned;
 
         VkPipeline pipeline;
         VKZ_CHECK_VULKAN(vkCreateGraphicsPipelines(device().logical, nullptr, 1, &info, nullptr, &pipeline));
@@ -265,12 +271,12 @@ namespace vkz {
         return *this;
     }
 
-    graphics_pipeline_builder &graphics_pipeline_builder::base_pipeline(VkPipeline &pipeline) {
+    graphics_pipeline_builder &graphics_pipeline_builder::base_pipeline(const vkz::pipeline& pipeline) {
         set_derivatives();
         if (parent()) {
             parent()->base_pipeline(pipeline);
         }
-        _base_pipeline = pipeline;
+        _base_pipeline = pipeline.handle;
         return *this;
     }
 

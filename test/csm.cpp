@@ -228,7 +228,7 @@ int main() {
     const auto sample_count = pick_sample_count(context.device.physical);
 
     auto swapchain = app.create_swapchain();
-    auto swapchain_image_views = vkz::create_swapchain_image_views(context.device.logical, *swapchain);
+    auto swapchain_image_views = vkz::create_swapchain_image_views(context.device, *swapchain);
 
     vkz::fenced_command_pools commands{
         context.device.logical,
@@ -246,7 +246,7 @@ int main() {
             .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
             .build();
     auto color_view =
-        vkz::image_view::builder(context.device.logical)
+        vkz::image_view::builder(context.device)
             .image(color_image)
             .view_type(VK_IMAGE_VIEW_TYPE_2D)
             .format(swapchain->format())
@@ -263,7 +263,7 @@ int main() {
             .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
             .build();
     auto depth_view =
-        vkz::image_view::builder(context.device.logical)
+        vkz::image_view::builder(context.device)
             .image(depth_image)
             .view_type(VK_IMAGE_VIEW_TYPE_2D)
             .format(depth_format)
@@ -408,7 +408,7 @@ mat4 get_model_matrix() {
     VkDescriptorSetAllocateInfo scene_descriptor_allocate_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
     scene_descriptor_allocate_info.descriptorPool = descriptor_pool;
     scene_descriptor_allocate_info.descriptorSetCount = 1;
-    scene_descriptor_allocate_info.pSetLayouts = &scene_descriptor_set_layout;
+    scene_descriptor_allocate_info.pSetLayouts = &scene_descriptor_set_layout.handle;
 
     VkDescriptorSet scene_descriptor_set{};
     VKZ_CHECK_VULKAN(vkAllocateDescriptorSets(context.device.logical, &scene_descriptor_allocate_info, &scene_descriptor_set));
@@ -466,7 +466,7 @@ mat4 get_model_matrix() {
                 .attachment()
                     .add()
             .layout()
-                .add_descriptor_set_layout(vkz::csm::descriptor_set_layout(csm_id))
+                .add_descriptor_set_layout({vkz::csm::descriptor_set_layout(csm_id), context.device})
                 .add_descriptor_set_layout(scene_descriptor_set_layout)
                 .add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(render_push_constants))
             .render_pass(render_pass)
@@ -659,7 +659,7 @@ mat4 get_model_matrix() {
     vkDestroySemaphore(context.device.logical, image_available, nullptr);
     vkDestroyPipeline(context.device.logical, scene_pipeline, nullptr);
     vkDestroyPipelineLayout(context.device.logical, scene_pipeline_layout, nullptr);
-    vkDestroyDescriptorSetLayout(context.device.logical, scene_descriptor_set_layout, nullptr);
+    scene_descriptor_set_layout.destroy();
     scene_mapping.unmap();
     split_mapping.unmap();
     scene_buffer.destroy();

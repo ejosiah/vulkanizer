@@ -35,9 +35,9 @@ vkz::compute_shader_stage_builder &vkz::compute_pipeline_builder::shader_stage()
     return *_shader_stage_builder;
 }
 
-vkz::compute_pipeline_layout_builder &vkz::compute_pipeline_builder::layout(VkPipelineLayout layout) {
+vkz::compute_pipeline_layout_builder &vkz::compute_pipeline_builder::layout() {
     if (parent()) {
-        return parent()->layout(layout);
+        return parent()->layout();
     }
     return *_pipeline_layout_builder;
 }

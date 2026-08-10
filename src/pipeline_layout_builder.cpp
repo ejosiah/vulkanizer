@@ -7,8 +7,8 @@ namespace vkz {
 
     }
 
-    pipeline_layout_builder &pipeline_layout_builder::add_descriptor_set_layout(VkDescriptorSetLayout layout) {
-        _descriptorSetLayouts.push_back(layout);
+    pipeline_layout_builder &pipeline_layout_builder::add_descriptor_set_layout(descriptor_set_layout layout) {
+        _descriptorSetLayouts.push_back(layout.handle);
         return *this;
     }
 

@@ -50,20 +50,14 @@ namespace vkz {
         }
     }
 
-    image_view_builder image_view::builder(VkDevice device) {
-        return image_view_builder{device};
-    }
-
     image_view_builder image_view::builder(vkz::device device) {
         return image_view_builder{device};
     }
 
-    image_view image_view::build(VkDevice device, VkImage image, VkFormat format) {
-        return builder(device).image(image).format(format).build();
-    }
-
-    image_view image_view::build(VkDevice device, const vkz::image& image) {
-        return builder(device).image(image).build();
+    image_view image_view::build(vkz::device device, const vkz::image& image, VkFormat format) {
+        return builder(device).image(image)
+                .format(format == VK_FORMAT_UNDEFINED ? image.create_info.format : format)
+                .build();
     }
 
     void image_view::destroy() {
@@ -73,15 +67,11 @@ namespace vkz {
         }
     }
 
-    sampler_builder sampler::builder(VkDevice device) {
-        return sampler_builder{device};
-    }
-
     sampler_builder sampler::builder(vkz::device device) {
         return sampler_builder{device};
     }
 
-    sampler sampler::build(VkDevice device) {
+    sampler sampler::build(vkz::device device) {
         return builder(device).build();
     }
 
@@ -600,9 +590,7 @@ namespace vkz {
         return allocator_->allocate(create_info_, memory_usage_);
     }
 
-    image_view_builder::image_view_builder(vkz::device device) : image_view_builder(device.logical) {}
-
-    image_view_builder::image_view_builder(VkDevice device)
+    image_view_builder::image_view_builder(vkz::device device)
             : device_{device} {
         create_info_.viewType = VK_IMAGE_VIEW_TYPE_2D;
         create_info_.format = VK_FORMAT_R8G8B8A8_UNORM;
@@ -615,11 +603,6 @@ namespace vkz {
 
     image_view_builder& image_view_builder::flags(VkImageViewCreateFlags value) {
         create_info_.flags = value;
-        return *this;
-    }
-
-    image_view_builder& image_view_builder::image(VkImage value) {
-        create_info_.image = value;
         return *this;
     }
 
@@ -684,19 +667,17 @@ namespace vkz {
     }
 
     image_view image_view_builder::build() const {
-        assert(device_ != VK_NULL_HANDLE);
+        assert(device_.logical != VK_NULL_HANDLE);
 
         image_view result{};
         result.create_info = create_info_;
-        result.device = device_;
+        result.device = device_.logical;
 
-        VKZ_CHECK_VULKAN(vkCreateImageView(device_, &create_info_, nullptr, &result.handle));
+        VKZ_CHECK_VULKAN(vkCreateImageView(device_.logical, &create_info_, nullptr, &result.handle));
         return result;
     }
 
-    sampler_builder::sampler_builder(vkz::device device) : sampler_builder(device.logical) {}
-
-    sampler_builder::sampler_builder(VkDevice device)
+    sampler_builder::sampler_builder(vkz::device device)
             : device_{device} {
         create_info_.magFilter = VK_FILTER_LINEAR;
         create_info_.minFilter = VK_FILTER_LINEAR;
@@ -798,13 +779,13 @@ namespace vkz {
     }
 
     sampler sampler_builder::build() const {
-        assert(device_ != VK_NULL_HANDLE);
+        assert(device_.logical != VK_NULL_HANDLE);
 
         sampler result{};
         result.create_info = create_info_;
-        result.device = device_;
+        result.device = device_.logical;
 
-        VKZ_CHECK_VULKAN(vkCreateSampler(device_, &create_info_, nullptr, &result.handle));
+        VKZ_CHECK_VULKAN(vkCreateSampler(device_.logical, &create_info_, nullptr, &result.handle));
         return result;
     }
 }

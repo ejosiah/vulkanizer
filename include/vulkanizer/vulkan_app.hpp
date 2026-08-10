@@ -104,7 +104,7 @@ namespace vkz {
 
     VkFormat pick_depth_format(VkPhysicalDevice physical_device);
 
-    std::vector<vkz::image_view> create_swapchain_image_views(VkDevice device, vkz::swapchain& swapchain);
+    std::vector<vkz::image_view> create_swapchain_image_views(vkz::device device, vkz::swapchain& swapchain);
     void destroy_image_views(VkDevice device, std::vector<vkz::image_view>& image_views);
 
 }

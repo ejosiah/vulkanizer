@@ -391,7 +391,7 @@ private:
                 .build();
 
             shadow_map.image_view =
-                image_view::builder(device_.logical)
+                image_view::builder(device_)
                     .image(shadow_map.image)
                     .view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
                     .format(depth_format_)
@@ -403,7 +403,7 @@ private:
                 .build();
 
             shadow_map.sampler =
-                sampler::builder(device_.logical)
+                sampler::builder(device_)
                     .mag_filter(VK_FILTER_LINEAR)
                     .min_filter(VK_FILTER_LINEAR)
                     .mipmap_mode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
@@ -480,7 +480,7 @@ private:
                     .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                     .descriptor_count(1)
                     .shader_stages(VK_SHADER_STAGE_VERTEX_BIT)
-                .create_layout();
+                .create_layout().handle;
 
         if (!vertex_include_descriptorset_layout_) {
             vertex_include_descriptorset_layout_ =
@@ -490,7 +490,7 @@ private:
                 .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                 .descriptor_count(1)
                 .shader_stages(VK_SHADER_STAGE_VERTEX_BIT)
-            .create_layout();
+            .create_layout().handle;
             owns_vertex_include_descriptorset_layout_ = true;
         }
     }
@@ -579,8 +579,8 @@ private:
                     .primitive_topology()
                 .layout()
                     .add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants_))
-                    .add_descriptor_set_layout(descriptor_set_layout_)
-                    .add_descriptor_set_layout(vertex_include_descriptorset_layout_)
+                    .add_descriptor_set_layout({descriptor_set_layout_, device_})
+                    .add_descriptor_set_layout({vertex_include_descriptorset_layout_, device_})
                 .dynamic_render_pass()
                     .depth_attachment(depth_format_)
                     .view_mask(viewMask())
@@ -625,7 +625,7 @@ private:
                             .add()
                         .layout()
                             .add_push_constant_range(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint))
-                            .add_descriptor_set_layout(descriptor_set_layout_)
+                            .add_descriptor_set_layout({descriptor_set_layout_, device_})
                         .render_pass(render_pass_)
                         .subpass(0)
                         .name("debug_cascade_shadow_map")

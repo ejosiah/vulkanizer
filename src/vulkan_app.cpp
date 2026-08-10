@@ -259,14 +259,17 @@ namespace vkz {
         VKZ_THROW("No supported depth attachment format was found")
     }
 
-    std::vector<vkz::image_view> create_swapchain_image_views(VkDevice device, vkz::swapchain& swapchain) {
+    std::vector<vkz::image_view> create_swapchain_image_views(vkz::device device, vkz::swapchain& swapchain) {
         std::vector<vkz::image_view> image_views;
         image_views.reserve(swapchain.image_count());
 
         for (uint32_t i = 0; i < swapchain.image_count(); ++i) {
+            vkz::image swapchain_image{};
+            swapchain_image.handle = swapchain.get_image(i);
+            swapchain_image.create_info.format = swapchain.format();
             image_views.push_back(
                 vkz::image_view::builder(device)
-                    .image(swapchain.get_image(i))
+                    .image(swapchain_image)
                     .view_type(VK_IMAGE_VIEW_TYPE_2D)
                     .format(swapchain.format())
                     .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)

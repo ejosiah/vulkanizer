@@ -29,7 +29,7 @@ int main() {
 
     {
     auto swapchain = app.create_swapchain();
-    auto image_views = vkz::create_swapchain_image_views(context.device.logical, *swapchain);
+    auto image_views = vkz::create_swapchain_image_views(context.device, *swapchain);
 
     vkz::imgui::init({
             .window = window,
@@ -63,7 +63,7 @@ int main() {
         vkz::destroy_image_views(context.device.logical, image_views);
         swapchain.reset();
         swapchain = app.create_swapchain();
-        image_views = vkz::create_swapchain_image_views(context.device.logical, *swapchain);
+        image_views = vkz::create_swapchain_image_views(context.device, *swapchain);
     };
 
     bool show_demo_window = true;

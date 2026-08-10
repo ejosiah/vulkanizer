@@ -54,7 +54,7 @@ To create the Conan package locally:
 conan create . --build=missing
 ```
 
-This repository currently produces `vulkanizer/2.6.0`.
+This repository currently produces `vulkanizer/0.0.0`.
 
 ## Use from CMake
 

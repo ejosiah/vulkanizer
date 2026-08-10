@@ -7,8 +7,8 @@ namespace vkz {
 
     }
 
-    compute_pipeline_layout_builder &compute_pipeline_layout_builder::add_descriptor_set_layout(VkDescriptorSetLayout layout) {
-        _descriptorSetLayouts.push_back(layout);
+    compute_pipeline_layout_builder &compute_pipeline_layout_builder::add_descriptor_set_layout(descriptor_set_layout layout) {
+        _descriptorSetLayouts.push_back(layout.handle);
         return *this;
     }
 

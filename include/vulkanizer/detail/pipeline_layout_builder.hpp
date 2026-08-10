@@ -1,14 +1,16 @@
 #pragma once
 
+#include "../descriptors.hpp"
+
 namespace vkz {
 
     class pipeline_layout_builder : public graphics_pipeline_builder {
     public:
         pipeline_layout_builder(vkz::device device, graphics_pipeline_builder *builder);
 
-        pipeline_layout_builder &add_descriptor_set_layout(VkDescriptorSetLayout layout);
+        pipeline_layout_builder &add_descriptor_set_layout(descriptor_set_layout layout);
 
-        template<typename DescriptorSetLayouts = std::vector<VkDescriptorSetLayout>>
+        template<typename DescriptorSetLayouts = std::vector<descriptor_set_layout>>
         pipeline_layout_builder &add_descriptor_set_layouts(const DescriptorSetLayouts &layouts) {
             for (auto &layout: layouts) {
                 add_descriptor_set_layout(layout);

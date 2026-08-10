@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../descriptors.hpp"
+
 #include <vector>
 
 namespace vkz {
@@ -8,9 +10,9 @@ namespace vkz {
     public:
         compute_pipeline_layout_builder(vkz::device device, compute_pipeline_builder *builder);
 
-        compute_pipeline_layout_builder &add_descriptor_set_layout(VkDescriptorSetLayout layout);
+        compute_pipeline_layout_builder &add_descriptor_set_layout(descriptor_set_layout layout);
 
-        template<typename DescriptorSetLayouts = std::vector<VkDescriptorSetLayout>>
+        template<typename DescriptorSetLayouts = std::vector<descriptor_set_layout>>
         compute_pipeline_layout_builder &add_descriptor_set_layouts(const DescriptorSetLayouts &layouts) {
             for (auto &layout: layouts) {
                 add_descriptor_set_layout(layout);

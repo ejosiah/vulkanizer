@@ -1,6 +1,7 @@
 #pragma once
 
 #include "memory.hpp"
+#include "pipeline.hpp"
 
 #include <volk.h>
 #include <glm/glm.hpp>
@@ -12,11 +13,6 @@
 namespace vkz {
 
     using scene = std::function<void()>;
-
-    struct pipeline {
-        VkPipeline handle{};
-        VkPipelineLayout layout{};
-    };
 
     struct color_attachment {
         image_view view;

@@ -25,7 +25,7 @@ namespace vkz {
 
         virtual compute_shader_stage_builder& shader_stage();
 
-        compute_pipeline_layout_builder& layout(VkPipelineLayout  layout);
+        compute_pipeline_layout_builder& layout();
 
         VkPipeline build();
 

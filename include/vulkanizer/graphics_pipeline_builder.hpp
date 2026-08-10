@@ -2,6 +2,7 @@
 
 #include "vkz.hpp"
 #include "builder.hpp"
+#include "pipeline.hpp"
 
 #include <string>
 #include <memory>
@@ -49,7 +50,7 @@ namespace vkz {
 
         graphics_pipeline_builder& subpass(uint32_t value);
 
-        graphics_pipeline_builder& layout(VkPipelineLayout  layout);
+        graphics_pipeline_builder& layout(const vkz::pipeline& pipeline);
 
         graphics_pipeline_builder& render_pass(VkRenderPass  render_pass);
 
@@ -59,16 +60,19 @@ namespace vkz {
 
         graphics_pipeline_builder& reuse();
 
-        graphics_pipeline_builder& base_pipeline(VkPipeline& pipeline);
+        graphics_pipeline_builder& base_pipeline(const vkz::pipeline& pipeline);
 
         graphics_pipeline_builder& pipeline_cache(VkPipelineCache pipeline_cache);
 
         [[nodiscard]]
         graphics_pipeline_builder *parent() override;
 
-        VkPipeline build();
+        // TODO do we need this?
+        VkPipeline build_native();
 
         VkPipeline build(VkPipelineLayout& pipeline_layout);
+
+        vkz::pipeline build();
 
         VkGraphicsPipelineCreateInfo create_info();
 

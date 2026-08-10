@@ -1,6 +1,6 @@
-#include "vulkanizer/descriptor_pool.hpp"
-
+#include "vulkanizer/descriptors.hpp"
 #include "vulkanizer/status.hpp"
+#include "vulkanizer/detail/functions.hpp"
 
 #include <limits>
 
@@ -32,7 +32,7 @@ namespace vkz {
         VKZ_CHECK_VULKAN(vkCreateDescriptorPool(device_.logical, &create_info, nullptr, &_pool));
     }
 
-    std::vector<VkDescriptorSet> descriptor_pool::allocate(std::span<VkDescriptorSetLayout> layouts) const {
+    std::vector<descriptor_set> descriptor_pool::allocate(std::span<descriptor_set_layout> layouts) {
         if (!_pool) {
             VKZ_THROW("Cannot allocate descriptor sets from a null descriptor pool")
         }
@@ -43,28 +43,29 @@ namespace vkz {
             VKZ_THROW("Descriptor set layout count exceeds the Vulkan uint32_t limit")
         }
 
+        auto vulkan_layouts = map_range(layouts, [](auto layout){ return layout.handle; });
         const VkDescriptorSetAllocateInfo allocate_info{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
             .pNext = nullptr,
             .descriptorPool = _pool,
             .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
-            .pSetLayouts = layouts.data(),
+            .pSetLayouts = vulkan_layouts.data(),
         };
-        std::vector<VkDescriptorSet> sets(layouts.size());
-        VKZ_CHECK_VULKAN(vkAllocateDescriptorSets(device_.logical, &allocate_info, sets.data()));
-        return sets;
+        std::vector<VkDescriptorSet> vulkan_sets(layouts.size());
+        VKZ_CHECK_VULKAN(vkAllocateDescriptorSets(device_.logical, &allocate_info, vulkan_sets.data()));
+        return map_range(vulkan_sets, [this](auto set){ return descriptor_set{ set, this }; });
     }
 
-    VkDescriptorSet descriptor_pool::allocate(VkDescriptorSetLayout layout) const {
-        if (!layout) {
+    descriptor_set descriptor_pool::allocate(descriptor_set_layout layout) {
+        if (!layout.handle) {
             VKZ_THROW("Cannot allocate a descriptor set with a null layout")
         }
         std::span layouts{&layout, std::size_t{1}};
         return allocate(layouts).front();
     }
 
-    std::vector<VkDescriptorSet> descriptor_pool::allocate_n(VkDescriptorSetLayout layout, size_t count) const {
-        if (!layout && count) {
+    std::vector<descriptor_set> descriptor_pool::allocate_n(descriptor_set_layout layout, size_t count) {
+        if (!layout.handle && count) {
             VKZ_THROW("Cannot allocate descriptor sets with a null layout")
         }
         if (count > std::numeric_limits<uint32_t>::max()) {
@@ -74,18 +75,18 @@ namespace vkz {
             return {};
         }
 
-        std::vector<VkDescriptorSetLayout> layouts(count, layout);
+        std::vector<descriptor_set_layout> layouts(count, layout);
         return allocate(layouts);
     }
 
-    void descriptor_pool::free(VkDescriptorSet set) const {
+    void descriptor_pool::free(descriptor_set set) {
         if (!set) {
             return;
         }
         free(std::span{&set, std::size_t{1}});
     }
 
-    void descriptor_pool::free(const std::span<VkDescriptorSet>& sets) const {
+    void descriptor_pool::free(const std::span<descriptor_set>& sets) {
         if (!_pool) {
             VKZ_THROW("Cannot free descriptor sets from a null descriptor pool")
         }
@@ -95,14 +96,16 @@ namespace vkz {
         if (sets.size() > std::numeric_limits<uint32_t>::max()) {
             VKZ_THROW("Descriptor set count exceeds the Vulkan uint32_t limit")
         }
+
+        auto vulkan_sets = map_range(sets, [](auto set){ return set.handle; });
         VKZ_CHECK_VULKAN(vkFreeDescriptorSets(
             device_.logical,
             _pool,
             static_cast<uint32_t>(sets.size()),
-            sets.data()));
+            vulkan_sets.data()));
     }
 
-    void descriptor_pool::reset() const {
+    void descriptor_pool::reset() {
         if (!_pool) {
             return;
         }

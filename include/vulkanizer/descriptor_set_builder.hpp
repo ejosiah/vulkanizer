@@ -1,6 +1,8 @@
 #pragma once
 
 #include "vkz.hpp"
+#include "descriptors.hpp"
+#include "memory.hpp"
 
 #include <vector>
 #include <algorithm>
@@ -16,18 +18,21 @@ namespace vkz {
             explicit descriptor_set_layout_binding_builder(
                     const vkz::device &device,
                     std::vector<VkDescriptorSetLayoutBinding> &bindings,
+                    std::vector<std::vector<VkSampler>> &immutable_sampler_storage,
                     std::string name,
                     bool bindless_enabled,
                     uint32_t binding_value
             )
-                    : device(device), bindings(bindings), _name{name}, bindless_enabled(bindless_enabled) {
+                    : device(device), bindings(bindings), immutable_sampler_storage(immutable_sampler_storage),
+                      _name{name}, bindless_enabled(bindless_enabled) {
                 _binding.binding = binding_value;
             };
 
             descriptor_set_layout_binding_builder binding(uint32_t value) const {
                 assert_binding();
                 bindings.push_back(_binding);
-                return descriptor_set_layout_binding_builder{device, bindings, _name, bindless_enabled, value};
+                return descriptor_set_layout_binding_builder{
+                        device, bindings, immutable_sampler_storage, _name, bindless_enabled, value};
             }
 
             const descriptor_set_layout_binding_builder &descriptor_count(uint32_t count) const {
@@ -45,18 +50,23 @@ namespace vkz {
                 return *this;
             }
 
-            const descriptor_set_layout_binding_builder &immutable_sampler(const VkSampler &sampler) const {
-                _binding.pImmutableSamplers = &sampler;
+            const descriptor_set_layout_binding_builder &immutable_sampler(const vkz::sampler &sampler) const {
+                immutable_sampler_storage.push_back({sampler.handle});
+                _binding.pImmutableSamplers = immutable_sampler_storage.back().data();
                 return *this;
             }
 
-            const descriptor_set_layout_binding_builder &immutable_samplers(VkSampler *samplers) const {
-                _binding.pImmutableSamplers = samplers;
+            const descriptor_set_layout_binding_builder &immutable_samplers(std::span<const vkz::sampler> samplers) const {
+                auto &handles = immutable_sampler_storage.emplace_back();
+                handles.reserve(samplers.size());
+                std::ranges::transform(samplers, std::back_inserter(handles),
+                                       [](const auto &sampler) { return sampler.handle; });
+                _binding.pImmutableSamplers = handles.data();
                 return *this;
             }
 
             [[nodiscard]]
-            VkDescriptorSetLayout create_layout(VkDescriptorSetLayoutCreateFlags flags = 0) const {
+            descriptor_set_layout create_layout(VkDescriptorSetLayoutCreateFlags flags = 0) const {
                 assert_binding();
                 bindings.push_back(_binding);
 
@@ -85,7 +95,7 @@ namespace vkz {
                 if (!_name.empty()) {
                     set_name<VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT>(device, _name, set_layout);
                 }
-                return set_layout;
+                return { .handle = set_layout, .device = device };
             }
 
             std::vector<VkDescriptorSetLayoutBinding> build() const {
@@ -101,6 +111,7 @@ namespace vkz {
         private:
             mutable VkDescriptorSetLayoutBinding _binding{};
             std::vector<VkDescriptorSetLayoutBinding> &bindings;
+            std::vector<std::vector<VkSampler>> &immutable_sampler_storage;
             mutable std::string _name;
             bool bindless_enabled;
             const vkz::device &device;
@@ -117,11 +128,13 @@ namespace vkz {
         }
 
         descriptor_set_layout_binding_builder binding(uint32_t value) const {
-            return descriptor_set_layout_binding_builder{device, bindings, _name, bindless_enabled, value};
+            return descriptor_set_layout_binding_builder{
+                    device, bindings, immutable_sampler_storage, _name, bindless_enabled, value};
         }
 
     private:
         mutable std::vector<VkDescriptorSetLayoutBinding> bindings;
+        mutable std::vector<std::vector<VkSampler>> immutable_sampler_storage;
         mutable std::string _name;
         mutable bool bindless_enabled{};
         mutable vkz::device device;

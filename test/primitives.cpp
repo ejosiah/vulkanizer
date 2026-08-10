@@ -232,7 +232,7 @@ int main() {
     auto allocator = vkz::vma_memory_allocator::create(context);
 
     auto swapchain = app.create_swapchain();
-    auto swapchain_image_views = vkz::create_swapchain_image_views(context.device.logical, *swapchain);
+    auto swapchain_image_views = vkz::create_swapchain_image_views(context.device, *swapchain);
     const auto depth_format = vkz::pick_depth_format(context.device.physical);
     const auto sample_count = pick_sample_count(context.device.physical);
 
@@ -244,7 +244,7 @@ int main() {
             .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
             .build();
     auto color_view =
-        vkz::image_view::builder(context.device.logical)
+        vkz::image_view::builder(context.device)
             .image(color_image)
             .view_type(VK_IMAGE_VIEW_TYPE_2D)
             .format(swapchain->format())
@@ -261,7 +261,7 @@ int main() {
             .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
             .build();
     auto depth_view =
-        vkz::image_view::builder(context.device.logical)
+        vkz::image_view::builder(context.device)
             .image(depth_image)
             .view_type(VK_IMAGE_VIEW_TYPE_2D)
             .format(depth_format)

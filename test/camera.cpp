@@ -3,7 +3,7 @@
 #include <vulkanizer/vulkan_app.hpp>
 #include <vulkanizer/barrier.hpp>
 #include <vulkanizer/commands.hpp>
-#include <vulkanizer/descriptor_pool.hpp>
+#include <vulkanizer/descriptors.hpp>
 #include <vulkanizer/descriptor_set_builder.hpp>
 #include <vulkanizer/graphics_pipeline_builder.hpp>
 #include <vulkanizer/imgui.hpp>
@@ -94,7 +94,7 @@ namespace {
 #endif
 
     VkPipeline make_pipeline(vkz::context& context, VkFormat color, VkFormat depth,
-            const char* vert, const char* frag, VkDescriptorSetLayout descriptors, VkPipelineLayout& layout) {
+            const char* vert, const char* frag, vkz::descriptor_set_layout descriptors, VkPipelineLayout& layout) {
         vkz::graphics_pipeline_builder pipeline_builder{context.device};
         pipeline_builder.shader_stage().vertex_shader(shader_path(vert)).fragment_shader(shader_path(frag))
             .vertex_input_state()
@@ -147,11 +147,11 @@ int main() {
     auto controller = std::make_unique<vkz::camera::controller>(camera, movement, input.get_device());
 
     auto swapchain = app.create_swapchain();
-    auto swap_views = vkz::create_swapchain_image_views(device, *swapchain);
+    auto swap_views = vkz::create_swapchain_image_views(context.device, *swapchain);
     const auto depth_format = vkz::pick_depth_format(context.device.physical);
     auto depth_image = vkz::image::builder(allocator).format(depth_format).extent(width, height)
         .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT).build();
-    auto depth_view = vkz::image_view::builder(device).image(depth_image).view_type(VK_IMAGE_VIEW_TYPE_2D)
+    auto depth_view = vkz::image_view::builder(context.device).image(depth_image).view_type(VK_IMAGE_VIEW_TYPE_2D)
         .format(depth_format).aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT).level_count(1).layer_count(1).build();
 
     const std::array<const char*, 6> face_names{"right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"};
@@ -186,9 +186,9 @@ int main() {
     }
     staging.return_memory(staging_memory);
     staging.destroy();
-    auto cube_view = vkz::image_view::builder(device).image(cube_image).view_type(VK_IMAGE_VIEW_TYPE_CUBE)
+    auto cube_view = vkz::image_view::builder(context.device).image(cube_image).view_type(VK_IMAGE_VIEW_TYPE_CUBE)
         .format(VK_FORMAT_R8G8B8A8_SRGB).aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT).level_count(1).layer_count(6).build();
-    auto cube_sampler = vkz::sampler::builder(device).mag_filter(VK_FILTER_LINEAR).min_filter(VK_FILTER_LINEAR)
+    auto cube_sampler = vkz::sampler::builder(context.device).mag_filter(VK_FILTER_LINEAR).min_filter(VK_FILTER_LINEAR)
         .address_mode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE).build();
 
     auto descriptor_layout = vkz::descriptor_set_layout_builder{context.device}.binding(0).descriptor_count(1)
@@ -201,7 +201,7 @@ int main() {
     auto descriptor = descriptor_pool.allocate(descriptor_layout);
     VkDescriptorImageInfo image_info{cube_sampler, cube_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-    write.dstSet = descriptor; write.descriptorCount = 1; write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; write.pImageInfo = &image_info;
+    write.dstSet = descriptor.handle; write.descriptorCount = 1; write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; write.pImageInfo = &image_info;
     vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
 
     VkPipelineLayout sky_layout{}, floor_layout{};
@@ -265,7 +265,7 @@ int main() {
             VkBuffer vertex_buffer = quad_buffer;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vertex_buffer, &vertex_offset);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_pipeline);
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_layout, 0, 1, &descriptor, 0, nullptr);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_layout, 0, 1, &descriptor.handle, 0, nullptr);
             vkCmdPushConstants(cmd, sky_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
             vkCmdDraw(cmd, static_cast<uint32_t>(quad_vertices.size()), 1, 0, 0);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, floor_pipeline);
@@ -286,7 +286,7 @@ int main() {
     vkDeviceWaitIdle(device);
     vkz::imgui::destroy(); vkDestroyPipeline(device, floor_pipeline, nullptr); vkDestroyPipeline(device, sky_pipeline, nullptr);
     vkDestroyPipelineLayout(device, floor_layout, nullptr); vkDestroyPipelineLayout(device, sky_layout, nullptr);
-    descriptor_pool.destroy(); vkDestroyDescriptorSetLayout(device, descriptor_layout, nullptr);
+    descriptor_pool.destroy(); descriptor_layout.destroy();
     quad_buffer.destroy(); cube_sampler.destroy(); cube_view.destroy(); cube_image.destroy();
     depth_view.destroy(); depth_image.destroy(); vkz::destroy_image_views(device, swap_views);
     vkDestroySemaphore(device, finished, nullptr); vkDestroySemaphore(device, available, nullptr);
