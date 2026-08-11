@@ -7,7 +7,10 @@
 
 namespace vkz {
 
-    glfw_input_adaptor::glfw_input_adaptor(GLFWwindow *window) : window_{window} {}
+    glfw_input_adaptor::glfw_input_adaptor(GLFWwindow *window, bool game_pad_enabled)
+    : window_{window}
+    , game_pad_enabled_{game_pad_enabled}
+    {}
 
        void glfw_input_adaptor::bind() {
            bind_keyboard_and_mouse();
@@ -23,6 +26,7 @@ namespace vkz {
        }
 
        void glfw_input_adaptor::bind_game_pad() {
+            if(!game_pad_enabled_) return;
 
            for(auto id = 0; id < 1; ++id) {
                auto present = glfwJoystickIsGamepad(id);

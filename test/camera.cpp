@@ -132,7 +132,7 @@ int main() {
     const auto queue = app.graphics_queue();
     const auto family = app.queue_family_index();
 
-    vkz::glfw_input_adaptor input(app.window());
+    vkz::glfw_input_adaptor input(app.window(), true);
     input.bind();
     vkz::camera::camera camera;
     camera.eyes = {0, 1, 5};

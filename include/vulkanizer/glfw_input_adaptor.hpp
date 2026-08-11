@@ -10,7 +10,7 @@ namespace vkz {
 
     struct glfw_input_adaptor : public camera::input_adaptor {
 
-        explicit glfw_input_adaptor(GLFWwindow *window);
+        explicit glfw_input_adaptor(GLFWwindow *window, bool game_pad_enabled = false);
 
         void bind() override;
 
@@ -37,6 +37,7 @@ namespace vkz {
         std::optional<int> game_pad_;
         camera::input_device keyboard_input_{};
         camera::input_device game_pad_input_{};
+        bool game_pad_enabled_{};
     };
 
 }
