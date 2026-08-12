@@ -1,6 +1,8 @@
 #pragma once
 
+#include "memory.hpp"
 #include "vkz.hpp"
+#include <initializer_list>
 #include <vector>
 
 namespace vkz::barrier {
@@ -11,40 +13,58 @@ namespace vkz::barrier {
     static VkDependencyInfo dependency_info;
 
     void gpu_to_cpu(VkCommandBuffer command_buffer);
+    void gpu_to_cpu(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void fragment_read_to_compute_write(VkCommandBuffer command_buffer);
+    void fragment_read_to_compute_write(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void fragment_write_to_fragment_read(VkCommandBuffer command_buffer);
+    void fragment_write_to_fragment_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void fragment_read_to_fragment_write(VkCommandBuffer command_buffer);
+    void fragment_read_to_fragment_write(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void compute_write_to_fragment_read(VkCommandBuffer command_buffer);
+    void compute_write_to_fragment_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void compute_write_to_read(VkCommandBuffer command_buffer);
+    void compute_write_to_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void compute_write_to_host_read(VkCommandBuffer command_buffer);
+    void compute_write_to_host_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void compute_write_to_transfer_read(VkCommandBuffer command_buffer);
+    void compute_write_to_transfer_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void compute_write_to_draw_indirect(VkCommandBuffer command_buffer);
+    void compute_write_to_draw_indirect(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void transfer_write_to_compute_read(VkCommandBuffer command_buffer);
+    void transfer_write_to_compute_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void transfer_write_to_compute_write(VkCommandBuffer command_buffer);
+    void transfer_write_to_compute_write(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void transfer_write_to_fragment_read(VkCommandBuffer command_buffer);
+    void transfer_write_to_fragment_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void acceleration_structure_update_to_ray_trace_read(VkCommandBuffer command_buffer);
+    void acceleration_structure_update_to_ray_trace_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void acceleration_structure_update_to_ray_query_read(VkCommandBuffer command_buffer);
+    void acceleration_structure_update_to_ray_query_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void ray_trace_read_to_acceleration_structure_update(VkCommandBuffer command_buffer);
+    void ray_trace_read_to_acceleration_structure_update(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void ray_query_read_to_acceleration_structure_update(VkCommandBuffer command_buffer);
+    void ray_query_read_to_acceleration_structure_update(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void ray_trace_write_to_compute_read(VkCommandBuffer command_buffer);
+    void ray_trace_write_to_compute_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
     void ray_trace_write_to_fragment_read(VkCommandBuffer command_buffer);
+    void ray_trace_write_to_fragment_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
 
     void push(VkImage& image, VkImageSubresourceRange subresource_range,

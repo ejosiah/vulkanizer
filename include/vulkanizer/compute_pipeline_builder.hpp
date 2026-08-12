@@ -20,7 +20,6 @@ namespace vkz {
 
         virtual ~compute_pipeline_builder() = default;
 
-        [[nodiscard]]
         compute_pipeline_builder* parent() override;
 
         virtual compute_shader_stage_builder& shader_stage();
@@ -29,11 +28,11 @@ namespace vkz {
 
         compute_pipeline_builder& name(const std::string& value);
 
-        VkPipeline build();
+        [[nodiscard]] VkPipeline build();
 
-        VkPipeline build(VkPipelineLayout& pipeline_layout);
+        [[nodiscard]] VkPipeline build(VkPipelineLayout& pipeline_layout);
 
-        VkComputePipelineCreateInfo create_info();
+        [[nodiscard]] VkComputePipelineCreateInfo create_info();
 
     protected:
         VkPipelineCreateFlags _flags = 0;

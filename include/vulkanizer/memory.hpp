@@ -263,7 +263,7 @@ namespace vkz {
 
         [[nodiscard]] const VkBufferCreateInfo& create_info() const;
 
-        buffer build() const;
+        [[nodiscard]] buffer build() const;
 
     private:
         vma_memory_allocator* allocator_{};

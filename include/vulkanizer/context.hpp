@@ -107,7 +107,7 @@ namespace vkz {
             return *this;
         }
 
-        context build();
+        [[nodiscard]] context build();
 
     private:
         class Impl;

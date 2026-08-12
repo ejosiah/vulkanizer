@@ -65,8 +65,7 @@ namespace vkz {
                 return *this;
             }
 
-            [[nodiscard]]
-            descriptor_set_layout create_layout(VkDescriptorSetLayoutCreateFlags flags = 0) const {
+            [[nodiscard]] descriptor_set_layout create_layout(VkDescriptorSetLayoutCreateFlags flags = 0) const {
                 assert_binding();
                 bindings.push_back(_binding);
 

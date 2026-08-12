@@ -17,7 +17,6 @@ namespace vkz {
 
         ~compute_shader_stage_builder();
 
-        [[nodiscard]]
         virtual compute_shader_stage_builder &compute_shader(const shader_source &source);
 
         template<typename T>
@@ -36,7 +35,6 @@ namespace vkz {
 
         void clear_stages();
 
-        [[nodiscard]]
         VkPipelineShaderStageCreateInfo &build_shader_stage();
 
 

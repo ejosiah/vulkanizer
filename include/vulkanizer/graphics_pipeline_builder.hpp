@@ -64,24 +64,21 @@ namespace vkz {
 
         graphics_pipeline_builder& pipeline_cache(VkPipelineCache pipeline_cache);
 
-        [[nodiscard]]
         graphics_pipeline_builder *parent() override;
 
         // TODO do we need this?
-        VkPipeline build_native();
+        [[nodiscard]] VkPipeline build_native();
 
-        VkPipeline build(VkPipelineLayout& pipeline_layout);
+        [[nodiscard]] VkPipeline build(VkPipelineLayout& pipeline_layout);
 
-        vkz::pipeline build();
+        [[nodiscard]] vkz::pipeline build();
 
-        VkGraphicsPipelineCreateInfo create_info();
+        [[nodiscard]] VkGraphicsPipelineCreateInfo create_info();
 
-        [[nodiscard]]
         graphics_pipeline_builder clone() const;
 
         void copy(const graphics_pipeline_builder& source);
 
-        [[nodiscard]]
         VkPipelineLayout pipeline_layout() const {
             return _pipeline_layout_owned;
         }

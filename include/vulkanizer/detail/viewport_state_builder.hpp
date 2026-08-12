@@ -64,7 +64,6 @@ namespace vkz {
 
         void reset_scratchpad();
 
-        [[nodiscard]]
         bool ready() const;
 
         std::vector<VkViewport> &build_viewports();
@@ -92,7 +91,6 @@ namespace vkz {
 
         std::vector<VkRect2D> &build_scissors();
 
-        [[nodiscard]]
         bool ready() const;
 
         void checkpoint();

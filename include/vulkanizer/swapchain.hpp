@@ -67,7 +67,7 @@ namespace vkz {
 
         [[maybe_unused]] builder_base& set_present_mode(VkPresentModeKHR mode);
 
-        swapchain build();
+        [[nodiscard]] swapchain build();
 
     private:
         const context& context_;

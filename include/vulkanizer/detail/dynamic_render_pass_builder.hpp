@@ -6,7 +6,6 @@ namespace vkz {
     public:
         explicit dynamic_render_pass_builder(vkz::device device, graphics_pipeline_builder *parent);
 
-        [[nodiscard]]
         dynamic_render_pass_builder &view_mask(uint32_t value);
 
         dynamic_render_pass_builder &add_color_attachment(VkFormat format);
@@ -19,7 +18,6 @@ namespace vkz {
 
         dynamic_render_pass_builder &disable();
 
-        [[nodiscard]]
         bool enabled() const;
 
         const VkPipelineRenderingCreateInfo &build_dynamic_render_info();

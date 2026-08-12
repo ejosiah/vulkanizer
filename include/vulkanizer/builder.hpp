@@ -13,13 +13,11 @@ namespace vkz {
 
         builder_base() = default;
 
-        [[nodiscard]]
         virtual builder_base* parent() {
             return _parent;
         }
 
 
-        [[nodiscard]]
         vkz::device device() const {
             return _device;
         }

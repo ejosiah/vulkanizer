@@ -38,7 +38,6 @@ namespace vkz {
 
         void copy(const pipeline_layout_builder &source);
 
-        [[nodiscard]]
         VkPipelineLayout build_pipeline_layout() const;
 
 
