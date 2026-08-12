@@ -88,9 +88,11 @@ namespace vkz {
             return true;
         }
 
-        static void extractFrustum(frustum_t& frustum, Mat4 M) {
+        void extract(Mat4 M) {
             const auto m1 = glm::row(M, 0);
             const auto m4 = glm::row(M, 3);
+
+            auto& frustum = *this;
 
             frustum.cp[LEFT_PLANE].x = m4[0] + m1[0];
             frustum.cp[LEFT_PLANE].y = m4[1] + m1[1];
