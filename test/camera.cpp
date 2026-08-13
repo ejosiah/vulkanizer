@@ -135,13 +135,13 @@ int main() {
     vkz::glfw_input_adaptor input(app.window(), true);
     input.bind();
     vkz::camera::camera camera;
-    camera.eyes = {0, 1, 5};
+    camera.position = {0, 1, 5};
     camera.acceleration = {18, 18, 18};
     camera.velocity = {8, 8, 8};
     camera.rotationSpeed = 0.15f;
     camera.horizontal_fov = true;
     vkz::camera::spectator initializer(camera);
-    initializer.look_at(camera.eyes, {0, 0, 0}, {0, 1, 0});
+    initializer.look_at(camera.position, {0, 0, 0}, {0, 1, 0});
     initializer.perspective(65, float(width) / height, 0.05f, 1000);
     auto movement = vkz::camera::movement_type::spectator;
     auto controller = std::make_unique<vkz::camera::controller>(camera, movement, input.get_device());
@@ -242,7 +242,7 @@ int main() {
             controller = std::make_unique<vkz::camera::controller>(camera, movement, input.get_device());
         }
         ImGui::Text("WASD move, Q/E down/up, hold left mouse to look, wheel zoom");
-        ImGui::Text("Position %.2f, %.2f, %.2f", camera.eyes.x, camera.eyes.y, camera.eyes.z);
+        ImGui::Text("Position %.2f, %.2f, %.2f", camera.position.x, camera.position.y, camera.position.z);
         ImGui::End();
         camera_constants constants{camera.model, camera.view, camera.projection};
 

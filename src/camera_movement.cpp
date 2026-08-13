@@ -39,7 +39,7 @@ namespace vkz::camera {
     
     template<typename Scalar>
     void movement_t<Scalar>::look_at(const Vec3 &eye, const Vec3 &target, const Vec3 &up) {
-        camera_.eyes = eye;
+        camera_.position = eye;
         camera_.target = target;
     
         auto& view = camera_.view;
@@ -68,9 +68,9 @@ namespace vkz::camera {
         camera_.zAxis = Vec3(glm::row(view, 2));
         camera_.viewDir = -camera_.zAxis;
     
-        camera_.view[3][0] = -dot(camera_.xAxis, camera_.eyes);
-        camera_.view[3][1] = -dot(camera_.yAxis, camera_.eyes);
-        camera_.view[3][2] = -dot(camera_.zAxis, camera_.eyes);
+        camera_.view[3][0] = -dot(camera_.xAxis, camera_.position);
+        camera_.view[3][1] = -dot(camera_.yAxis, camera_.position);
+        camera_.view[3][2] = -dot(camera_.zAxis, camera_.position);
         camera_.moved = true;
     }
     
@@ -168,16 +168,16 @@ namespace vkz::camera {
 
     template<typename Scalar>
     void movement_t<Scalar>::move(const movement_t::Vec3 &direction, const movement_t::Vec3 &amount) {
-        camera_.eyes.x += direction.x * amount.x;
-        camera_.eyes.y += direction.y * amount.y;
-        camera_.eyes.z += direction.z * amount.z;
+        camera_.position.x += direction.x * amount.x;
+        camera_.position.y += direction.y * amount.y;
+        camera_.position.z += direction.z * amount.z;
 
         update_view_matrix();
     }
 
     template<typename Scalar>
     void movement_t<Scalar>::update_position(const movement_t::Vec3 &newPosition) {
-        camera_.eyes = newPosition;
+        camera_.position = newPosition;
         position_changed();
         update_view_matrix();
     }
@@ -187,13 +187,13 @@ namespace vkz::camera {
         if (dx == Scalar(0) && dy == Scalar(0) && dz == Scalar(0)) return;
 
         const Vec3 forwards = camera_.viewDir;
-        Vec3 eyes = camera_.eyes;
+        Vec3 position = camera_.position;
 
-        eyes += camera_.xAxis * dx;
-        eyes += WORLD_YAXIS_T<Scalar> * dy;
-        eyes += forwards * dz;
+        position += camera_.xAxis * dx;
+        position += WORLD_YAXIS_T<Scalar> * dy;
+        position += forwards * dz;
 
-        update_position(eyes);
+        update_position(position);
     }
 
     template<typename Scalar>
@@ -204,7 +204,7 @@ namespace vkz::camera {
 
     template<typename Scalar>
     void movement_t<Scalar>::undo_roll() {
-        look_at(camera_.eyes, camera_.eyes + camera_.viewDir, WORLD_YAXIS_T<Scalar>);
+        look_at(camera_.position, camera_.position + camera_.viewDir, WORLD_YAXIS_T<Scalar>);
     }
 
     template<typename Scalar>
@@ -279,15 +279,15 @@ namespace vkz::camera {
     void first_person_t<Scalar>::move(Scalar dx, Scalar dy, Scalar dz) {
         if (dx == Scalar(0) && dy == Scalar(0) && dz == Scalar(0)) return;
         auto& camera = this->camera_;
-        auto eyes = camera.eyes;
+        auto position = camera.position;
     
         auto forwards = normalize(cross(WORLD_YAXIS_T<Scalar>, camera.xAxis));
     
-        eyes += camera.xAxis * dx;
-        eyes += WORLD_YAXIS_T<Scalar> * dy;
-        eyes += forwards * dz;
+        position += camera.xAxis * dx;
+        position += WORLD_YAXIS_T<Scalar> * dy;
+        position += forwards * dz;
 
-        this->update_position(eyes);
+        this->update_position(position);
     }
 
     template class spectator_t<float>;

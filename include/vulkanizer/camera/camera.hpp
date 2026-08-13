@@ -41,11 +41,10 @@ namespace vkz::camera {
         Mat4 view{1};
         Mat4 projection{1};
         Quat orientation{1, 0, 0, 0};
-        glm::vec3 position{0};
+        Vec3 position{0};
         Vec3 xAxis{1, 0, 0};
         Vec3 yAxis{0, 1, 0};
         Vec3 zAxis{0, 0, 1};
-        Vec3 eyes{0};
         Vec3 target{0};
         Vec3 viewDir{0, 0, -1};
         Vec3 acceleration{DEFAULT_ACCELERATION};
