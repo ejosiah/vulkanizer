@@ -4,7 +4,7 @@ from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
 
 class VulkanizerConan(ConanFile):
     name = "vulkanizer"
-    version = "0.0.8"
+    version = "0.0.9"
     package_type = "static-library"
 
     license = "MIT"
@@ -22,6 +22,7 @@ class VulkanizerConan(ConanFile):
         self.requires("glm/1.0.1", transitive_headers=True)
         self.requires("vulkan-memory-allocator/3.3.0", transitive_headers=True)
         self.requires("glslang/11.7.0", transitive_headers=True)
+        self.requires("ktx/4.4.2", transitive_headers=True)
 
     def layout(self):
         cmake_layout(self)
