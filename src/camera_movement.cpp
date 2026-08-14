@@ -30,6 +30,15 @@ namespace {
         return horizontalFov ? perspective_hfov_vk(fov, aspect, zNear, zFar)
                              : perspective_vfov_vk(fov, aspect, zNear, zFar);
     }
+
+    template<typename Scalar>
+    auto up_vector(const vkz::camera::camera_t<Scalar>& camera,
+                   const glm::vec<3, Scalar, glm::defaultp>& fallback) {
+        if (!camera.world_center) return fallback;
+
+        const auto radial = camera.position - *camera.world_center;
+        return glm::dot(radial, radial) > Scalar(0) ? glm::normalize(radial) : fallback;
+    }
 }
 
 namespace vkz::camera {
@@ -43,7 +52,7 @@ namespace vkz::camera {
         camera_.target = target;
     
         auto& view = camera_.view;
-        view = glm::lookAt(eye, target, up);
+        view = glm::lookAt(eye, target, up_vector(camera_, up));
         camera_.accumPitchDegrees = glm::degrees(std::asin(view[1][2]));
     
         camera_.xAxis = Vec3(row(view, 0));
@@ -187,10 +196,11 @@ namespace vkz::camera {
         if (dx == Scalar(0) && dy == Scalar(0) && dz == Scalar(0)) return;
 
         const Vec3 forwards = camera_.viewDir;
+        const Vec3 up = up_vector(camera_, WORLD_YAXIS_T<Scalar>);
         Vec3 position = camera_.position;
 
         position += camera_.xAxis * dx;
-        position += WORLD_YAXIS_T<Scalar> * dy;
+        position += up * dy;
         position += forwards * dz;
 
         update_position(position);
@@ -204,7 +214,8 @@ namespace vkz::camera {
 
     template<typename Scalar>
     void movement_t<Scalar>::undo_roll() {
-        look_at(camera_.position, camera_.position + camera_.viewDir, WORLD_YAXIS_T<Scalar>);
+        const auto up = up_vector(camera_, WORLD_YAXIS_T<Scalar>);
+        look_at(camera_.position, camera_.position + camera_.viewDir, up);
     }
 
     template<typename Scalar>
@@ -253,7 +264,7 @@ namespace vkz::camera {
         typename Base::Quat rot{};
 
         if (headingDegrees != Scalar(0)) {
-            rot = glm::angleAxis(glm::radians(headingDegrees), WORLD_YAXIS_T<Scalar>);
+            rot = glm::angleAxis(glm::radians(headingDegrees), up_vector(camera, WORLD_YAXIS_T<Scalar>));
             camera.orientation = camera.orientation * rot;
         }
 
@@ -280,11 +291,12 @@ namespace vkz::camera {
         if (dx == Scalar(0) && dy == Scalar(0) && dz == Scalar(0)) return;
         auto& camera = this->camera_;
         auto position = camera.position;
+        const auto up = up_vector(camera, WORLD_YAXIS_T<Scalar>);
     
-        auto forwards = normalize(cross(WORLD_YAXIS_T<Scalar>, camera.xAxis));
+        auto forwards = normalize(cross(up, camera.xAxis));
     
         position += camera.xAxis * dx;
-        position += WORLD_YAXIS_T<Scalar> * dy;
+        position += up * dy;
         position += forwards * dz;
 
         this->update_position(position);

@@ -3,6 +3,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include <optional>
+
 namespace vkz::camera {
     static constexpr double DEFAULT_FOVX = 90.0;
     static constexpr double DEFAULT_ZNEAR = 0.1;
@@ -50,6 +52,7 @@ namespace vkz::camera {
         Vec3 acceleration{DEFAULT_ACCELERATION};
         Vec3 velocity{DEFAULT_VELOCITY};
         Vec3 currentVelocity{0};
+        std::optional<Vec3> world_center{};
         Scalar fov{DEFAULT_FOVX};
         Scalar znear{DEFAULT_ZNEAR};
         Scalar zfar{DEFAULT_ZFAR};
