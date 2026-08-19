@@ -128,7 +128,7 @@ int main() {
     }};
     auto& context = app.context();
     auto allocator = vkz::vma_memory_allocator::create(context);
-    const auto device = context.device.logical;
+    const auto device = context.device;
     const auto queue = app.graphics_queue();
     const auto family = app.queue_family_index();
 

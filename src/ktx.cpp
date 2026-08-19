@@ -243,7 +243,7 @@ namespace vkz {
             commands.submit_and_wait(command_buffer);
             result.image.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-            const device device{allocator.physical_device, allocator.device};
+            const auto& device = allocator.device;
             result.image_view = image_view::builder(device)
                 .image(result.image)
                 .view_type(image_view_type(source.get()))

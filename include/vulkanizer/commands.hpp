@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "vkz.hpp"
 #include <volk.h>
 
 #include <cstddef>
@@ -52,7 +53,7 @@ namespace vkz {
     public:
         command_pool();
         command_pool(
-            VkDevice device,
+            vkz::device device,
             uint32_t family_index,
             VkCommandPoolCreateFlags flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
             VkQueue default_queue = VK_NULL_HANDLE);
@@ -62,7 +63,7 @@ namespace vkz {
         command_pool& operator=(const command_pool&) = delete;
 
         void init(
-            VkDevice device,
+            vkz::device device,
             uint32_t family_index,
             VkCommandPoolCreateFlags flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
             VkQueue default_queue = VK_NULL_HANDLE);
@@ -99,14 +100,14 @@ namespace vkz {
         void submit_and_wait(VkCommandBuffer command_buffer);
 
     protected:
-        VkDevice device_{VK_NULL_HANDLE};
+        vkz::device device_{};
         VkQueue queue_{VK_NULL_HANDLE};
         VkCommandPool command_pool_{VK_NULL_HANDLE};
     };
 
     class scope_command_buffer : public command_pool {
     public:
-        scope_command_buffer(VkDevice device, uint32_t family_index, VkQueue queue = VK_NULL_HANDLE);
+        scope_command_buffer(vkz::device device, uint32_t family_index, VkQueue queue = VK_NULL_HANDLE);
         ~scope_command_buffer();
 
         operator VkCommandBuffer() const;
@@ -118,13 +119,13 @@ namespace vkz {
     class ring_fences {
     public:
         ring_fences();
-        explicit ring_fences(VkDevice device, uint32_t ring_size = default_ring_size);
+        explicit ring_fences(vkz::device device, uint32_t ring_size = default_ring_size);
         ~ring_fences();
 
         ring_fences(const ring_fences&) = delete;
         ring_fences& operator=(const ring_fences&) = delete;
 
-        void init(VkDevice device, uint32_t ring_size = default_ring_size);
+        void init(vkz::device device, uint32_t ring_size = default_ring_size);
         void deinit();
         void reset();
         void set_cycle_and_wait(uint32_t cycle);
@@ -142,7 +143,7 @@ namespace vkz {
         uint32_t cycle_index_{};
         uint32_t cycle_size_{};
         std::vector<entry> fences_;
-        VkDevice device_{VK_NULL_HANDLE};
+        vkz::device device_{};
     };
 
     class ring_command_pool {
@@ -219,7 +220,7 @@ namespace vkz {
     public:
         fenced_command_pools();
         fenced_command_pools(
-            VkDevice device,
+            vkz::device device,
             VkQueue queue,
             uint32_t queue_family_index,
             VkCommandPoolCreateFlags flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
@@ -230,7 +231,7 @@ namespace vkz {
         fenced_command_pools& operator=(const fenced_command_pools&) = delete;
 
         void init(
-            VkDevice device,
+            vkz::device device,
             VkQueue queue,
             uint32_t queue_family_index,
             VkCommandPoolCreateFlags flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,

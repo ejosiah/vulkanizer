@@ -10,6 +10,18 @@ namespace vkz {
     struct device {
         VkPhysicalDevice physical{};
         VkDevice logical{};
+
+        operator VkDevice() const {
+            return logical;
+        }
+
+        operator VkPhysicalDevice() const {
+            return physical;
+        }
+
+        operator bool() const {
+            return logical != VK_NULL_HANDLE;
+        }
     };
 
     struct shader_info{

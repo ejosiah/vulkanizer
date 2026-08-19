@@ -131,8 +131,7 @@ namespace vkz {
 
     struct vma_memory_allocator {
         VkInstance instance{VK_NULL_HANDLE};
-        VkPhysicalDevice physical_device{VK_NULL_HANDLE};
-        VkDevice device{VK_NULL_HANDLE};
+        device device;
         VmaAllocator allocator{VK_NULL_HANDLE};
 
         static vma_memory_allocator create(const context& context);

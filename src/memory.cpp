@@ -91,13 +91,12 @@ namespace vkz {
     vma_memory_allocator vma_memory_allocator::create(const context& context) {
         vma_memory_allocator result{};
         result.instance = context.instance;
-        result.physical_device = context.device.physical;
-        result.device = context.device.logical;
+        result.device = context.device;
 
         VmaAllocatorCreateInfo create_info{};
         create_info.vulkanApiVersion = context.api_version;
         create_info.instance = result.instance;
-        create_info.physicalDevice = result.physical_device;
+        create_info.physicalDevice = result.device;
         create_info.device = result.device;
 
         VmaVulkanFunctions vulkan_functions{};
@@ -122,8 +121,8 @@ namespace vkz {
 
         vma_memory_allocator result{};
         result.instance = allocator_info.instance;
-        result.physical_device = allocator_info.physicalDevice;
-        result.device = allocator_info.device;
+        result.device.physical = allocator_info.physicalDevice;
+        result.device.logical = allocator_info.device;
         result.allocator = allocator;
         result.owns_allocator = false;
         return result;

@@ -98,7 +98,7 @@ namespace vkz {
     command_pool::command_pool() = default;
 
     command_pool::command_pool(
-            VkDevice device,
+            vkz::device device,
             uint32_t family_index,
             VkCommandPoolCreateFlags flags,
             VkQueue default_queue) {
@@ -110,11 +110,11 @@ namespace vkz {
     }
 
     void command_pool::init(
-            VkDevice device,
+            vkz::device device,
             uint32_t family_index,
             VkCommandPoolCreateFlags flags,
             VkQueue default_queue) {
-        assert(!device_);
+        assert(!device_.logical);
         device_ = device;
 
         VkCommandPoolCreateInfo create_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
@@ -135,7 +135,7 @@ namespace vkz {
             command_pool_ = VK_NULL_HANDLE;
         }
         queue_ = VK_NULL_HANDLE;
-        device_ = VK_NULL_HANDLE;
+        device_ = {};
     }
 
     VkCommandBuffer command_pool::create_command_buffer(
@@ -224,7 +224,7 @@ namespace vkz {
         submit_and_wait(1, &command_buffer, queue_);
     }
 
-    scope_command_buffer::scope_command_buffer(VkDevice device, uint32_t family_index, VkQueue queue) {
+    scope_command_buffer::scope_command_buffer(vkz::device device, uint32_t family_index, VkQueue queue) {
         command_pool::init(device, family_index, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queue);
         command_buffer_ = create_command_buffer();
     }
@@ -246,7 +246,7 @@ namespace vkz {
 
     ring_fences::ring_fences() = default;
 
-    ring_fences::ring_fences(VkDevice device, uint32_t ring_size) {
+    ring_fences::ring_fences(vkz::device device, uint32_t ring_size) {
         init(device, ring_size);
     }
 
@@ -254,7 +254,7 @@ namespace vkz {
         deinit();
     }
 
-    void ring_fences::init(VkDevice device, uint32_t ring_size) {
+    void ring_fences::init(vkz::device device, uint32_t ring_size) {
         assert(!device_);
         device_ = device;
         cycle_index_ = 0;
@@ -278,7 +278,7 @@ namespace vkz {
         fences_.clear();
         cycle_index_ = 0;
         cycle_size_ = 0;
-        device_ = VK_NULL_HANDLE;
+        device_ = {};
     }
 
     void ring_fences::reset() {
@@ -499,7 +499,7 @@ namespace vkz {
     fenced_command_pools::fenced_command_pools() = default;
 
     fenced_command_pools::fenced_command_pools(
-            VkDevice device,
+            vkz::device device,
             VkQueue queue,
             uint32_t queue_family_index,
             VkCommandPoolCreateFlags flags,
@@ -512,7 +512,7 @@ namespace vkz {
     }
 
     void fenced_command_pools::init(
-            VkDevice device,
+            vkz::device device,
             VkQueue queue,
             uint32_t queue_family_index,
             VkCommandPoolCreateFlags flags,
