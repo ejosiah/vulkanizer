@@ -5,6 +5,8 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 option(VULKANIZER_BUILD_TESTS "Build vulkanizer tests" ON)
+option(VULKANIZER_ENABLE_NSIGHT_AFTERMATH "Enable NVIDIA Nsight Aftermath GPU crash dumps" OFF)
+set(NSIGHT_AFTERMATH_SDK_DIR "" CACHE PATH "Path to the NVIDIA Nsight Aftermath SDK")
 
 # CLion may configure its build directory directly instead of using Conan's
 # generated preset. In that case, make CMakeDeps packages discoverable from
@@ -73,6 +75,27 @@ target_link_libraries(vulkanizer PUBLIC
 target_include_directories(vulkanizer PUBLIC ${INCLUDE_DIRS} ${INSTALL_INCLUDE_DIRS})
 target_include_directories(vulkanizer PRIVATE "${IMGUI_BINDINGS_DIR}")
 target_compile_definitions(vulkanizer PRIVATE GLFW_INCLUDE_NONE IMGUI_IMPL_VULKAN_USE_VOLK)
+
+if(VULKANIZER_ENABLE_NSIGHT_AFTERMATH)
+    if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(FATAL_ERROR "The configured Nsight Aftermath SDK integration requires 64-bit Windows")
+    endif()
+    if(NOT EXISTS "${NSIGHT_AFTERMATH_SDK_DIR}/include/GFSDK_Aftermath_GpuCrashDump.h"
+            OR NOT EXISTS "${NSIGHT_AFTERMATH_SDK_DIR}/lib/x64/GFSDK_Aftermath_Lib.x64.lib"
+            OR NOT EXISTS "${NSIGHT_AFTERMATH_SDK_DIR}/lib/x64/GFSDK_Aftermath_Lib.x64.dll")
+        message(FATAL_ERROR "NSIGHT_AFTERMATH_SDK_DIR does not point to a complete Nsight Aftermath SDK")
+    endif()
+
+    add_library(nsight_aftermath SHARED IMPORTED GLOBAL)
+    set_target_properties(nsight_aftermath PROPERTIES
+            IMPORTED_IMPLIB "${NSIGHT_AFTERMATH_SDK_DIR}/lib/x64/GFSDK_Aftermath_Lib.x64.lib"
+            IMPORTED_LOCATION "${NSIGHT_AFTERMATH_SDK_DIR}/lib/x64/GFSDK_Aftermath_Lib.x64.dll"
+            INTERFACE_INCLUDE_DIRECTORIES "${NSIGHT_AFTERMATH_SDK_DIR}/include")
+    target_link_libraries(vulkanizer PRIVATE nsight_aftermath)
+    target_compile_definitions(vulkanizer PRIVATE VKZ_ENABLE_NSIGHT_AFTERMATH)
+    install(FILES "${NSIGHT_AFTERMATH_SDK_DIR}/lib/x64/GFSDK_Aftermath_Lib.x64.dll"
+            DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
 
 install(TARGETS vulkanizer
         EXPORT vulkanizer_targets

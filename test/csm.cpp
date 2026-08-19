@@ -231,7 +231,7 @@ int main() {
     auto swapchain_image_views = vkz::create_swapchain_image_views(context.device, *swapchain);
 
     vkz::fenced_command_pools commands{
-        context.device.logical,
+        context.device,
         graphics_queue,
         queue_family_index,
         VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
@@ -342,7 +342,7 @@ int main() {
 
     const auto csm_id = [&] {
         vkz::scope_command_buffer initial_transition_command_buffer{
-            context.device.logical,
+            context.device,
             queue_family_index,
             graphics_queue,
         };

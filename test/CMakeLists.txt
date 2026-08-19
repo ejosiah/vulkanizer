@@ -1,6 +1,11 @@
 function(vulkanizer_add_test_executable target source)
     add_executable(${target} ${source})
     target_link_libraries(${target} PRIVATE vulkanizer)
+    if(TARGET nsight_aftermath)
+        add_custom_command(TARGET ${target} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:nsight_aftermath> $<TARGET_FILE_DIR:${target}>)
+    endif()
 endfunction()
 
 vulkanizer_add_test_executable(vulkanizer_context_test main.cpp)
@@ -8,6 +13,7 @@ vulkanizer_add_test_executable(vulkanizer_csm_test csm.cpp)
 vulkanizer_add_test_executable(vulkanizer_primitive_test primitives.cpp)
 vulkanizer_add_test_executable(vulkanizer_camera_test camera.cpp)
 vulkanizer_add_test_executable(vulkanizer_commands_test commands.cpp)
+vulkanizer_add_test_executable(vulkanizer_mip_map_test mip_map.cpp)
 
 find_program(GLSLC_EXECUTABLE glslc)
 if(NOT GLSLC_EXECUTABLE)

@@ -43,7 +43,7 @@ int main() {
     });
 
     vkz::fenced_command_pools commands{
-        context.device.logical,
+        context.device,
         graphics_queue,
         queue_family_index,
         VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,

@@ -1,5 +1,6 @@
 #include "vulkanizer/context.hpp"
 
+#include "vulkanizer/aftermath.hpp"
 #include "vulkanizer/log.hpp"
 #include "vulkanizer/status.hpp"
 
@@ -242,6 +243,11 @@ namespace vkz {
         }
 
         context build(void* extension_chain) {
+#ifdef VKZ_ENABLE_NSIGHT_AFTERMATH
+            if (!aftermath::enable()) {
+                warn("NVIDIA Nsight Aftermath is available but could not be enabled");
+            }
+#endif
             application_info.pApplicationName = app_name.c_str();
             application_info.pEngineName = engine_name.c_str();
 
@@ -253,6 +259,24 @@ namespace vkz {
             surface = result.surface;
             result.debug_messenger = create_debug_messenger(result.instance);
             result.device.physical = pick_physical_device(result.instance);
+#ifdef VKZ_ENABLE_NSIGHT_AFTERMATH
+            VkDeviceDiagnosticsConfigCreateInfoNV diagnostics{
+                VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV};
+            const std::vector<const char*> diagnostics_extensions{
+                VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME};
+            if (supports_device_extensions(result.device.physical, diagnostics_extensions)) {
+                device_extensions.emplace_back(VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME);
+                rebuild_pointers();
+                diagnostics.flags =
+                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV |
+                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV |
+                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_ERROR_REPORTING_BIT_NV;
+                diagnostics.pNext = extension_chain;
+                extension_chain = &diagnostics;
+            } else {
+                warn("VK_NV_device_diagnostics_config is unavailable; Aftermath dumps will contain reduced diagnostics");
+            }
+#endif
             result.device.logical = create_device(result.device.physical, extension_chain);
             volkLoadDevice(result.device.logical);
 
