@@ -10,7 +10,7 @@ namespace vkz::barrier {
     static std::vector<VkImageMemoryBarrier2> image_memory_barriers;
     static std::vector<VkBufferMemoryBarrier2> buffer_memory_barriers;
     static std::vector<VkMemoryBarrier2> memory_barriers;
-    static VkDependencyInfo dependency_info;
+    static VkDependencyInfo dependency_info{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
 
     void gpu_to_cpu(VkCommandBuffer command_buffer);
     void gpu_to_cpu(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);

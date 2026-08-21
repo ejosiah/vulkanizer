@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(vulkanizer VERSION 0.0.13)
+project(vulkanizer VERSION 0.0.14)
 set(CMAKE_CXX_STANDARD 20)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

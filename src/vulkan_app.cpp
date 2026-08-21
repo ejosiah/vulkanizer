@@ -38,6 +38,9 @@ namespace {
         if (create_info.engine_name) {
             builder.engine_name(create_info.engine_name);
         }
+        if (create_info.validation) {
+            builder.add_instance_layer("VK_LAYER_KHRONOS_validation");
+        }
 
         if (create_info.synchronization2) {
             builder.add_extension(synchronization2);
