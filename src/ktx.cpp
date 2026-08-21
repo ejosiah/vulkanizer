@@ -136,6 +136,26 @@ namespace {
                 return false;
         }
     }
+
+    KTX_error_code create_ktx_texture(const VkImageCreateInfo& image, ktxTexture2** texture) {
+        if(image.samples != VK_SAMPLE_COUNT_1_BIT) return KTX_INVALID_OPERATION;
+        if(image.imageType == VK_IMAGE_TYPE_3D && image.arrayLayers != 1) return KTX_INVALID_OPERATION;
+        if((image.flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) &&
+           (image.imageType != VK_IMAGE_TYPE_2D || image.arrayLayers % 6 != 0)) return KTX_INVALID_OPERATION;
+
+        const bool cubemap = image.flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+        ktxTextureCreateInfo create_info{};
+        create_info.vkFormat = image.format;
+        create_info.baseWidth = image.extent.width;
+        create_info.baseHeight = image.imageType == VK_IMAGE_TYPE_1D ? 1 : image.extent.height;
+        create_info.baseDepth = image.imageType == VK_IMAGE_TYPE_3D ? image.extent.depth : 1;
+        create_info.numDimensions = image.imageType == VK_IMAGE_TYPE_1D ? 1 : image.imageType == VK_IMAGE_TYPE_2D ? 2 : 3;
+        create_info.numLevels = image.mipLevels;
+        create_info.numLayers = cubemap ? image.arrayLayers / 6 : image.arrayLayers;
+        create_info.numFaces = cubemap ? 6 : 1;
+        create_info.isArray = create_info.numLayers > 1 ? KTX_TRUE : KTX_FALSE;
+        return ktxTexture2_Create(&create_info, KTX_TEXTURE_CREATE_ALLOC_STORAGE, texture);
+    }
 }
 
 namespace vkz {
@@ -277,4 +297,95 @@ namespace vkz {
         staging.destroy();
         return result;
     }
+
+    namespace ktx {
+        texture_snapshot read(vma_memory_allocator& allocator, VkQueue queue, uint32_t queue_family_index,
+                              const texture& texture) {
+            const auto& image = texture.image;
+            if(!(image.create_info.usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
+                throw std::invalid_argument{"KTX saving requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT"};
+            }
+            ktxTexture2* raw_texture{};
+            check_ktx(create_ktx_texture(image.create_info, &raw_texture), "creating KTX readback layout");
+            ktx_texture_ptr ktx_layout{reinterpret_cast<ktxTexture*>(raw_texture)};
+            const auto data_size = ktxTexture_GetDataSize(ktx_layout.get());
+            texture_snapshot snapshot{image.create_info, std::vector<uint8_t>(data_size)};
+            snapshot.create_info.pNext = nullptr;
+            snapshot.create_info.queueFamilyIndexCount = 0;
+            snapshot.create_info.pQueueFamilyIndices = nullptr;
+            buffer staging = buffer::builder(allocator)
+                .size(data_size)
+                .usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+                .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
+                .build();
+
+            try {
+                command_pool commands{allocator.device, queue_family_index, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queue};
+                const auto command_buffer = commands.create_command_buffer();
+                const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, image.create_info.mipLevels,
+                                                    0, image.create_info.arrayLayers};
+                VkImageMemoryBarrier2 to_transfer{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+                to_transfer.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+                to_transfer.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+                to_transfer.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+                to_transfer.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+                to_transfer.oldLayout = image.layout;
+                to_transfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                to_transfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                to_transfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                to_transfer.image = image.handle;
+                to_transfer.subresourceRange = range;
+                VkDependencyInfo dependency{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+                dependency.imageMemoryBarrierCount = 1;
+                dependency.pImageMemoryBarriers = &to_transfer;
+                vkCmdPipelineBarrier2(command_buffer, &dependency);
+
+                const auto regions = copy_regions(ktx_layout.get());
+                vkCmdCopyImageToBuffer(command_buffer, image.handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                       staging, VKZ_COUNT(regions), regions.data());
+
+                VkImageMemoryBarrier2 to_general{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+                to_general.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+                to_general.srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+                to_general.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+                to_general.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+                to_general.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                to_general.newLayout = image.layout;
+                to_general.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                to_general.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                to_general.image = image.handle;
+                to_general.subresourceRange = range;
+                dependency.pImageMemoryBarriers = &to_general;
+                vkCmdPipelineBarrier2(command_buffer, &dependency);
+                commands.submit_and_wait(command_buffer);
+                auto mapping = staging.map();
+                std::memcpy(snapshot.pixels.data(), mapping.as<void>(), data_size);
+                mapping.unmap();
+            } catch (...) {
+                staging.destroy();
+                throw;
+            }
+            staging.destroy();
+            return snapshot;
+        }
+
+        void save(const std::filesystem::path& path, const texture_snapshot& snapshot) {
+            ktxTexture2* raw_texture{};
+            check_ktx(create_ktx_texture(snapshot.create_info, &raw_texture),
+                      std::format("creating KTX texture {}", path.string()));
+            ktx_texture_ptr output{reinterpret_cast<ktxTexture*>(raw_texture)};
+            if(ktxTexture_GetDataSize(output.get()) != snapshot.pixels.size()) {
+                throw std::runtime_error{std::format("KTX texture data size mismatch for {}", path.string())};
+            }
+            std::memcpy(ktxTexture_GetData(output.get()), snapshot.pixels.data(), snapshot.pixels.size());
+            check_ktx(ktxTexture_WriteToNamedFile(output.get(), path.string().c_str()),
+                      std::format("writing KTX texture {}", path.string()));
+        }
+
+        void save(const std::filesystem::path& path, vma_memory_allocator& allocator, VkQueue queue,
+                  uint32_t queue_family_index, const texture& texture) {
+            save(path, read(allocator, queue, queue_family_index, texture));
+        }
+    }
+
 }

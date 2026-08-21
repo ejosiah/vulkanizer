@@ -583,7 +583,7 @@ namespace vkz {
         const auto end_result = vkEndCommandBuffer(command_buffer_);
         assert(end_result == VK_SUCCESS);
         command_pools_->enqueue(command_buffer_);
-        const auto submit_result = command_pools_->execute();
+        const auto submit_result = command_pools_->batch_submission::execute();
         assert(submit_result == VK_SUCCESS);
         const auto wait_result = vkQueueWaitIdle(command_pools_->batch_submission::get_queue());
         assert(wait_result == VK_SUCCESS);

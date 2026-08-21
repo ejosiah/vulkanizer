@@ -29,6 +29,7 @@ namespace vkz {
         const char* engine_name{};
         std::vector<const char*> instance_extensions;
         std::vector<const char*> device_extensions;
+        device::features enabled_features{};
         device_extension_chain extension_chain{};
     };
 

@@ -34,6 +34,10 @@ namespace vkz {
         static void onMouseWheelMove(GLFWwindow *window, double xOffset, double yOffset);
 
         GLFWwindow *window_{};
+        GLFWkeyfun previous_key_callback_{};
+        GLFWmousebuttonfun previous_mouse_button_callback_{};
+        GLFWcursorposfun previous_cursor_position_callback_{};
+        GLFWscrollfun previous_scroll_callback_{};
         std::optional<int> game_pad_;
         camera::input_device keyboard_input_{};
         camera::input_device game_pad_input_{};

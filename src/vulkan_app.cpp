@@ -28,11 +28,71 @@ namespace {
         VkPhysicalDeviceVulkan11Features vulkan11{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
         vulkan11.multiview = create_info.multiview ? VK_TRUE : VK_FALSE;
 
+        const auto& features = create_info.enabled_features;
+        const VkPhysicalDeviceFeatures enabled_features{
+            .robustBufferAccess = features.robust_buffer_access,
+            .fullDrawIndexUint32 = features.full_draw_index_uint32,
+            .imageCubeArray = features.image_cube_array,
+            .independentBlend = features.independent_blend,
+            .geometryShader = features.geometry_shader,
+            .tessellationShader = features.tessellation_shader,
+            .sampleRateShading = features.sample_rate_shading,
+            .dualSrcBlend = features.dual_src_blend,
+            .logicOp = features.logic_op,
+            .multiDrawIndirect = features.multi_draw_indirect,
+            .drawIndirectFirstInstance = features.draw_indirect_first_instance,
+            .depthClamp = features.depth_clamp,
+            .depthBiasClamp = features.depth_bias_clamp,
+            .fillModeNonSolid = features.fill_mode_non_solid,
+            .depthBounds = features.depth_bounds,
+            .wideLines = features.wide_lines,
+            .largePoints = features.large_points,
+            .alphaToOne = features.alpha_to_one,
+            .multiViewport = features.multi_viewport,
+            .samplerAnisotropy = features.sampler_anisotropy,
+            .textureCompressionETC2 = features.texture_compression_etc2,
+            .textureCompressionASTC_LDR = features.texture_compression_astc_ldr,
+            .textureCompressionBC = features.texture_compression_bc,
+            .occlusionQueryPrecise = features.occlusion_query_precise,
+            .pipelineStatisticsQuery = features.pipeline_statistics_query,
+            .vertexPipelineStoresAndAtomics = features.vertex_pipeline_stores_and_atomics,
+            .fragmentStoresAndAtomics = features.fragment_stores_and_atomics,
+            .shaderTessellationAndGeometryPointSize = features.shader_tessellation_and_geometry_point_size,
+            .shaderImageGatherExtended = features.shader_image_gather_extended,
+            .shaderStorageImageExtendedFormats = features.shader_storage_image_extended_formats,
+            .shaderStorageImageMultisample = features.shader_storage_image_multisample,
+            .shaderStorageImageReadWithoutFormat = features.shader_storage_image_read_without_format,
+            .shaderStorageImageWriteWithoutFormat = features.shader_storage_image_write_without_format,
+            .shaderUniformBufferArrayDynamicIndexing = features.shader_uniform_buffer_array_dynamic_indexing,
+            .shaderSampledImageArrayDynamicIndexing = features.shader_sampled_image_array_dynamic_indexing,
+            .shaderStorageBufferArrayDynamicIndexing = features.shader_storage_buffer_array_dynamic_indexing,
+            .shaderStorageImageArrayDynamicIndexing = features.shader_storage_image_array_dynamic_indexing,
+            .shaderClipDistance = features.shader_clip_distance,
+            .shaderCullDistance = features.shader_cull_distance,
+            .shaderFloat64 = features.shader_float64,
+            .shaderInt64 = features.shader_int64,
+            .shaderInt16 = features.shader_int16,
+            .shaderResourceResidency = features.shader_resource_residency,
+            .shaderResourceMinLod = features.shader_resource_min_lod,
+            .sparseBinding = features.sparse_binding,
+            .sparseResidencyBuffer = features.sparse_residency_buffer,
+            .sparseResidencyImage2D = features.sparse_residency_image_2d,
+            .sparseResidencyImage3D = features.sparse_residency_image_3d,
+            .sparseResidency2Samples = features.sparse_residency_2_samples,
+            .sparseResidency4Samples = features.sparse_residency_4_samples,
+            .sparseResidency8Samples = features.sparse_residency_8_samples,
+            .sparseResidency16Samples = features.sparse_residency_16_samples,
+            .sparseResidencyAliased = features.sparse_residency_aliased,
+            .variableMultisampleRate = features.variable_multisample_rate,
+            .inheritedQueries = features.inherited_queries,
+        };
+
         auto builder = vkz::context::builder();
         builder
             .app_name(create_info.title)
             .api_version(VK_API_VERSION_1_3)
             .surface(surface_provider)
+            .enabled_features(enabled_features)
             .add_device_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
         if (create_info.engine_name) {

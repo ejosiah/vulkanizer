@@ -19,10 +19,10 @@ namespace vkz {
 
        void glfw_input_adaptor::bind_keyboard_and_mouse() {
            glfwSetWindowUserPointer(window_, this);
-           glfwSetKeyCallback(window_, onKeyPress);
-           glfwSetMouseButtonCallback(window_, onMouseClick);
-           glfwSetCursorPosCallback(window_, onMouseMove);
-           glfwSetScrollCallback(window_, onMouseWheelMove);
+           previous_key_callback_ = glfwSetKeyCallback(window_, onKeyPress);
+           previous_mouse_button_callback_ = glfwSetMouseButtonCallback(window_, onMouseClick);
+           previous_cursor_position_callback_ = glfwSetCursorPosCallback(window_, onMouseMove);
+           previous_scroll_callback_ = glfwSetScrollCallback(window_, onMouseWheelMove);
        }
 
        void glfw_input_adaptor::bind_game_pad() {
@@ -119,6 +119,9 @@ namespace vkz {
 
        void glfw_input_adaptor::onKeyPress(GLFWwindow *window, int key, int scancode, int action, int mods) {
            auto self = static_cast<glfw_input_adaptor*>(glfwGetWindowUserPointer(window));
+           if (self->previous_key_callback_ && self->previous_key_callback_ != onKeyPress) {
+               self->previous_key_callback_(window, key, scancode, action, mods);
+           }
            auto& input_source = self->keyboard_input_;
            camera::button* button{};
 
@@ -157,6 +160,9 @@ namespace vkz {
 
        void glfw_input_adaptor::onMouseClick(GLFWwindow *window, int mbutton, int action, int mods) {
            auto self = static_cast<glfw_input_adaptor*>(glfwGetWindowUserPointer(window));
+           if (self->previous_mouse_button_callback_ && self->previous_mouse_button_callback_ != onMouseClick) {
+               self->previous_mouse_button_callback_(window, mbutton, action, mods);
+           }
            auto& input_source = self->input_device_;
            camera::button* button{};
 
@@ -188,6 +194,9 @@ namespace vkz {
 
        void glfw_input_adaptor::onMouseMove(GLFWwindow *window, double x, double y) {
            auto self = static_cast<glfw_input_adaptor*>(glfwGetWindowUserPointer(window));
+           if (self->previous_cursor_position_callback_ && self->previous_cursor_position_callback_ != onMouseMove) {
+               self->previous_cursor_position_callback_(window, x, y);
+           }
            auto& input_source = self->input_device_;
            input_source.mouse.position.x = static_cast<float>(x);
            input_source.mouse.position.y = static_cast<float>(y);
@@ -203,6 +212,9 @@ namespace vkz {
 
        void glfw_input_adaptor::onMouseWheelMove(GLFWwindow *window, double xOffset, double yOffset) {
            auto self = static_cast<glfw_input_adaptor*>(glfwGetWindowUserPointer(window));
+           if (self->previous_scroll_callback_ && self->previous_scroll_callback_ != onMouseWheelMove) {
+               self->previous_scroll_callback_(window, xOffset, yOffset);
+           }
            auto& input_source = self->input_device_;
            input_source.mouse.scroll_offset.x = static_cast<float>(xOffset);
            input_source.mouse.scroll_offset.y = static_cast<float>(yOffset);
