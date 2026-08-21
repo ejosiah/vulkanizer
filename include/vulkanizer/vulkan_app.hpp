@@ -4,6 +4,7 @@
 #include <vulkanizer/memory.hpp>
 #include <vulkanizer/swapchain.hpp>
 #include <vulkanizer/camera/controller.hpp>
+#include <vulkanizer/device_extension_chain.hpp>
 
 #ifndef GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_NONE
@@ -28,6 +29,7 @@ namespace vkz {
         const char* engine_name{};
         std::vector<const char*> instance_extensions;
         std::vector<const char*> device_extensions;
+        device_extension_chain extension_chain{};
     };
 
     class glfw_surface_provider final : public surface_provider {

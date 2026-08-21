@@ -62,6 +62,8 @@ namespace {
             builder.add_device_extension(extension);
         }
 
+        builder.add_extension_chain(create_info.extension_chain);
+
         return builder.build();
     }
 }

@@ -251,16 +251,6 @@ namespace vkz {
             rebuild_pointer_list(device_validation_layer_pointers, device_validation_layers);
         }
 
-        static void destroy_extension_chain(void* extensions) {
-            auto* node = static_cast<VkBaseOutStructure*>(extensions);
-
-            while (node) {
-                auto* next = static_cast<VkBaseOutStructure*>(node->pNext);
-                ::operator delete(node);
-                node = next;
-            }
-        }
-
         context build(void* extension_chain) {
 #ifdef VKZ_ENABLE_NSIGHT_AFTERMATH
             if (!aftermath::enable()) {
@@ -589,12 +579,11 @@ namespace vkz {
     }
 
     builder::~builder() {
-        Impl::destroy_extension_chain(_extensions);
         delete pimpl;
     }
 
     builder::builder(builder&& other) noexcept
-        : _extensions{std::exchange(other._extensions, nullptr)}
+        : _extensions{std::move(other._extensions)}
         , pimpl{std::exchange(other.pimpl, nullptr)} {
     }
 
@@ -603,9 +592,8 @@ namespace vkz {
             return *this;
         }
 
-        Impl::destroy_extension_chain(_extensions);
         delete pimpl;
-        _extensions = std::exchange(other._extensions, nullptr);
+        _extensions = std::move(other._extensions);
         pimpl = std::exchange(other.pimpl, nullptr);
 
         return *this;
@@ -687,8 +675,13 @@ namespace vkz {
         return *this;
     }
 
+    builder& builder::add_extension_chain(const device_extension_chain& extensions) {
+        _extensions.add(extensions);
+        return *this;
+    }
+
     context builder::build() {
         pimpl->rebuild_pointers();
-        return pimpl->build(_extensions);
+        return pimpl->build(_extensions.head());
     }
 }

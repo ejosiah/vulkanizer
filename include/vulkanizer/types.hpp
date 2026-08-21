@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cinttypes>
+#include <concepts>
 #include <vector>
+#include <volk.h>
 
 namespace vkz {
     using real = float;
@@ -13,4 +15,11 @@ namespace vkz {
     using Flags = unsigned int;
     using byte_string = std::vector<char>;
     using ubyte_string = std::vector<unsigned char>;
+
+    template <typename T>
+    concept vulkan_structure =
+        requires(T t) {
+            { t.sType } -> std::convertible_to<VkStructureType>;
+            { t.pNext } -> std::convertible_to<const void*>;
+        };
 }
