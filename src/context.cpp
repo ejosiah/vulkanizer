@@ -105,6 +105,25 @@ namespace vkz {
             });
         }
 
+        void log_extensions(std::string_view kind, const std::vector<const char*>& extensions) {
+            std::string message{"Enabled "};
+            message += kind;
+            message += " extensions (";
+            message += std::to_string(extensions.size());
+            message += "):";
+
+            if (extensions.empty()) {
+                message += " none";
+            } else {
+                for (const auto* extension : extensions) {
+                    message += "\n  - ";
+                    message += extension;
+                }
+            }
+
+            info(message);
+        }
+
         bool supports_instance_layers(const std::vector<const char*>& layers) {
             uint32_t count{};
             VKZ_CHECK_VULKAN(vkEnumerateInstanceLayerProperties(&count, nullptr));
@@ -316,6 +335,8 @@ namespace vkz {
                 VKZ_THROW("One or more requested Vulkan instance extensions are not available")
             }
 
+            log_extensions("instance", instance_extension_pointers);
+
             VkInstanceCreateInfo create_info{};
             create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
             create_info.pApplicationInfo = &application_info;
@@ -482,6 +503,8 @@ namespace vkz {
             create_info.enabledLayerCount = VKZ_COUNT(device_validation_layer_pointers);
             create_info.ppEnabledLayerNames = device_validation_layer_pointers.data();
             create_info.pEnabledFeatures = &enabled_features;
+
+            log_extensions("device", device_extension_pointers);
 
             VkDevice device{};
             VKZ_CHECK_VULKAN(vkCreateDevice(physical_device, &create_info, nullptr, &device));
