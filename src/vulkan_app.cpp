@@ -31,10 +31,13 @@ namespace {
         auto builder = vkz::context::builder();
         builder
             .app_name(create_info.title)
-            .engine_name("vulkanizer")
             .api_version(VK_API_VERSION_1_3)
             .surface(surface_provider)
             .add_device_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+        if (create_info.engine_name) {
+            builder.engine_name(create_info.engine_name);
+        }
 
         if (create_info.synchronization2) {
             builder.add_extension(synchronization2);
@@ -48,6 +51,12 @@ namespace {
 
         for (uint32_t i = 0; i < required_extension_count; ++i) {
             builder.add_instance_extension(required_extensions[i]);
+        }
+        for (const auto* extension : create_info.instance_extensions) {
+            builder.add_instance_extension(extension);
+        }
+        for (const auto* extension : create_info.device_extensions) {
+            builder.add_device_extension(extension);
         }
 
         return builder.build();

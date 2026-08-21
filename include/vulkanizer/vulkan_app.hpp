@@ -24,6 +24,9 @@ namespace vkz {
         bool dynamic_rendering{true};
         bool multiview{};
         bool resizable{true};
+        const char* engine_name{};
+        std::vector<const char*> instance_extensions;
+        std::vector<const char*> device_extensions;
     };
 
     class glfw_surface_provider final : public surface_provider {
