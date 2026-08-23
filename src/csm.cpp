@@ -1,7 +1,6 @@
 #include "vulkanizer/csm.hpp"
 
 #include <algorithm>
-#include <array>
 #include <unordered_map>
 
 #include "vulkanizer/barrier.hpp"
@@ -505,33 +504,18 @@ private:
     }
 
     void updateDescriptorSets() const {
-        std::array<VkWriteDescriptorSet, 3> writes{};
-
-        writes[0].dstSet = descriptor_set_;
-        writes[0].dstBinding = 0;
-        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        writes[0].descriptorCount = 1;
-        const VkDescriptorBufferInfo info{ _uniforms.gpu, 0, VK_WHOLE_SIZE };
-        writes[0].pBufferInfo = &info;
-
-        writes[1].dstSet = descriptor_set_;
-        writes[1].dstBinding = 2;
-        writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        writes[1].descriptorCount = 1;
-        VkDescriptorBufferInfo debuginfo{ debug_buffer_, 0, VK_WHOLE_SIZE };
-        writes[1].pBufferInfo = &debuginfo;
-
-        writes[2].dstSet = descriptor_set_;
-        writes[2].dstBinding = 1;
-        writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writes[2].descriptorCount = 1;
-        VkDescriptorImageInfo imageInfo{
-            shadow_map_[0].sampler.handle
-            , shadow_map_[0].image_view
-            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
-        writes[2].pImageInfo = &imageInfo;
-
-        vkUpdateDescriptorSets(device_.logical, VKZ_COUNT(writes), writes.data(), 0, nullptr);
+        update_descriptor(device_, {
+            .descriptor_set = {descriptor_set_},
+            .bindings = {
+                buffer_descriptor{.buffer = _uniforms.gpu},
+                texture_descriptor{
+                    .view = shadow_map_[0].image_view,
+                    .sampler = shadow_map_[0].sampler,
+                    .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                },
+                buffer_descriptor{.buffer = debug_buffer_},
+            },
+        });
     }
 
     void createPipeline() {
