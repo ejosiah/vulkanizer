@@ -207,7 +207,8 @@ void main(){
         shadow_map_.clear();
         cascade_splits_.clear();
         view_indexes_ = {};
-        descriptor_set_ = VK_NULL_HANDLE;
+        descriptor_sets_.clear();
+        current_frame_ = 0;
         owns_vertex_include_descriptorset_layout_ = false;
     }
 
@@ -291,6 +292,16 @@ void main(){
             auto lightViewMatrix = glm::lookAt(frustumCenter + lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
             auto lightOrthoMatrix = vkz::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
+            // Align the projection to the shadow-map texel grid so small
+            // camera movements do not make shadow edges shimmer.
+            auto shadowOrigin = lightOrthoMatrix * lightViewMatrix * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+            shadowOrigin *= static_cast<float>(size_) * 0.5f;
+            auto roundOffset = (glm::round(shadowOrigin) - shadowOrigin) *
+                               (2.0f / static_cast<float>(size_));
+            roundOffset.z = 0.0f;
+            roundOffset.w = 0.0f;
+            lightOrthoMatrix[3] += roundOffset;
+
             // Store split distance and matrix in cascade
             splitDepth[i] = (camera.near_plane + splitDist * clipRange) * -1.0f;
             _uniforms.cpu[i]= lightOrthoMatrix * lightViewMatrix;
@@ -300,7 +311,12 @@ void main(){
     }
 
     void capture(const scene& scene, VkCommandBuffer commandBuffer, int currentFrame) {
+        if (currentFrame < 0 || static_cast<size_t>(currentFrame) >= shadow_map_.size()) {
+            VKZ_THROW("Cascade shadow map frame index is out of range")
+        }
+        current_frame_ = static_cast<size_t>(currentFrame);
         auto& shadow_map = shadow_map_[currentFrame];
+        const auto descriptor_set = descriptor_sets_[current_frame_];
         transition_shadow_map(
             commandBuffer,
             shadow_map.image,
@@ -313,8 +329,14 @@ void main(){
 
         vkz::render(commandBuffer, render_info_[currentFrame], [&] {
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &descriptor_set_, 0, VK_NULL_HANDLE);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &descriptor_set, 0, VK_NULL_HANDLE);
             vkCmdSetCullMode(commandBuffer, cull_mode_);
+            const bool culls_back_faces = (cull_mode_ & VK_CULL_MODE_BACK_BIT) != 0;
+            vkCmdSetDepthBias(
+                commandBuffer,
+                culls_back_faces ? back_face_depth_bias_constant_ : depth_bias_constant_,
+                0.0f,
+                culls_back_faces ? back_face_depth_bias_slope_ : depth_bias_slope_);
             vkCmdSetPrimitiveTopology(commandBuffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
             vkCmdPushConstants(commandBuffer, layout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants_), &constants_);
 
@@ -346,7 +368,8 @@ void main(){
         }
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debug_.pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debug_.layout, 0, 1, &descriptor_set_, 0, nullptr);
+        const auto descriptor_set = descriptor_sets_[current_frame_];
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debug_.layout, 0, 1, &descriptor_set, 0, nullptr);
         vkCmdPushConstants(commandBuffer, debug_.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint), &num_cascades_);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     }
@@ -368,7 +391,7 @@ void main(){
     }
 
     VkDescriptorSet descriptorSet() const {
-        return descriptor_set_;
+        return descriptor_sets_.empty() ? VK_NULL_HANDLE : descriptor_sets_[current_frame_];
     }
 
 
@@ -495,27 +518,31 @@ private:
     }
 
     void createDescriptorSet() {
+        std::vector<VkDescriptorSetLayout> layouts(shadow_map_.size(), descriptor_set_layout_);
         VkDescriptorSetAllocateInfo allocate_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
         allocate_info.descriptorPool = descriptor_pool_;
-        allocate_info.descriptorSetCount = 1;
-        allocate_info.pSetLayouts = &descriptor_set_layout_;
+        allocate_info.descriptorSetCount = static_cast<uint32_t>(layouts.size());
+        allocate_info.pSetLayouts = layouts.data();
 
-        VKZ_CHECK_VULKAN(vkAllocateDescriptorSets(device_.logical, &allocate_info, &descriptor_set_));
+        descriptor_sets_.resize(layouts.size());
+        VKZ_CHECK_VULKAN(vkAllocateDescriptorSets(device_.logical, &allocate_info, descriptor_sets_.data()));
     }
 
     void updateDescriptorSets() const {
-        update_descriptor(device_, {
-            .descriptor_set = {descriptor_set_},
-            .bindings = {
-                buffer_descriptor{.buffer = _uniforms.gpu},
-                texture_descriptor{
-                    .view = shadow_map_[0].image_view,
-                    .sampler = shadow_map_[0].sampler,
-                    .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        for (size_t frame = 0; frame < descriptor_sets_.size(); ++frame) {
+            update_descriptor(device_, {
+                .descriptor_set = {descriptor_sets_[frame]},
+                .bindings = {
+                    buffer_descriptor{.buffer = _uniforms.gpu},
+                    texture_descriptor{
+                        .view = shadow_map_[frame].image_view,
+                        .sampler = shadow_map_[frame].sampler,
+                        .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    },
+                    buffer_descriptor{.buffer = debug_buffer_},
                 },
-                buffer_descriptor{.buffer = debug_buffer_},
-            },
-        });
+            });
+        }
     }
 
     void createPipeline() {
@@ -559,6 +586,7 @@ private:
                     .attachment()
                     .add()
                 .dynamic_state()
+                    .depth_bias()
                     .cull_mode()
                     .primitive_topology()
                 .layout()
@@ -677,10 +705,13 @@ private:
     VkDeviceSize vertex_shader_position_offset_{};
     VkDeviceSize vertex_shader_position_stride_{};
     VkCommandBuffer initial_transition_command_buffer_{};
-    VkDescriptorSet descriptor_set_{};
+    std::vector<VkDescriptorSet> descriptor_sets_;
+    size_t current_frame_{};
     glm::uvec2 screen_resolution_{};
     float depth_bias_constant_{0.005f};
     float depth_bias_slope_{0.05f};
+    float back_face_depth_bias_constant_{1.25f};
+    float back_face_depth_bias_slope_{1.75f};
     VkCullModeFlags cull_mode_{VK_CULL_MODE_FRONT_BIT};
 
     struct {
