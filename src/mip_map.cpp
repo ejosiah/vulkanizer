@@ -7,8 +7,6 @@
 
 namespace vkz {
     namespace {
-        constexpr uint32_t mip_levels_per_batch = 10;
-
         VkFormatFeatureFlags format_features(const image& image) {
             VmaAllocatorInfo allocator_info{};
             vmaGetAllocatorInfo(image.allocator, &allocator_info);
@@ -21,7 +19,7 @@ namespace vkz {
                 : properties.optimalTilingFeatures;
         }
 
-        void validate(const image& image, double k, VkFilter filter) {
+        void validate(const image& image, VkFilter filter) {
             if (image.handle == VK_NULL_HANDLE) {
                 throw std::invalid_argument{"image must be valid"};
             }
@@ -40,9 +38,6 @@ namespace vkz {
             if (image.layout == VK_IMAGE_LAYOUT_UNDEFINED) {
                 throw std::invalid_argument{"base mip level must contain data in a defined layout"};
             }
-            if (!std::isfinite(k) || k <= 0.0) {
-                throw std::invalid_argument{"k must be finite and greater than zero"};
-            }
 
             const auto features = format_features(image);
             const auto required_features =
@@ -57,92 +52,11 @@ namespace vkz {
         }
     }
 
-    void generate_mip_maps(command_pool& commands, image& image, double k, VkFilter filter) {
-        validate(image, k, filter);
-
-        const auto levels = image.create_info.mipLevels;
-        const auto layers = image.create_info.arrayLayers;
-        const auto old_layout = image.layout;
-        if (levels == 1) {
-            return;
-        }
-
-        auto width = static_cast<int32_t>(image.create_info.extent.width);
-        auto height = static_cast<int32_t>(image.create_info.extent.height);
-        auto depth = static_cast<int32_t>(image.create_info.extent.depth);
-
-        const auto b = std::pow(2.0, 1.0 / k);
-        for (uint32_t batch_begin = 1; batch_begin < levels;
-             batch_begin += mip_levels_per_batch) {
-            const auto batch_end = std::min(levels, batch_begin + mip_levels_per_batch);
-            const auto command_buffer = commands.create_command_buffer();
-
-            if (batch_begin == 1) {
-                barrier::push_and_flush(
-                    command_buffer, image.handle,
-                    {VK_IMAGE_ASPECT_COLOR_BIT, 0, levels, 0, layers},
-                    VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                    VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                    old_layout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-            }
-
-            for (uint32_t level = batch_begin; level < batch_end; ++level) {
-                barrier::push_and_flush(
-                    command_buffer, image.handle,
-                    {VK_IMAGE_ASPECT_COLOR_BIT, level - 1, 1, 0, layers},
-                    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                    VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-
-                const auto next_width = static_cast<int32_t>(std::max(std::ceil(width / b), 1.0));
-                const auto next_height = static_cast<int32_t>(std::max(std::ceil(height / b), 1.0));
-                const auto next_depth = static_cast<int32_t>(std::max(std::ceil(depth / b), 1.0));
-                VkImageBlit blit{};
-                blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, level - 1, 0, layers};
-                blit.srcOffsets[1] = {width, height, depth};
-                blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, level, 0, layers};
-                blit.dstOffsets[1] = {next_width, next_height, next_depth};
-
-                vkCmdBlitImage(
-                    command_buffer,
-                    image.handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                    image.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    1, &blit, filter);
-
-                barrier::push_and_flush(
-                    command_buffer, image.handle,
-                    {VK_IMAGE_ASPECT_COLOR_BIT, level - 1, 1, 0, layers},
-                    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                    VK_ACCESS_2_TRANSFER_READ_BIT,
-                    VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, old_layout);
-
-                width = next_width;
-                height = next_height;
-                depth = next_depth;
-            }
-
-            if (batch_end == levels) {
-                barrier::push_and_flush(
-                    command_buffer, image.handle,
-                    {VK_IMAGE_ASPECT_COLOR_BIT, levels - 1, 1, 0, layers},
-                    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                    VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                    VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, old_layout);
-            }
-
-            commands.submit_and_wait(command_buffer);
-        }
-        image.layout = old_layout;
-    }
-
-    void generate_mip_maps(VkCommandBuffer command_buffer, image& image, double k, VkFilter filter) {
+    void generate_mip_maps(VkCommandBuffer command_buffer, image& image, VkFilter filter) {
         if (command_buffer == VK_NULL_HANDLE) {
             throw std::invalid_argument{"command buffer must be valid"};
         }
-        validate(image, k, filter);
+        validate(image, filter);
 
         const auto levels = image.create_info.mipLevels;
         const auto layers = image.create_info.arrayLayers;
@@ -162,7 +76,7 @@ namespace vkz {
         auto width = static_cast<int32_t>(image.create_info.extent.width);
         auto height = static_cast<int32_t>(image.create_info.extent.height);
         auto depth = static_cast<int32_t>(image.create_info.extent.depth);
-        const auto b = std::pow(2.0, 1.0 / k);
+        const auto b = 2.0;
 
         for (uint32_t level = 1; level < levels; ++level) {
             barrier::push_and_flush(

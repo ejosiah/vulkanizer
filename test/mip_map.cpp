@@ -87,9 +87,9 @@ int main() {
     vkCmdCopyBufferToImage(
         command_buffer, staging, image.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1, &upload_region);
+    vkz::generate_mip_maps(command_buffer, image);
     commands.submit_and_wait(command_buffer);
 
-    vkz::generate_mip_maps(commands, image, 1.0);
 
     const auto readback_command_buffer = commands.create_command_buffer();
 
