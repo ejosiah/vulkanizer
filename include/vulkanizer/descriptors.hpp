@@ -2,6 +2,7 @@
 
 #include "vkz.hpp"
 #include "memory.hpp"
+#include "texture.hpp"
 
 #include <initializer_list>
 #include <vector>
@@ -68,9 +69,7 @@ namespace vkz {
     Descriptor to_descriptor(const Resource& resource, uint32_t binding) = delete;
 
     template<>
-    inline buffer_descriptor to_descriptor<buffer_descriptor, buffer>(
-        const buffer& buffer,
-        uint32_t binding) {
+    inline buffer_descriptor to_descriptor<buffer_descriptor, buffer>(const buffer& buffer,uint32_t binding) {
         return {
             .buffer = buffer,
             .binding = binding,
@@ -78,9 +77,7 @@ namespace vkz {
     }
 
     template<>
-    inline ubo_descriptor to_descriptor<ubo_descriptor, buffer>(
-        const buffer& buffer,
-        uint32_t binding) {
+    inline ubo_descriptor to_descriptor<ubo_descriptor, buffer>(const buffer& buffer,uint32_t binding) {
         return {
             .buffer = buffer,
             .binding = binding,
@@ -88,9 +85,7 @@ namespace vkz {
     }
 
     template<>
-    inline image_descriptor to_descriptor<image_descriptor, texture>(
-        const texture& texture,
-        uint32_t binding) {
+    inline image_descriptor to_descriptor<image_descriptor, texture>(const texture& texture,uint32_t binding) {
         return {
             .view = texture.image_view,
             .layout = texture.image.layout,
@@ -99,9 +94,7 @@ namespace vkz {
     }
 
     template<>
-    inline texture_descriptor to_descriptor<texture_descriptor, texture>(
-        const texture& texture,
-        uint32_t binding) {
+    inline texture_descriptor to_descriptor<texture_descriptor, texture>(const texture& texture,uint32_t binding) {
         return {
             .view = texture.image_view,
             .sampler = texture.sampler,

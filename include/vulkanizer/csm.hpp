@@ -2,6 +2,7 @@
 
 #include "context.hpp"
 #include "memory.hpp"
+#include "texture.hpp"
 
 #include <glm/glm.hpp>
 #include <span>

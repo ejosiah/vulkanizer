@@ -33,6 +33,13 @@ namespace vkz::imgui {
 
     void render(VkCommandBuffer command_buffer);
 
+    [[nodiscard]] VkDescriptorSet add_texture(
+        VkSampler sampler,
+        VkImageView image_view,
+        VkImageLayout image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    void remove_texture(VkDescriptorSet descriptor_set);
+
     void destroy();
 
 }

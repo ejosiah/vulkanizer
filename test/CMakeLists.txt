@@ -14,6 +14,7 @@ vulkanizer_add_test_executable(vulkanizer_primitive_test primitives.cpp)
 vulkanizer_add_test_executable(vulkanizer_camera_test camera.cpp)
 vulkanizer_add_test_executable(vulkanizer_commands_test commands.cpp)
 vulkanizer_add_test_executable(vulkanizer_mip_map_test mip_map.cpp)
+vulkanizer_add_test_executable(vulkanizer_texture_test texture.cpp)
 
 find_program(GLSLC_EXECUTABLE glslc)
 if(NOT GLSLC_EXECUTABLE)

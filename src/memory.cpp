@@ -82,12 +82,6 @@ namespace vkz {
         }
     }
 
-    void texture::destroy() {
-        sampler.destroy();
-        image_view.destroy();
-        image.destroy();
-    }
-
     vma_memory_allocator vma_memory_allocator::create(const context& context) {
         vma_memory_allocator result{};
         result.instance = context.instance;

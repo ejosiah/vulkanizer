@@ -210,6 +210,26 @@ namespace vkz::imgui {
         instance->render(command_buffer);
     }
 
+    VkDescriptorSet add_texture(VkSampler sampler, VkImageView image_view, VkImageLayout image_layout) {
+        if (!instance) {
+            VKZ_THROW("vkz::imgui has not been initialized")
+        }
+        if (!sampler || !image_view) {
+            VKZ_THROW("vkz::imgui requires a valid sampler and image view")
+        }
+
+        return ImGui_ImplVulkan_AddTexture(sampler, image_view, image_layout);
+    }
+
+    void remove_texture(VkDescriptorSet descriptor_set) {
+        if (!instance) {
+            VKZ_THROW("vkz::imgui has not been initialized")
+        }
+        if (descriptor_set) {
+            ImGui_ImplVulkan_RemoveTexture(descriptor_set);
+        }
+    }
+
     void destroy() {
         instance.reset();
     }

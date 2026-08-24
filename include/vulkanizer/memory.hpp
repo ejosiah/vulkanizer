@@ -92,14 +92,6 @@ namespace vkz {
         }
     };
 
-    struct texture {
-        image image;
-        image_view image_view;
-        sampler sampler;
-
-        void destroy();
-    };
-
     struct mapping {
         friend struct buffer;
         friend class staging_buffer;

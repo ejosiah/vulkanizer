@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(vulkanizer VERSION 0.0.17)
+project(vulkanizer VERSION 0.0.18)
 set(CMAKE_CXX_STANDARD 20)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -31,6 +31,7 @@ find_package(glm)
 find_package(VulkanMemoryAllocator)
 find_package(glslang REQUIRED)
 find_package(Ktx REQUIRED)
+find_package(stb REQUIRED)
 
 set(IMGUI_BINDINGS_DIR "")
 foreach(CONFIG_TYPE DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
@@ -69,6 +70,7 @@ target_link_libraries(vulkanizer PUBLIC
         GPUOpen::VulkanMemoryAllocator
         imgui::imgui
         KTX::ktx
+        stb::stb
         glslang::glslang
         glslang::SPIRV)
 
