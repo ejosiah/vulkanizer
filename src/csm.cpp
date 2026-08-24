@@ -533,13 +533,9 @@ private:
             update_descriptor(device_, {
                 .descriptor_set = {descriptor_sets_[frame]},
                 .bindings = {
-                    buffer_descriptor{.buffer = _uniforms.gpu},
-                    texture_descriptor{
-                        .view = shadow_map_[frame].image_view,
-                        .sampler = shadow_map_[frame].sampler,
-                        .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    },
-                    buffer_descriptor{.buffer = debug_buffer_},
+                    to_descriptor<buffer_descriptor>(_uniforms.gpu, 0),
+                    to_descriptor<texture_descriptor>(shadow_map_[frame], 1),
+                    to_descriptor<buffer_descriptor>(debug_buffer_, 2),
                 },
             });
         }

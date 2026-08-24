@@ -64,6 +64,52 @@ namespace vkz {
        uint32_t binding{~0u};
    };
 
+    template<typename Descriptor, typename Resource>
+    Descriptor to_descriptor(const Resource& resource, uint32_t binding) = delete;
+
+    template<>
+    inline buffer_descriptor to_descriptor<buffer_descriptor, buffer>(
+        const buffer& buffer,
+        uint32_t binding) {
+        return {
+            .buffer = buffer,
+            .binding = binding,
+        };
+    }
+
+    template<>
+    inline ubo_descriptor to_descriptor<ubo_descriptor, buffer>(
+        const buffer& buffer,
+        uint32_t binding) {
+        return {
+            .buffer = buffer,
+            .binding = binding,
+        };
+    }
+
+    template<>
+    inline image_descriptor to_descriptor<image_descriptor, texture>(
+        const texture& texture,
+        uint32_t binding) {
+        return {
+            .view = texture.image_view,
+            .layout = texture.image.layout,
+            .binding = binding,
+        };
+    }
+
+    template<>
+    inline texture_descriptor to_descriptor<texture_descriptor, texture>(
+        const texture& texture,
+        uint32_t binding) {
+        return {
+            .view = texture.image_view,
+            .sampler = texture.sampler,
+            .layout = texture.image.layout,
+            .binding = binding,
+        };
+    }
+
    struct texture_element_descriptor {
        texture_descriptor texture;
        uint32_t array_element_location{~0u};

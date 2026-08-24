@@ -413,23 +413,14 @@ mat4 get_model_matrix() {
     VkDescriptorSet scene_descriptor_set{};
     VKZ_CHECK_VULKAN(vkAllocateDescriptorSets(context.device.logical, &scene_descriptor_allocate_info, &scene_descriptor_set));
 
-    VkDescriptorBufferInfo scene_buffer_info{scene_buffer, 0, VK_WHOLE_SIZE};
-    VkDescriptorBufferInfo cascade_buffer_info{vkz::csm::cascade_view_projection(csm_id), 0, VK_WHOLE_SIZE};
-    VkDescriptorBufferInfo split_buffer_info{split_buffer, 0, VK_WHOLE_SIZE};
-    std::array<VkWriteDescriptorSet, 3> scene_writes{};
-    for (auto& write : scene_writes) {
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = scene_descriptor_set;
-        write.descriptorCount = 1;
-        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    }
-    scene_writes[0].dstBinding = 0;
-    scene_writes[0].pBufferInfo = &scene_buffer_info;
-    scene_writes[1].dstBinding = 1;
-    scene_writes[1].pBufferInfo = &cascade_buffer_info;
-    scene_writes[2].dstBinding = 2;
-    scene_writes[2].pBufferInfo = &split_buffer_info;
-    vkUpdateDescriptorSets(context.device.logical, static_cast<uint32_t>(scene_writes.size()), scene_writes.data(), 0, nullptr);
+    vkz::update_descriptor(context.device, {
+        .descriptor_set = {scene_descriptor_set},
+        .bindings = {
+            vkz::to_descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
+            vkz::to_descriptor<vkz::buffer_descriptor>(vkz::csm::cascade_view_projection(csm_id), 1),
+            vkz::to_descriptor<vkz::buffer_descriptor>(split_buffer, 2),
+        },
+    });
 
     VkPipelineLayout scene_pipeline_layout{};
     auto scene_pipeline =
