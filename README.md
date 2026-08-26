@@ -7,7 +7,7 @@ The library currently provides:
 - Vulkan instance, device, surface, queue, and swapchain setup
 - Owning and non-owning Vulkan contexts
 - A reusable GLFW-based `vulkan_app`
-- Spectator and first-person camera controllers
+- Spectator, first-person, and orbit camera controllers
 - A standalone GLFW input adaptor with combined keyboard, mouse, and gamepad input
 - Graphics and compute pipeline builders
 - In-process inline GLSL compilation through glslang
@@ -54,7 +54,7 @@ To create the Conan package locally:
 conan create . --build=missing
 ```
 
-This repository currently produces `vulkanizer/0.0.4`.
+This repository currently produces `vulkanizer/0.0.19`.
 
 ## Use from CMake
 
@@ -127,6 +127,8 @@ Default controls are:
 | Right stick | Look around |
 
 Construct the controller with `movement_type::spectator` for free-flight movement or `movement_type::first_person` for movement constrained relative to world up.
+
+Use `movement_type::orbit` to rotate around `camera.target` with left mouse drag and change the distance with the mouse wheel. Orbit zoom is bounded by `camera.minZoom` and `camera.maxZoom` and leaves the field of view unchanged.
 
 ## Examples
 

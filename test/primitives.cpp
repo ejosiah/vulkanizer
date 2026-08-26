@@ -4,6 +4,7 @@
 
 #include <vulkanizer/barrier.hpp>
 #include <vulkanizer/commands.hpp>
+#include <vulkanizer/glfw_input_adaptor.hpp>
 #include <vulkanizer/graphics_pipeline_builder.hpp>
 #include <vulkanizer/imgui.hpp>
 #include <vulkanizer/io.hpp>
@@ -12,7 +13,6 @@
 #include <vulkanizer/primitives.hpp>
 #include <vulkanizer/render.hpp>
 #include <vulkanizer/status.hpp>
-#include <vulkanizer/transforms.hpp>
 
 #include <imgui.h>
 
@@ -20,6 +20,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -227,6 +228,8 @@ int main() {
     vkz::vulkan_app app{{window_width, window_height, "vulkanizer primitive test"}};
     auto& context = app.context();
     auto* window = app.window();
+    vkz::glfw_input_adaptor input(window);
+    input.bind();
     const auto queue_family_index = app.queue_family_index();
     const auto graphics_queue = app.graphics_queue();
     auto allocator = vkz::vma_memory_allocator::create(context);
@@ -326,7 +329,7 @@ int main() {
             .build(pipeline_layout);
 
     vkz::fenced_command_pools commands{
-        context.device.logical,
+        context.device,
         graphics_queue,
         queue_family_index,
         VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
@@ -339,8 +342,16 @@ int main() {
     auto primitive_selection = primitive_choice::cube;
     auto implicit_selection = implicit_choice::paraboloid;
     auto current_mesh = create_mesh(allocator, make_primitive(primitive_selection, implicit_selection));
-    float camera_angle = 0.65f;
-    float camera_distance = 6.0f;
+    vkz::camera::camera camera;
+    camera.position = {std::cos(0.65f) * 6.0f, 3.0f, std::sin(0.65f) * 6.0f};
+    camera.target = {0.0f, 0.25f, 0.0f};
+    camera.minZoom = 3.0f;
+    camera.maxZoom = 12.0f;
+    vkz::camera::orbit initializer(camera);
+    initializer.perspective(55.0f,
+        static_cast<float>(swapchain->width()) / static_cast<float>(swapchain->height()), 0.1f, 60.0f);
+    vkz::camera::controller controller(camera, vkz::camera::movement_type::orbit, input.get_device());
+    auto previous = std::chrono::steady_clock::now();
 
     while (!app.should_close()) {
         app.poll_events();
@@ -360,6 +371,15 @@ int main() {
         VKZ_CHECK_VULKAN(acquire_result);
 
         vkz::imgui::new_frame();
+        const auto now = std::chrono::steady_clock::now();
+        const auto dt = std::chrono::duration<float>(now - previous).count();
+        previous = now;
+        if (ImGui::GetIO().WantCaptureMouse) {
+            input.get_device().mouse.relative_position = {};
+            input.get_device().mouse.scroll_offset = {};
+        }
+        controller.process_input();
+        controller.update(dt);
         ImGui::Begin("Primitive");
         ImGui::SetWindowSize({0, 0});
 
@@ -381,8 +401,8 @@ int main() {
             }
         }
 
-        ImGui::SliderFloat("Camera angle", &camera_angle, 0.0f, glm::two_pi<float>());
-        ImGui::SliderFloat("Distance", &camera_distance, 3.0f, 12.0f);
+        ImGui::Text("Hold left mouse to orbit, wheel to zoom");
+        ImGui::Text("Distance: %.2f", camera.orbitOffsetDistance);
         ImGui::End();
 
         commands.set_cycle_and_wait(frame++);
@@ -445,20 +465,9 @@ int main() {
         };
         render_info.render_area = {swapchain->width(), swapchain->height()};
 
-        const glm::vec3 eye{
-            std::cos(camera_angle) * camera_distance,
-            3.0f,
-            std::sin(camera_angle) * camera_distance,
-        };
-        const auto view = glm::lookAt(eye, glm::vec3{0.0f, 0.25f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f});
-        const auto projection = vkz::perspective(
-            glm::radians(55.0f),
-            static_cast<float>(swapchain->width()) / static_cast<float>(swapchain->height()),
-            0.1f,
-            60.0f);
         const push_constants constants{
-            .model = glm::mat4{1},
-            .view_projection = projection * view,
+            .model = camera.model,
+            .view_projection = camera.projection * camera.view,
         };
 
         vkz::render(command_buffer, render_info, [&] {

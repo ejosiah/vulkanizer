@@ -302,6 +302,99 @@ namespace vkz::camera {
         this->update_position(position);
     }
 
+    template<typename Scalar>
+    orbit_t<Scalar>::orbit_t(camera_t<Scalar>& camera) : Base(camera) {
+        auto eye = camera.position;
+        if (glm::dot(eye - camera.target, eye - camera.target) == Scalar(0)) {
+            eye = camera.target + camera.zAxis * camera.orbitOffsetDistance;
+        }
+        look_at(eye, camera.target, camera.targetYAxis);
+    }
+
+    template<typename Scalar>
+    void orbit_t<Scalar>::look_at(const typename Base::Vec3 &eye, const typename Base::Vec3 &target, const typename Base::Vec3 &up) {
+        auto& camera = this->camera_;
+        camera.orbitOffsetDistance = glm::length(eye - target);
+        camera.targetYAxis = glm::normalize(up);
+        Base::look_at(eye, target, up);
+    }
+
+    template<typename Scalar>
+    void orbit_t<Scalar>::rotate(Scalar headingDegrees, Scalar pitchDegrees, Scalar rollDegrees) {
+        if (headingDegrees == Scalar(0) && pitchDegrees == Scalar(0) && rollDegrees == Scalar(0)) return;
+
+        auto& camera = this->camera_;
+        headingDegrees = -headingDegrees;
+        pitchDegrees = -pitchDegrees;
+        rollDegrees = -rollDegrees;
+
+        if (camera.preferTargetYAxisOrbiting) {
+            if (headingDegrees != Scalar(0)) {
+                camera.orientation = camera.orientation * glm::angleAxis(glm::radians(headingDegrees), camera.targetYAxis);
+            }
+            if (pitchDegrees != Scalar(0)) {
+                camera.orientation = glm::angleAxis(glm::radians(pitchDegrees), WORLD_XAXIS_T<Scalar>) * camera.orientation;
+            }
+        } else {
+            const typename Base::Quat rotation(typename Base::Vec3{
+                glm::radians(pitchDegrees), glm::radians(headingDegrees), glm::radians(rollDegrees)});
+            camera.orientation = rotation * camera.orientation;
+        }
+        camera.orientation = glm::normalize(camera.orientation);
+        update_view_matrix();
+    }
+
+    template<typename Scalar>
+    void orbit_t<Scalar>::move(Scalar, Scalar, Scalar) {
+        // Orbit movement keeps the target fixed; translation is unsupported.
+    }
+
+    template<typename Scalar>
+    void orbit_t<Scalar>::move(const typename Base::Vec3 &, const typename Base::Vec3 &) {}
+
+    template<typename Scalar>
+    void orbit_t<Scalar>::position_changed() {
+        // An explicit position change relocates the orbit target, as in vglib.
+        const auto& camera = this->camera_;
+        const auto target = camera.position;
+        const auto eye = target + camera.zAxis * camera.orbitOffsetDistance;
+        look_at(eye, target, camera.targetYAxis);
+    }
+
+    template<typename Scalar>
+    void orbit_t<Scalar>::update(Scalar dt, Base::Vec2 rotation_delta, Base::Vec3 position_delta) {
+        this->rotate_smoothly(rotation_delta.x, rotation_delta.y, Scalar(0));
+        const auto& camera = this->camera_;
+        if (!camera.preferTargetYAxisOrbiting) {
+            rotate(Scalar(0), Scalar(0), position_delta.x * camera.orbitRollSpeed * dt);
+        }
+    }
+
+    template<typename Scalar>
+    void orbit_t<Scalar>::undo_roll() {
+        const auto& camera = this->camera_;
+        look_at(camera.position, camera.target, camera.targetYAxis);
+    }
+
+    template<typename Scalar>
+    void orbit_t<Scalar>::zoom(Scalar amount) {
+        auto& camera = this->camera_;
+        // Orbit zoom is a distance in world units, not a field-of-view change.
+        camera.orbitOffsetDistance = std::clamp(
+            glm::length(camera.position - camera.target) + amount, camera.minZoom, camera.maxZoom);
+        update_view_matrix();
+    }
+
+    template<typename Scalar>
+    void orbit_t<Scalar>::update_view_matrix() {
+        auto& camera = this->camera_;
+        const auto rotation = glm::mat4_cast(camera.orientation);
+        camera.position = camera.target + typename Base::Vec3(glm::row(rotation, 2)) * camera.orbitOffsetDistance;
+        Base::update_view_matrix();
+    }
+
+    template class orbit_t<float>;
+    template class orbit_t<double>;
     template class spectator_t<float>;
     template class spectator_t<double>;
     template class first_person_t<float>;

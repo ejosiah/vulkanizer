@@ -84,6 +84,34 @@ namespace vkz::camera {
         void move(Scalar dx, Scalar dy, Scalar dz) override;
     };
 
+    template<typename Scalar>
+    class orbit_t : public movement_t<Scalar> {
+        using Base = movement_t<Scalar>;
+    public:
+        // Uses the camera's position and target, or orbitOffsetDistance when they coincide.
+        explicit orbit_t(camera_t<Scalar>& camera);
+
+        void look_at(const typename Base::Vec3 &eye, const typename Base::Vec3 &target, const typename Base::Vec3 &up) override;
+
+        void rotate(Scalar headingDegrees, Scalar pitchDegrees, Scalar rollDegrees) override;
+
+        void move(Scalar dx, Scalar dy, Scalar dz) override;
+
+        void move(const typename Base::Vec3 &direction, const typename Base::Vec3 &amount) override;
+
+        // update_position(newPosition) relocates the target while retaining the orbit radius.
+        void position_changed() override;
+
+        void update(Scalar dt, Base::Vec2 rotation_delta, Base::Vec3 position_delta) override;
+
+        void undo_roll() override;
+
+        void zoom(Scalar amount) override;
+
+    protected:
+        void update_view_matrix() override;
+    };
+
     using movement = movement_t<float>;
     using dmovement = movement_t<double>;
 
@@ -92,5 +120,8 @@ namespace vkz::camera {
 
     using first_person = first_person_t<float>;
     using dfirst_person = first_person_t<double>;
+
+    using orbit = orbit_t<float>;
+    using dorbit = orbit_t<double>;
 
 }

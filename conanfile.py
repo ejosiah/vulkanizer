@@ -4,7 +4,7 @@ from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
 
 class VulkanizerConan(ConanFile):
     name = "vulkanizer"
-    version = "0.0.18"
+    version = "0.0.19"
     package_type = "static-library"
 
     license = "MIT"

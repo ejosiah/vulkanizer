@@ -15,6 +15,9 @@ namespace vkz::camera {
             case movement_type::first_person:
                 movement_ = std::make_unique<first_person_t<Scalar>>(camera_);
                 break;
+            case movement_type::orbit:
+                movement_ = std::make_unique<orbit_t<Scalar>>(camera_);
+                break;
             default:
                 throw std::invalid_argument("unsupported camera movement type");
         }

@@ -16,6 +16,8 @@ namespace vkz::camera {
     static constexpr double DEFAULT_ROTATION_SPEED = 0.3f;
     static constexpr double DEFAULT_ZOOM_MAX = 5.0f;
     static constexpr double DEFAULT_ZOOM_MIN = 1.5f;
+    static constexpr double DEFAULT_ORBIT_OFFSET_DISTANCE = DEFAULT_ZOOM_MIN + (DEFAULT_ZOOM_MAX - DEFAULT_ZOOM_MIN) * 0.25;
+    static constexpr double DEFAULT_ORBIT_ROLL_SPEED = 100.0;
 
     static constexpr glm::vec3 DEFAULT_ACCELERATION(4.0f, 4.0f, 4.0f);
     static constexpr glm::vec3 DEFAULT_VELOCITY(1.0f);
@@ -48,6 +50,7 @@ namespace vkz::camera {
         Vec3 yAxis{0, 1, 0};
         Vec3 zAxis{0, 0, 1};
         Vec3 target{0};
+        Vec3 targetYAxis{0, 1, 0};
         Vec3 viewDir{0, 0, -1};
         Vec3 acceleration{DEFAULT_ACCELERATION};
         Vec3 velocity{DEFAULT_VELOCITY};
@@ -63,10 +66,13 @@ namespace vkz::camera {
         Scalar minZoom{DEFAULT_ZOOM_MIN};
         Scalar maxZoom{DEFAULT_ZOOM_MAX};
         Scalar rotationSpeed{DEFAULT_ROTATION_SPEED};
+        Scalar orbitOffsetDistance{DEFAULT_ORBIT_OFFSET_DISTANCE};
+        Scalar orbitRollSpeed{DEFAULT_ORBIT_ROLL_SPEED};
         Scalar yaw{0};
         Scalar pitch{0};
         Scalar roll{0};
         bool horizontal_fov{};
+        bool preferTargetYAxisOrbiting{true};
         bool moved{false};
     };
 
