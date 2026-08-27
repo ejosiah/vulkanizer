@@ -189,6 +189,35 @@ namespace vkz {
         uint32_t family_index_{};
     };
 
+    class submission_batch {
+    public:
+        void enqueue(uint32_t count, const VkCommandBuffer* command_buffers);
+        void enqueue(VkCommandBuffer command_buffer);
+        void enqueue_signal(
+            VkSemaphore semaphore,
+            uint64_t value = 0,
+            VkPipelineStageFlags2 stage_mask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
+        void enqueue_wait(
+            VkSemaphore semaphore,
+            uint64_t value,
+            VkPipelineStageFlags2 stage_mask);
+
+        [[nodiscard]] uint32_t get_command_buffer_count() const;
+
+    private:
+        friend class batch_submission;
+
+        struct semaphore {
+            VkSemaphore handle{VK_NULL_HANDLE};
+            uint64_t value{};
+            VkPipelineStageFlags2 stage_mask{};
+        };
+
+        std::vector<VkCommandBuffer> command_buffers_;
+        std::vector<semaphore> waits_;
+        std::vector<semaphore> signals_;
+    };
+
     class batch_submission {
     public:
         batch_submission();
@@ -205,6 +234,7 @@ namespace vkz {
         void enqueue(VkCommandBuffer command_buffer);
         void enqueue_signal(VkSemaphore semaphore);
         void enqueue_wait(VkSemaphore semaphore, VkPipelineStageFlags flags);
+        void enqueue_batch(submission_batch batch);
         VkResult execute(VkFence fence = VK_NULL_HANDLE, uint32_t device_mask = 0);
         void wait_idle() const;
 
@@ -214,6 +244,7 @@ namespace vkz {
         std::vector<VkPipelineStageFlags> wait_flags_;
         std::vector<VkSemaphore> signals_;
         std::vector<VkCommandBuffer> command_buffers_;
+        std::vector<submission_batch> batches_;
     };
 
     class fenced_command_pools : protected ring_fences, protected ring_command_pool, protected batch_submission {
@@ -243,6 +274,7 @@ namespace vkz {
         void enqueue(VkCommandBuffer command_buffer);
         void enqueue_signal(VkSemaphore semaphore);
         void enqueue_wait(VkSemaphore semaphore, VkPipelineStageFlags flags);
+        void enqueue_batch(submission_batch batch);
         VkResult execute(uint32_t device_mask = 0);
         void wait_idle() const;
         void set_cycle_and_wait(uint32_t cycle);

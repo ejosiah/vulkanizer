@@ -420,6 +420,32 @@ namespace vkz {
         return command_buffers;
     }
 
+    void submission_batch::enqueue(uint32_t count, const VkCommandBuffer* command_buffers) {
+        command_buffers_.insert(command_buffers_.end(), command_buffers, command_buffers + count);
+    }
+
+    void submission_batch::enqueue(VkCommandBuffer command_buffer) {
+        command_buffers_.push_back(command_buffer);
+    }
+
+    void submission_batch::enqueue_signal(
+            VkSemaphore semaphore,
+            uint64_t value,
+            VkPipelineStageFlags2 stage_mask) {
+        signals_.push_back({semaphore, value, stage_mask});
+    }
+
+    void submission_batch::enqueue_wait(
+            VkSemaphore semaphore,
+            uint64_t value,
+            VkPipelineStageFlags2 stage_mask) {
+        waits_.push_back({semaphore, value, stage_mask});
+    }
+
+    uint32_t submission_batch::get_command_buffer_count() const {
+        return static_cast<uint32_t>(command_buffers_.size());
+    }
+
     batch_submission::batch_submission() = default;
 
     batch_submission::batch_submission(VkQueue queue) {
@@ -435,29 +461,88 @@ namespace vkz {
     }
 
     void batch_submission::init(VkQueue queue) {
-        assert(waits_.empty() && wait_flags_.empty() && signals_.empty() && command_buffers_.empty());
+        assert(waits_.empty() && wait_flags_.empty() && signals_.empty() &&
+               command_buffers_.empty() && batches_.empty());
         queue_ = queue;
     }
 
     void batch_submission::enqueue(uint32_t count, const VkCommandBuffer* command_buffers) {
+        assert(batches_.empty());
         command_buffers_.insert(command_buffers_.end(), command_buffers, command_buffers + count);
     }
 
     void batch_submission::enqueue(VkCommandBuffer command_buffer) {
+        assert(batches_.empty());
         command_buffers_.push_back(command_buffer);
     }
 
     void batch_submission::enqueue_signal(VkSemaphore semaphore) {
+        assert(batches_.empty());
         signals_.push_back(semaphore);
     }
 
     void batch_submission::enqueue_wait(VkSemaphore semaphore, VkPipelineStageFlags flags) {
+        assert(batches_.empty());
         waits_.push_back(semaphore);
         wait_flags_.push_back(flags);
     }
 
+    void batch_submission::enqueue_batch(submission_batch batch) {
+        assert(command_buffers_.empty() && waits_.empty() && signals_.empty());
+        batches_.push_back(std::move(batch));
+    }
+
     VkResult batch_submission::execute(VkFence fence, uint32_t device_mask) {
         VkResult result = VK_SUCCESS;
+        if (queue_ && !batches_.empty()) {
+            std::vector<std::vector<VkCommandBufferSubmitInfo>> command_buffer_infos(batches_.size());
+            std::vector<std::vector<VkSemaphoreSubmitInfo>> wait_infos(batches_.size());
+            std::vector<std::vector<VkSemaphoreSubmitInfo>> signal_infos(batches_.size());
+            std::vector<VkSubmitInfo2> submit_infos(batches_.size());
+
+            for (std::size_t index = 0; index < batches_.size(); ++index) {
+                const auto& batch = batches_[index];
+                auto& commands = command_buffer_infos[index];
+                commands.reserve(batch.command_buffers_.size());
+                for (const auto command_buffer : batch.command_buffers_) {
+                    commands.push_back({
+                        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+                        .commandBuffer = command_buffer,
+                        .deviceMask = device_mask ? device_mask : 1,
+                    });
+                }
+
+                auto make_semaphore_infos = [](const auto& semaphores, auto& infos) {
+                    infos.reserve(semaphores.size());
+                    for (const auto& semaphore : semaphores) {
+                        infos.push_back({
+                            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                            .semaphore = semaphore.handle,
+                            .value = semaphore.value,
+                            .stageMask = semaphore.stage_mask,
+                            .deviceIndex = 0,
+                        });
+                    }
+                };
+                make_semaphore_infos(batch.waits_, wait_infos[index]);
+                make_semaphore_infos(batch.signals_, signal_infos[index]);
+
+                submit_infos[index] = {
+                    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                    .waitSemaphoreInfoCount = static_cast<uint32_t>(wait_infos[index].size()),
+                    .pWaitSemaphoreInfos = wait_infos[index].data(),
+                    .commandBufferInfoCount = static_cast<uint32_t>(commands.size()),
+                    .pCommandBufferInfos = commands.data(),
+                    .signalSemaphoreInfoCount = static_cast<uint32_t>(signal_infos[index].size()),
+                    .pSignalSemaphoreInfos = signal_infos[index].data(),
+                };
+            }
+
+            result = vkQueueSubmit2(
+                queue_, static_cast<uint32_t>(submit_infos.size()), submit_infos.data(), fence);
+            batches_.clear();
+            return result;
+        }
         if (queue_ && (fence || !command_buffers_.empty() || !signals_.empty() || !waits_.empty())) {
             VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
             submit_info.commandBufferCount = static_cast<uint32_t>(command_buffers_.size());
@@ -547,6 +632,10 @@ namespace vkz {
 
     void fenced_command_pools::enqueue_wait(VkSemaphore semaphore, VkPipelineStageFlags flags) {
         batch_submission::enqueue_wait(semaphore, flags);
+    }
+
+    void fenced_command_pools::enqueue_batch(submission_batch batch) {
+        batch_submission::enqueue_batch(std::move(batch));
     }
 
     VkResult fenced_command_pools::execute(uint32_t device_mask) {

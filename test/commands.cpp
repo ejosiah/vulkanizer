@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <type_traits>
+#include <utility>
 
 int main() {
     assert(vkz::make_access_mask_pipeline_stage_flags(0) == VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
@@ -24,12 +25,18 @@ int main() {
     static_assert(!std::is_copy_constructible_v<vkz::ring_command_pool>);
     static_assert(!std::is_copy_constructible_v<vkz::batch_submission>);
     static_assert(!std::is_copy_constructible_v<vkz::fenced_command_pools>);
-    static_assert(std::is_constructible_v<vkz::scope_command_buffer, VkDevice, uint32_t, VkQueue>);
+    static_assert(std::is_constructible_v<vkz::scope_command_buffer, vkz::device, uint32_t, VkQueue>);
     static_assert(std::is_constructible_v<vkz::fenced_command_pools::scoped_cmd, vkz::fenced_command_pools&>);
 
     vkz::command_pool command_pool;
     vkz::ring_fences ring_fences;
     vkz::ring_command_pool ring_command_pool;
+    vkz::submission_batch submission_batch;
+    submission_batch.enqueue(command_buffers[0]);
+    submission_batch.enqueue_wait({}, 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    submission_batch.enqueue_signal({}, 2, VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT);
+    assert(submission_batch.get_command_buffer_count() == 1);
     vkz::batch_submission batch_submission;
+    batch_submission.enqueue_batch(std::move(submission_batch));
     vkz::fenced_command_pools fenced_command_pools;
 }
