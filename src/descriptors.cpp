@@ -26,7 +26,7 @@ namespace vkz {
 
         constexpr uint32_t automatic_binding = ~uint32_t{0};
 
-        uint32_t descriptor_binding(const descriptor& value) {
+        uint32_t descriptor_binding(const descriptor_t& value) {
             return std::visit(overloaded{
                 [](const buffer_descriptor& d) { return d.binding; },
                 [](const buffer_element_descriptor& d) { return d.descriptor.binding; },
@@ -70,7 +70,7 @@ namespace vkz {
             std::stable_sort(
                 set_bindings.bindings.begin(),
                 set_bindings.bindings.end(),
-                [](const descriptor& lhs, const descriptor& rhs) {
+                [](const descriptor_t& lhs, const descriptor_t& rhs) {
                     return descriptor_binding(lhs) < descriptor_binding(rhs);
                 });
         }

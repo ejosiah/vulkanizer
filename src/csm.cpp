@@ -533,9 +533,9 @@ private:
             update_descriptor(device_, {
                 .descriptor_set = {descriptor_sets_[frame]},
                 .bindings = {
-                    to_descriptor<buffer_descriptor>(_uniforms.gpu, 0),
-                    to_descriptor<texture_descriptor>(shadow_map_[frame], 1),
-                    to_descriptor<buffer_descriptor>(debug_buffer_, 2),
+                        descriptor<buffer_descriptor>(_uniforms.gpu, 0),
+                        descriptor<texture_descriptor>(shadow_map_[frame], 1),
+                        descriptor<buffer_descriptor>(debug_buffer_, 2),
                 },
             });
         }

@@ -416,9 +416,9 @@ mat4 get_model_matrix() {
     vkz::update_descriptor(context.device, {
         .descriptor_set = {scene_descriptor_set},
         .bindings = {
-            vkz::to_descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
-            vkz::to_descriptor<vkz::buffer_descriptor>(vkz::csm::cascade_view_projection(csm_id), 1),
-            vkz::to_descriptor<vkz::buffer_descriptor>(split_buffer, 2),
+                vkz::descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
+            vkz::descriptor<vkz::buffer_descriptor>(vkz::csm::cascade_view_projection(csm_id), 1),
+            vkz::descriptor<vkz::buffer_descriptor>(split_buffer, 2),
         },
     });
 

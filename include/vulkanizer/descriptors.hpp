@@ -66,10 +66,10 @@ namespace vkz {
    };
 
     template<typename Descriptor, typename Resource>
-    Descriptor to_descriptor(const Resource& resource, uint32_t binding) = delete;
+    Descriptor descriptor(const Resource& resource, uint32_t binding) = delete;
 
     template<>
-    inline buffer_descriptor to_descriptor<buffer_descriptor, buffer>(const buffer& buffer,uint32_t binding) {
+    inline buffer_descriptor descriptor<buffer_descriptor, buffer>(const buffer& buffer, uint32_t binding) {
         return {
             .buffer = buffer,
             .binding = binding,
@@ -77,7 +77,7 @@ namespace vkz {
     }
 
     template<>
-    inline ubo_descriptor to_descriptor<ubo_descriptor, buffer>(const buffer& buffer,uint32_t binding) {
+    inline ubo_descriptor descriptor<ubo_descriptor, buffer>(const buffer& buffer, uint32_t binding) {
         return {
             .buffer = buffer,
             .binding = binding,
@@ -85,7 +85,7 @@ namespace vkz {
     }
 
     template<>
-    inline image_descriptor to_descriptor<image_descriptor, texture>(const texture& texture,uint32_t binding) {
+    inline image_descriptor descriptor<image_descriptor, texture>(const texture& texture, uint32_t binding) {
         return {
             .view = texture.image_view,
             .layout = texture.image.layout,
@@ -94,7 +94,7 @@ namespace vkz {
     }
 
     template<>
-    inline texture_descriptor to_descriptor<texture_descriptor, texture>(const texture& texture,uint32_t binding) {
+    inline texture_descriptor descriptor<texture_descriptor, texture>(const texture& texture, uint32_t binding) {
         return {
             .view = texture.image_view,
             .sampler = texture.sampler,
@@ -112,7 +112,7 @@ namespace vkz {
         uint32_t binding{~0u};
     };
 
-    using descriptor = std::variant<buffer_descriptor,
+    using descriptor_t = std::variant<buffer_descriptor,
                                 buffer_element_descriptor,
                                 buffer_array_descriptor,
                                 ubo_descriptor,
@@ -189,7 +189,7 @@ namespace vkz {
 
     struct descriptor_bindings {
         descriptor_set descriptor_set;
-        std::vector<descriptor> bindings;
+        std::vector<descriptor_t> bindings;
     };
 
     void update_descriptor(device device, descriptor_bindings bindings);
