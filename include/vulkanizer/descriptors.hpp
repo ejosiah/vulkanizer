@@ -49,6 +49,12 @@ namespace vkz {
        uint32_t binding{~0u};
    };
 
+   struct input_attachment_descriptor {
+       image_view view;
+       VkImageLayout layout{VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ_KHR};
+       uint32_t binding{~0u};
+   };
+
    struct image_element_descriptor {
        image_descriptor image;
        uint32_t array_element_location{~0u};
@@ -94,6 +100,15 @@ namespace vkz {
     }
 
     template<>
+    inline input_attachment_descriptor descriptor<input_attachment_descriptor, texture>(const texture& texture, uint32_t binding) {
+        return {
+            .view = texture.image_view,
+            .layout = texture.image.layout,
+            .binding = binding,
+        };
+    }
+
+    template<>
     inline texture_descriptor descriptor<texture_descriptor, texture>(const texture& texture, uint32_t binding) {
         return {
             .view = texture.image_view,
@@ -119,6 +134,7 @@ namespace vkz {
                                 ubo_element_descriptor,
                                 ubo_array_descriptor,
                                 image_descriptor,
+                                input_attachment_descriptor,
                                 image_element_descriptor,
                                 image_array_descriptor,
                                 texture_descriptor,

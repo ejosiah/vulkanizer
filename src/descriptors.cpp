@@ -35,6 +35,7 @@ namespace vkz {
                 [](const ubo_element_descriptor& d) { return d.descriptor.binding; },
                 [](const ubo_array_descriptor& d) { return d.binding; },
                 [](const image_descriptor& d) { return d.binding; },
+                [](const input_attachment_descriptor& d) { return d.binding; },
                 [](const image_element_descriptor& d) { return d.image.binding; },
                 [](const image_array_descriptor& d) { return d.binding; },
                 [](const texture_descriptor& d) { return d.binding; },
@@ -196,6 +197,10 @@ namespace vkz {
                     [&](const image_descriptor& d) {
                         add_image(set, resolve_binding(d.binding, position), 0,
                                   VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, d);
+                    },
+                    [&](const input_attachment_descriptor& d) {
+                        add_image(set, resolve_binding(d.binding, position), 0,
+                                  VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, d);
                     },
                     [&](const image_element_descriptor& d) {
                         add_image(set, resolve_binding(d.image.binding, position),
