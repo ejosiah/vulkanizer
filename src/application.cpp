@@ -185,6 +185,7 @@ void application::render_swapchain(VkCommandBuffer command_buffer) {
 }
 
 void application::recreate_swapchain() {
+    vkz::warn("Swapchain invalidated; recreating it");
     vkDeviceWaitIdle(device_.logical);
     app_.wait_for_drawable_window();
     if (app_.should_close()) {

@@ -27,6 +27,10 @@ The library currently provides:
 
 The Conan recipe supplies Volk, GLFW, Dear ImGui, GLM, and Vulkan Memory Allocator.
 
+## TODO
+
+- Complete the Nsight Aftermath shader-debug integration: assign stable debug names to shader modules and pipelines, retain/register shader binaries and debug information, and provide the lookup callbacks needed to resolve crash-dump shader hashes to shader names and source lines instead of generic labels such as `fragment_01`.
+
 ## Build
 
 Install the dependencies and generate the Conan toolchain:

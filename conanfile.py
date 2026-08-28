@@ -1,5 +1,7 @@
 from conan import ConanFile
+from conan.errors import ConanInvalidConfiguration
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
+from pathlib import Path
 
 
 class VulkanizerConan(ConanFile):
@@ -13,6 +15,8 @@ class VulkanizerConan(ConanFile):
     topics = ("vulkan", "imgui", "glfw")
 
     settings = "os", "compiler", "build_type", "arch"
+    options = {"with_nsight_aftermath": [True, False]}
+    default_options = {"with_nsight_aftermath": False}
     exports_sources = "CMakeLists.txt", "cmake/*", "include/*", "src/*"
 
     def requirements(self):
@@ -34,6 +38,15 @@ class VulkanizerConan(ConanFile):
 
         toolchain = CMakeToolchain(self)
         toolchain.variables["VULKANIZER_BUILD_TESTS"] = False
+        toolchain.variables["VULKANIZER_ENABLE_NSIGHT_AFTERMATH"] = self.options.with_nsight_aftermath
+        if self.options.with_nsight_aftermath:
+            sdk_dir = self.conf.get("user.vulkanizer:nsight_aftermath_sdk_dir", default=None)
+            if not sdk_dir:
+                raise ConanInvalidConfiguration(
+                    "with_nsight_aftermath=True requires "
+                    "-c user.vulkanizer:nsight_aftermath_sdk_dir=<Nsight Aftermath SDK directory>"
+                )
+            toolchain.variables["NSIGHT_AFTERMATH_SDK_DIR"] = Path(sdk_dir).as_posix()
         toolchain.generate()
 
     def build(self):
@@ -49,3 +62,5 @@ class VulkanizerConan(ConanFile):
         self.cpp_info.set_property("cmake_file_name", "vulkanizer")
         self.cpp_info.set_property("cmake_target_name", "vulkanizer::vulkanizer")
         self.cpp_info.libs = ["vulkanizer"]
+        if self.options.with_nsight_aftermath:
+            self.cpp_info.libs.append("GFSDK_Aftermath_Lib.x64")

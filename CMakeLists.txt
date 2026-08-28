@@ -97,6 +97,8 @@ if(VULKANIZER_ENABLE_NSIGHT_AFTERMATH)
     target_compile_definitions(vulkanizer PRIVATE VKZ_ENABLE_NSIGHT_AFTERMATH)
     install(FILES "${NSIGHT_AFTERMATH_SDK_DIR}/lib/x64/GFSDK_Aftermath_Lib.x64.dll"
             DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(FILES "${NSIGHT_AFTERMATH_SDK_DIR}/lib/x64/GFSDK_Aftermath_Lib.x64.lib"
+            DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 install(TARGETS vulkanizer
