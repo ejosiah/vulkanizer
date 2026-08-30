@@ -157,7 +157,7 @@ namespace vkz {
     }
 
     vulkan_app::vulkan_app(const vulkan_app_create_info& create_info)
-        : surface_provider_{nullptr} {
+        : surface_provider_{nullptr}, vsync_{create_info.vsync} {
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, create_info.resizable ? GLFW_TRUE : GLFW_FALSE);
         window_.reset(glfwCreateWindow(
@@ -220,10 +220,10 @@ namespace vkz {
     }
 
     std::unique_ptr<vkz::swapchain> vulkan_app::create_swapchain(VkImageUsageFlags image_usage) const {
-        return std::make_unique<vkz::swapchain>(
-            vkz::swapchain::builder(context_)
-                .set_image_usage(image_usage)
-                .build());
+        auto builder = vkz::swapchain::builder(context_);
+        builder.set_image_usage(image_usage);
+        if (!vsync_) builder.set_present_mode(VK_PRESENT_MODE_MAILBOX_KHR);
+        return std::make_unique<vkz::swapchain>(builder.build());
     }
 
     uint32_t find_graphics_present_queue_family(VkPhysicalDevice physical_device, VkSurfaceKHR surface) {

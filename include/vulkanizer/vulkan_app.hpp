@@ -26,6 +26,7 @@ namespace vkz {
         bool multiview{};
         bool resizable{true};
         bool validation{};
+        bool vsync{true};
         const char* engine_name{};
         std::vector<const char*> instance_extensions;
         std::vector<const char*> device_extensions;
@@ -86,6 +87,7 @@ namespace vkz {
         vkz::context context_;
         uint32_t queue_family_index_{};
         VkQueue graphics_queue_{};
+        bool vsync_{true};
     };
 
     uint32_t find_graphics_present_queue_family(VkPhysicalDevice physical_device, VkSurfaceKHR surface);
