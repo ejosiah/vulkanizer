@@ -1,6 +1,10 @@
 #include "vulkanizer/creators.hpp"
 #include "vulkanizer/io.hpp"
 
+#include <span>
+#include <string>
+#include <vector>
+
 namespace vkz {
 
     VkShaderModule create_shader_module(vkz::device device, const std::string &path) {

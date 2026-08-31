@@ -2,14 +2,16 @@
 
 #include "vulkanizer/log.hpp"
 
-#include <atomic>
-#include <fstream>
-#include <mutex>
-#include <string>
-
 #ifdef VKZ_ENABLE_NSIGHT_AFTERMATH
 #include <GFSDK_Aftermath_GpuCrashDump.h>
 #endif
+
+#include <atomic>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <mutex>
+#include <string>
 
 namespace vkz::aftermath {
 #ifdef VKZ_ENABLE_NSIGHT_AFTERMATH

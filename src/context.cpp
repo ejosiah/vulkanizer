@@ -7,7 +7,9 @@
 #include <algorithm>
 #include <cctype>
 #include <limits>
+#include <ranges>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 #include <vector>

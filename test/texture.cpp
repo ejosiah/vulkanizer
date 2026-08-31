@@ -9,9 +9,11 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <exception>
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <utility>
 
 namespace {
     class texture_test final : public vkz::application {

@@ -1,6 +1,7 @@
 #include "vulkanizer/log.hpp"
 
 #include <stdexcept>
+#include <string_view>
 
 namespace vkz {
     namespace {

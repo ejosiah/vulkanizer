@@ -5,9 +5,9 @@
 #include "texture.hpp"
 
 #include <initializer_list>
-#include <vector>
 #include <span>
 #include <variant>
+#include <vector>
 
 namespace vkz {
 

@@ -11,9 +11,9 @@
 #endif
 #include <GLFW/glfw3.h>
 
+#include <optional>
 #include <memory>
 #include <vector>
-#include <optional>
 
 namespace vkz {
 

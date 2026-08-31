@@ -3,6 +3,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_access.hpp>
 
+#include <array>
+
 namespace vkz {
     enum PlaneType : int { LEFT_PLANE = 0, RIGHT_PLANE, BOTTOM_PLANE, TOP_PLANE, NEAR_PLANE, FAR_PLANE};
 

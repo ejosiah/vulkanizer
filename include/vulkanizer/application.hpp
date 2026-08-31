@@ -11,7 +11,12 @@
 #include <vulkanizer/vulkan_app.hpp>
 #include <imgui.h>
 
+#include <cstddef>
 #include <iostream>
+#include <memory>
+#include <span>
+#include <string>
+#include <vector>
 
 namespace vkz {
 

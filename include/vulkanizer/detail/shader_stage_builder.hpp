@@ -2,9 +2,12 @@
 
 #include "types.hpp"
 
+#include <map>
+#include <memory>
+#include <string>
 #include <tuple>
 #include <variant>
-#include <map>
+#include <vector>
 
 namespace vkz {
 

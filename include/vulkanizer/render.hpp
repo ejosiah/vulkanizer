@@ -6,9 +6,9 @@
 #include <volk.h>
 #include <glm/glm.hpp>
 
-#include <vector>
-#include <optional>
 #include <functional>
+#include <optional>
+#include <vector>
 
 namespace vkz {
 

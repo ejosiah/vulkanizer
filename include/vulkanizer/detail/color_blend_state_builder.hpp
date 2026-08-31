@@ -4,6 +4,8 @@
 #include "blend_factor.hpp"
 #include "blend_op.hpp"
 
+#include <vector>
+
 namespace vkz {
 
     class color_blend_attachment_state_builder;

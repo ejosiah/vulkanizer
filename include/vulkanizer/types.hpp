@@ -1,9 +1,10 @@
 #pragma once
 
+#include <volk.h>
+
 #include <cinttypes>
 #include <concepts>
 #include <vector>
-#include <volk.h>
 
 namespace vkz {
     using real = float;

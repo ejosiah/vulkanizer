@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 namespace vkz {
 
     class dynamic_render_pass_builder : public graphics_pipeline_builder {

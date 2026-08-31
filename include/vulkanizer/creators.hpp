@@ -3,8 +3,9 @@
 #include "vkz.hpp"
 #include "types.hpp"
 
-#include <string>
 #include <span>
+#include <string>
+#include <vector>
 
 namespace vkz {
 

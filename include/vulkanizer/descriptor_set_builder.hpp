@@ -4,8 +4,12 @@
 #include "descriptors.hpp"
 #include "memory.hpp"
 
-#include <vector>
 #include <algorithm>
+#include <iterator>
+#include <ranges>
+#include <span>
+#include <string>
+#include <vector>
 
 namespace vkz {
 

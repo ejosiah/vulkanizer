@@ -2,6 +2,8 @@
 
 #include "../descriptors.hpp"
 
+#include <vector>
+
 namespace vkz {
 
     class pipeline_layout_builder : public graphics_pipeline_builder {

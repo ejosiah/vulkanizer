@@ -9,9 +9,11 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <filesystem>
 #include <format>
 #include <limits>
 #include <memory>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 

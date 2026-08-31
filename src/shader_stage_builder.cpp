@@ -13,7 +13,12 @@
 #include <array>
 #include <cstddef>
 #include <cstring>
+#include <memory>
 #include <stdexcept>
+#include <string>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace vkz {
     namespace {

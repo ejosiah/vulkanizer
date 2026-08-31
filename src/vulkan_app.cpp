@@ -4,6 +4,8 @@
 #include <vulkanizer/status.hpp>
 
 #include <cmath>
+#include <memory>
+#include <vector>
 
 namespace {
     vkz::context create_context(

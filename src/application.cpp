@@ -1,5 +1,10 @@
 #include <vulkanizer/application.hpp>
 
+#include <cstddef>
+#include <memory>
+#include <span>
+#include <string>
+
 namespace vkz {
 
 application::application(vulkan_app_create_info create_info)

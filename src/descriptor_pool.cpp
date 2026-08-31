@@ -3,6 +3,10 @@
 #include "vulkanizer/detail/functions.hpp"
 
 #include <limits>
+#include <cstddef>
+#include <initializer_list>
+#include <span>
+#include <vector>
 
 namespace vkz {
     descriptor_pool::descriptor_pool(

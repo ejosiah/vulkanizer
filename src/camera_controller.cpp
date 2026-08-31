@@ -1,6 +1,7 @@
 #include "vulkanizer/camera/controller.hpp"
 
 #include <algorithm>
+#include <memory>
 #include <stdexcept>
 
 namespace vkz::camera {

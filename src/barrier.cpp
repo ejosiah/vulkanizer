@@ -1,5 +1,8 @@
 #include "vulkanizer/barrier.hpp"
 
+#include <initializer_list>
+#include <vector>
+
 namespace vkz::barrier {
 
     namespace {

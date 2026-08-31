@@ -2,9 +2,12 @@
 #include "vulkanizer/status.hpp"
 
 #include <algorithm>
+#include <initializer_list>
 #include <limits>
 #include <type_traits>
 #include <utility>
+#include <variant>
+#include <vector>
 
 namespace vkz {
     namespace {

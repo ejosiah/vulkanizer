@@ -24,6 +24,9 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstddef>
+#include <utility>
+#include <vector>
 
 namespace vkz {
     VkPipelineStageFlags make_access_mask_pipeline_stage_flags(

@@ -5,9 +5,13 @@
 #include "vulkanizer/status.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <limits>
+#include <mutex>
+#include <ranges>
 #include <utility>
+#include <vector>
 
 namespace vkz {
     mapping buffer::map() const {

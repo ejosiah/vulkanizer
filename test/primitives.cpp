@@ -23,6 +23,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <vector>

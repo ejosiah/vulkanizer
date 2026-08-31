@@ -7,6 +7,11 @@
 #include <glm/gtc/matrix_inverse.hpp>
 
 #include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 namespace vkz::prim {
     static constexpr auto PI = glm::pi<float>();

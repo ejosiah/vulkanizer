@@ -1,6 +1,9 @@
 #pragma once
 
+#include <concepts>
+#include <iterator>
 #include <ranges>
+#include <utility>
 #include <vector>
 
 namespace vkz {

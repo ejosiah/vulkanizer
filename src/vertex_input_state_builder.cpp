@@ -1,7 +1,10 @@
 #include "vulkanizer/graphics_pipeline_builder.hpp"
 #include "vulkanizer/log.hpp"
 
+#include <algorithm>
 #include <format>
+#include <stdexcept>
+#include <vector>
 
 namespace vkz {
 

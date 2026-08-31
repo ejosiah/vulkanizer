@@ -12,9 +12,8 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <vector>
 #include <iostream>
-#include "vulkanizer/log.hpp"
+#include <vector>
 
 namespace {
     constexpr uint32_t image_size = 2048;

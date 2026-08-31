@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 namespace vkz {
 
     class vertex_input_state_builder : public graphics_pipeline_builder {

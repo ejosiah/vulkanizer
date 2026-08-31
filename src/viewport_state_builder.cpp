@@ -1,5 +1,8 @@
 #include "vulkanizer/graphics_pipeline_builder.hpp"
 
+#include <stdexcept>
+#include <vector>
+
 namespace vkz {
 
     viewport_state_builder::viewport_state_builder(vkz::device device, graphics_pipeline_builder *parent)

@@ -1,6 +1,11 @@
 #include "vulkanizer/graphics_pipeline_builder.hpp"
 #include "vulkanizer/struct_mapping.hpp"
 
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <utility>
+
 namespace vkz {
 
     graphics_pipeline_builder::graphics_pipeline_builder(vkz::device device)

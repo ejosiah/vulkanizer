@@ -1,6 +1,11 @@
 #include "vulkanizer/compute_pipeline_builder.hpp"
 #include "vulkanizer/struct_mapping.hpp"
 
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <utility>
+
 vkz::compute_pipeline_builder::compute_pipeline_builder(vkz::device device)
 : builder_base{device, nullptr}
 , _shader_stage_builder{std::make_unique<compute_shader_stage_builder>(device, this)}

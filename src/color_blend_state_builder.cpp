@@ -1,5 +1,7 @@
 #include "vulkanizer/graphics_pipeline_builder.hpp"
 
+#include <vector>
+
 namespace vkz {
 
     color_blend_state_builder::color_blend_state_builder(vkz::device device, graphics_pipeline_builder *parent)

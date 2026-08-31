@@ -4,6 +4,10 @@
 #include "vulkanizer/status.hpp"
 #include "vulkanizer/detail/compute_shader_stage_builder.hpp"
 
+#include <string>
+#include <variant>
+#include <vector>
+
 
 vkz::compute_shader_stage_builder::compute_shader_stage_builder(vkz::device device, vkz::compute_pipeline_builder *parent)
     : compute_pipeline_builder(device, parent) {}

@@ -1,5 +1,7 @@
 #include "vulkanizer/render.hpp"
 
+#include <vector>
+
 namespace vkz {
     void render(VkCommandBuffer command_buffer, const render_info& render_data, scene scene) {
         VkRenderingInfo info{ VK_STRUCTURE_TYPE_RENDERING_INFO };

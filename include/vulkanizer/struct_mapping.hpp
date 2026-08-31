@@ -3,8 +3,8 @@
 #include "status.hpp"
 #include "vkz.hpp"
 
-#include <stdexcept>
 #include <format>
+#include <stdexcept>
 #include <type_traits>
 
 namespace vkz {

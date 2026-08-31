@@ -1,5 +1,11 @@
 #pragma once
 
+#ifdef VKZ_SPD_LOG_ADAPTOR
+#include <spdlog/spdlog.h>
+#endif
+
+#include <mutex>
+#include <ostream>
 #include <string_view>
 
 namespace vkz
@@ -33,7 +39,6 @@ namespace vkz
 
 
 #ifdef VKZ_SPD_LOG_ADAPTOR
-#include <spdlog/spdlog.h>
 namespace vkz::spdlog_adapter {
     inline void log(LogLevel level, std::string_view msg) {
         switch (level)
@@ -54,9 +59,6 @@ namespace vkz::spdlog_adapter {
 #endif
 
 #ifdef VKZ_IOSTREAM_ADAPTER
-#include <ostream>
-#include <mutex>
-
 namespace vkz::iostream_adapter
 {
     namespace detail

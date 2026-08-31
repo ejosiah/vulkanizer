@@ -4,7 +4,7 @@
 #include <glm/gtc/matrix_access.hpp>
 
 #include <algorithm>
-#include <vector>
+#include <cmath>
 
 namespace {
     template<typename Scalar>

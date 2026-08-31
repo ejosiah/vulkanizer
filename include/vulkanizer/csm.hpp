@@ -5,9 +5,10 @@
 #include "texture.hpp"
 
 #include <glm/glm.hpp>
+
+#include <functional>
 #include <span>
 #include <string>
-#include <functional>
 
 
 namespace vkz::csm {

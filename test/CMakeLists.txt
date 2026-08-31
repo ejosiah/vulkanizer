@@ -1,6 +1,7 @@
 function(vulkanizer_add_test_executable target source)
     add_executable(${target} ${source})
     target_link_libraries(${target} PRIVATE vulkanizer)
+    add_test(NAME ${target} COMMAND ${target})
     if(TARGET nsight_aftermath)
         add_custom_command(TARGET ${target} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -13,7 +14,6 @@ vulkanizer_add_test_executable(vulkanizer_csm_test csm.cpp)
 vulkanizer_add_test_executable(vulkanizer_primitive_test primitives.cpp)
 vulkanizer_add_test_executable(vulkanizer_camera_test camera.cpp)
 vulkanizer_add_test_executable(vulkanizer_camera_movement_test camera_movement.cpp)
-add_test(NAME vulkanizer_camera_movement_test COMMAND vulkanizer_camera_movement_test)
 vulkanizer_add_test_executable(vulkanizer_commands_test commands.cpp)
 vulkanizer_add_test_executable(vulkanizer_mip_map_test mip_map.cpp)
 vulkanizer_add_test_executable(vulkanizer_texture_test texture.cpp)

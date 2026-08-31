@@ -21,7 +21,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <array>
+#include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <iostream>
 #include <random>
 #include <string>
