@@ -94,8 +94,8 @@ namespace {
     pixels load_rgba(const std::string&) { throw std::runtime_error("The camera test JPEG loader currently requires WIC"); }
 #endif
 
-    VkPipeline make_pipeline(vkz::context& context, VkFormat color, VkFormat depth,
-            const char* vert, const char* frag, vkz::descriptor_set_layout descriptors, VkPipelineLayout& layout) {
+    vkz::pipeline make_pipeline(vkz::context& context, VkFormat color, VkFormat depth,
+            const char* vert, const char* frag, vkz::descriptor_set_layout descriptors) {
         vkz::graphics_pipeline_builder pipeline_builder{context.device};
         pipeline_builder.shader_stage().vertex_shader(shader_path(vert)).fragment_shader(shader_path(frag))
             .vertex_input_state()
@@ -111,8 +111,9 @@ namespace {
             .color_blend_state().attachment().add();
         auto& builder = pipeline_builder.layout();
         if (descriptors) builder.add_descriptor_set_layout(descriptors);
-        return builder.add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(camera_constants))
-            .dynamic_render_pass().add_color_attachment(color).depth_attachment(depth).build(layout);
+        auto result = builder.add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(camera_constants))
+            .dynamic_render_pass().add_color_attachment(color).depth_attachment(depth).build();
+        return result;
     }
 }
 
@@ -169,26 +170,25 @@ int main() {
     auto cube_image = vkz::image::builder(allocator).flags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
         .format(VK_FORMAT_R8G8B8A8_SRGB).extent(faces[0].width, faces[0].height).array_layers(6)
         .usage(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).build();
+    auto cube_view = vkz::image_view::builder(context.device).image(cube_image).view_type(VK_IMAGE_VIEW_TYPE_CUBE)
+        .format(VK_FORMAT_R8G8B8A8_SRGB).aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT).level_count(1).layer_count(6).build();
     {
         vkz::scope_command_buffer upload{device, family, queue};
         VkImageSubresourceRange cube_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6};
         VkImage cube_handle = cube_image;
         vkz::barrier::push_and_flush(upload, cube_handle, cube_range, VK_PIPELINE_STAGE_2_NONE, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
             VK_ACCESS_2_NONE, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        std::array<VkBufferImageCopy, 6> copies{};
-        for (uint32_t i = 0; i < 6; ++i) {
-            copies[i].bufferOffset = staging_memory.offset() + face_size * i;
-            copies[i].imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, i, 1};
-            copies[i].imageExtent = {faces[0].width, faces[0].height, 1};
-        }
-        vkCmdCopyBufferToImage(upload, staging.handle(), cube_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6, copies.data());
+        cube_image.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        vkz::buffer staging_source{};
+        staging_source._ = staging.handle();
+        staging_source.create_info.size = staging_memory.size();
+        vkz::copy(upload, staging_source, cube_image, cube_view);
         vkz::barrier::push_and_flush(upload, cube_handle, cube_range, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
             VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        cube_image.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
     staging.return_memory(staging_memory);
     staging.destroy();
-    auto cube_view = vkz::image_view::builder(context.device).image(cube_image).view_type(VK_IMAGE_VIEW_TYPE_CUBE)
-        .format(VK_FORMAT_R8G8B8A8_SRGB).aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT).level_count(1).layer_count(6).build();
     auto cube_sampler = vkz::sampler::builder(context.device).mag_filter(VK_FILTER_LINEAR).min_filter(VK_FILTER_LINEAR)
         .address_mode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE).build();
 
@@ -205,9 +205,9 @@ int main() {
     write.dstSet = descriptor.handle; write.descriptorCount = 1; write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; write.pImageInfo = &image_info;
     vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
 
-    VkPipelineLayout sky_layout{}, floor_layout{};
-    auto sky_pipeline = make_pipeline(context, swapchain->format(), depth_format, "camera_skybox.vert", "camera_skybox.frag", descriptor_layout, sky_layout);
-    auto floor_pipeline = make_pipeline(context, swapchain->format(), depth_format, "camera_floor.vert", "camera_floor.frag", {}, floor_layout);
+    auto sky_pipeline = make_pipeline(context, swapchain->format(), depth_format, "camera_skybox.vert", "camera_skybox.frag", descriptor_layout);
+    auto floor_pipeline = make_pipeline(context, swapchain->format(), depth_format, "camera_floor.vert", "camera_floor.frag", {});
+    sky_pipeline.descriptor_sets.push_back(descriptor);
     constexpr std::array quad_vertices{
         quad_vertex{{-1, -1}, {0, 0}}, quad_vertex{{ 1, -1}, {1, 0}}, quad_vertex{{ 1,  1}, {1, 1}},
         quad_vertex{{-1, -1}, {0, 0}}, quad_vertex{{ 1,  1}, {1, 1}}, quad_vertex{{-1,  1}, {0, 1}},
@@ -262,16 +262,13 @@ int main() {
         rendering.depth_attachment = vkz::depth_stencil_attachment{.view=depth_view, .format=depth_format, .clear_value={1,0}};
         rendering.render_area = {width, height};
         vkz::render(cmd, rendering, [&] {
-            const VkDeviceSize vertex_offset = 0;
-            VkBuffer vertex_buffer = quad_buffer;
-            vkCmdBindVertexBuffers(cmd, 0, 1, &vertex_buffer, &vertex_offset);
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_pipeline);
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_layout, 0, 1, &descriptor.handle, 0, nullptr);
-            vkCmdPushConstants(cmd, sky_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
-            vkCmdDraw(cmd, static_cast<uint32_t>(quad_vertices.size()), 1, 0, 0);
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, floor_pipeline);
-            vkCmdPushConstants(cmd, floor_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
-            vkCmdDraw(cmd, static_cast<uint32_t>(quad_vertices.size()), 1, 0, 0); vkz::imgui::render(cmd);
+            vkz::bind_vertex_buffer(cmd, quad_buffer);
+            vkz::bind_pipeline(cmd, sky_pipeline);
+            vkz::push_constants(cmd, sky_pipeline, constants, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+            vkz::draw(cmd, static_cast<uint32_t>(quad_vertices.size()));
+            vkz::bind_pipeline(cmd, floor_pipeline);
+            vkz::push_constants(cmd, floor_pipeline, constants, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+            vkz::draw(cmd, static_cast<uint32_t>(quad_vertices.size())); vkz::imgui::render(cmd);
         });
         vkz::barrier::push_and_flush(cmd, color, color_range, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_NONE,
             VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -285,8 +282,7 @@ int main() {
         VKZ_CHECK_VULKAN(vkQueuePresentKHR(queue, &present));
     }
     vkDeviceWaitIdle(device);
-    vkz::imgui::destroy(); vkDestroyPipeline(device, floor_pipeline, nullptr); vkDestroyPipeline(device, sky_pipeline, nullptr);
-    vkDestroyPipelineLayout(device, floor_layout, nullptr); vkDestroyPipelineLayout(device, sky_layout, nullptr);
+    vkz::imgui::destroy(); floor_pipeline.destroy(); sky_pipeline.destroy();
     descriptor_pool.destroy(); descriptor_layout.destroy();
     quad_buffer.destroy(); cube_sampler.destroy(); cube_view.destroy(); cube_image.destroy();
     depth_view.destroy(); depth_image.destroy(); vkz::destroy_image_views(device, swap_views);

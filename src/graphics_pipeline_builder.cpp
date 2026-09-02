@@ -155,7 +155,10 @@ namespace vkz {
     }
 
     vkz::pipeline graphics_pipeline_builder::build() {
-        vkz::pipeline result{ .device = device() };
+        vkz::pipeline result{
+            .bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .device = device(),
+        };
         result.handle = build(result.layout);
 
         return result;

@@ -2,6 +2,7 @@
 
 #include "vkz.hpp"
 #include "builder.hpp"
+#include "pipeline.hpp"
 
 #include <memory>
 #include <string>
@@ -28,9 +29,11 @@ namespace vkz {
 
         compute_pipeline_builder& name(const std::string& value);
 
-        [[nodiscard]] VkPipeline build();
+        [[nodiscard]] VkPipeline build_native();
 
         [[nodiscard]] VkPipeline build(VkPipelineLayout& pipeline_layout);
+
+        [[nodiscard]] vkz::pipeline build();
 
         [[nodiscard]] VkComputePipelineCreateInfo create_info();
 

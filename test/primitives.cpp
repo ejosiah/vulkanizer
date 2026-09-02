@@ -37,12 +37,6 @@ namespace {
         glm::mat4 view_projection{1};
     };
 
-    struct mesh {
-        vkz::buffer vertex_buffer{};
-        vkz::buffer index_buffer{};
-        uint32_t index_count{};
-    };
-
     enum class primitive_choice {
         cube,
         plane,
@@ -196,8 +190,8 @@ namespace {
         return buffer;
     }
 
-    mesh create_mesh(vkz::vma_memory_allocator& allocator, const vkz::prim::primitive& primitive) {
-        mesh result{};
+    vkz::mesh create_mesh(vkz::vma_memory_allocator& allocator, const vkz::prim::primitive& primitive) {
+        vkz::mesh result{};
         result.vertex_buffer = create_buffer(
             allocator,
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -208,16 +202,15 @@ namespace {
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
             primitive.indices.data(),
             sizeof(vkz::uint) * primitive.indices.size());
-        result.index_count = static_cast<uint32_t>(primitive.indices.size());
         return result;
     }
 
-    void destroy_mesh(mesh& mesh) {
+    void destroy_mesh(vkz::mesh& mesh) {
         if (mesh.vertex_buffer._) {
             mesh.vertex_buffer.destroy();
         }
-        if (mesh.index_buffer._) {
-            mesh.index_buffer.destroy();
+        if (mesh.index_buffer.has_value() && mesh.index_buffer->_) {
+            mesh.index_buffer->destroy();
         }
         mesh = {};
     }
@@ -286,7 +279,6 @@ int main() {
         .samples = sample_count,
     });
 
-    VkPipelineLayout pipeline_layout{};
     auto pipeline =
         vkz::graphics_pipeline_builder{context.device}
             .shader_stage()
@@ -327,7 +319,7 @@ int main() {
                 .add_color_attachment(swapchain->format())
                 .depth_attachment(depth_format)
             .name("primitive_test")
-            .build(pipeline_layout);
+            .build();
 
     vkz::fenced_command_pools commands{
         context.device,
@@ -472,13 +464,9 @@ int main() {
         };
 
         vkz::render(command_buffer, render_info, [&] {
-            vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-            vkCmdPushConstants(command_buffer, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants), &constants);
-            const VkDeviceSize offset = 0;
-            VkBuffer vertex_buffer = current_mesh.vertex_buffer;
-            vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer, &offset);
-            vkCmdBindIndexBuffer(command_buffer, current_mesh.index_buffer, 0, VK_INDEX_TYPE_UINT32);
-            vkCmdDrawIndexed(command_buffer, current_mesh.index_count, 1, 0, 0, 0);
+            vkz::bind_pipeline(command_buffer, pipeline);
+            vkz::push_constants(command_buffer, pipeline, constants);
+            vkz::bind_and_draw(command_buffer, current_mesh);
             vkz::imgui::render(command_buffer);
         });
 
@@ -514,8 +502,7 @@ int main() {
     destroy_mesh(current_mesh);
     vkDestroySemaphore(context.device.logical, render_finished, nullptr);
     vkDestroySemaphore(context.device.logical, image_available, nullptr);
-    vkDestroyPipeline(context.device.logical, pipeline, nullptr);
-    vkDestroyPipelineLayout(context.device.logical, pipeline_layout, nullptr);
+    pipeline.destroy();
     vkz::imgui::destroy();
     color_view.destroy();
     depth_view.destroy();

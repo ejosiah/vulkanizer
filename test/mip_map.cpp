@@ -79,13 +79,7 @@ int main() {
         VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     image.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
-    const VkBufferImageCopy upload_region{
-        0, 0, 0,
-        {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-        {0, 0, 0}, {image_size, image_size, 1}};
-    vkCmdCopyBufferToImage(
-        command_buffer, staging, image.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1, &upload_region);
+    vkz::copy(command_buffer, staging, image);
     vkz::generate_mip_maps(command_buffer, image);
     commands.submit_and_wait(command_buffer);
 
@@ -94,19 +88,21 @@ int main() {
 
     const VkImageSubresourceRange final_mip{
         VK_IMAGE_ASPECT_COLOR_BIT, mip_levels - 1, 1, 0, 1};
+    auto final_mip_view = vkz::image_view::builder(context.device)
+        .image(image)
+        .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
+        .base_mip_level(mip_levels - 1)
+        .level_count(1)
+        .layer_count(1)
+        .build();
     vkz::barrier::push_and_flush(
         readback_command_buffer, image.handle, final_mip,
         VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
         VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
         image.layout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    image.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-    const VkBufferImageCopy readback_region{
-        0, 0, 0,
-        {VK_IMAGE_ASPECT_COLOR_BIT, mip_levels - 1, 0, 1},
-        {0, 0, 0}, {1, 1, 1}};
-    vkCmdCopyImageToBuffer(
-        readback_command_buffer, image.handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        readback, 1, &readback_region);
+    vkz::copy(readback_command_buffer, image, final_mip_view, readback);
     vkz::barrier::push_and_flush(
         readback_command_buffer,
         VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_HOST_BIT,
@@ -128,6 +124,7 @@ int main() {
     assert(alpha == 255);
 
     readback.destroy();
+    final_mip_view.destroy();
     image.destroy();
     staging.destroy();
     allocator.destroy();

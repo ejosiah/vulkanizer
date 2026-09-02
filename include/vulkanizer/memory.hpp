@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <optional>
 
 namespace vkz {
     class buffer_builder;
@@ -41,6 +42,12 @@ namespace vkz {
         operator VkBuffer() const {
             return _;
         }
+    };
+
+    struct mesh {
+        buffer vertex_buffer;
+        std::optional<buffer> index_buffer;
+        VkIndexType index_type{VK_INDEX_TYPE_UINT32};
     };
 
     struct image {

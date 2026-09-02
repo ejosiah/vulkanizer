@@ -40,7 +40,7 @@ namespace {
     };
 
     struct object {
-        VkBuffer vertices{};
+        const vkz::buffer* vertices{};
         uint32_t vertex_count{};
         glm::mat4 transform{1};
     };
@@ -324,7 +324,7 @@ int main() {
     auto cube_buffer = create_vertex_buffer(allocator, cube_vertices);
 
     std::vector<object> objects;
-    objects.push_back({plane_buffer, static_cast<uint32_t>(plane_vertices.size()), glm::mat4{1}});
+    objects.push_back({&plane_buffer, static_cast<uint32_t>(plane_vertices.size()), glm::mat4{1}});
 
     std::mt19937 rng{1337};
     std::uniform_real_distribution<float> position{-14.0f, 14.0f};
@@ -339,7 +339,7 @@ int main() {
         transform = glm::translate(transform, {position(rng), y, position(rng)});
         transform = glm::rotate(transform, rotation(rng), {0.0f, 1.0f, 0.0f});
         transform = glm::scale(transform, scale);
-        objects.push_back({cube_buffer, static_cast<uint32_t>(cube_vertices.size()), transform});
+        objects.push_back({&cube_buffer, static_cast<uint32_t>(cube_vertices.size()), transform});
     }
 
     const auto csm_id = [&] {
@@ -424,7 +424,6 @@ mat4 get_model_matrix() {
         },
     });
 
-    VkPipelineLayout scene_pipeline_layout{};
     auto scene_pipeline =
         vkz::graphics_pipeline_builder{context.device}
             .shader_stage()
@@ -464,7 +463,11 @@ mat4 get_model_matrix() {
                 .add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(render_push_constants))
             .render_pass(render_pass)
             .name("csm_test_scene")
-            .build(scene_pipeline_layout);
+            .build();
+    scene_pipeline.descriptor_sets = {
+        {vkz::csm::descriptor_set(csm_id)},
+        {scene_descriptor_set},
+    };
 
     VkSemaphore image_available = vkz::create_semaphore(context.device.logical);
     VkSemaphore render_finished = vkz::create_semaphore(context.device.logical);
@@ -588,11 +591,10 @@ mat4 get_model_matrix() {
         if (!freeze_shadow_map) {
             vkz::csm::capture(csm_id, [&](VkPipelineLayout layout) {
                 for (const auto& item : objects) {
-                    const VkDeviceSize offset = 0;
                     shadow_push_constants constants{.world = item.transform};
-                    vkCmdPushConstants(command_buffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants), &constants);
-                    vkCmdBindVertexBuffers(command_buffer, 0, 1, &item.vertices, &offset);
-                    vkCmdDraw(command_buffer, item.vertex_count, 1, 0, 0);
+                    vkz::push_constants(command_buffer, layout, constants);
+                    vkz::bind_vertex_buffer(command_buffer, *item.vertices);
+                    vkz::draw(command_buffer, item.vertex_count);
                 }
             }, command_buffer, static_cast<int>(current_frame));
         }
@@ -613,15 +615,12 @@ mat4 get_model_matrix() {
         if (show_shadow_map) {
             vkz::csm::render(csm_id, command_buffer);
         } else {
-            std::array<VkDescriptorSet, 2> descriptor_sets{vkz::csm::descriptor_set(csm_id), scene_descriptor_set};
-            vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, scene_pipeline);
-            vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, scene_pipeline_layout, 0, static_cast<uint32_t>(descriptor_sets.size()), descriptor_sets.data(), 0, nullptr);
+            vkz::bind_pipeline(command_buffer, scene_pipeline);
             for (const auto& item : objects) {
-                const VkDeviceSize offset = 0;
                 render_push_constants constants{.world = item.transform, .view_projection = view_projection};
-                vkCmdPushConstants(command_buffer, scene_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants), &constants);
-                vkCmdBindVertexBuffers(command_buffer, 0, 1, &item.vertices, &offset);
-                vkCmdDraw(command_buffer, item.vertex_count, 1, 0, 0);
+                vkz::push_constants(command_buffer, scene_pipeline, constants);
+                vkz::bind_vertex_buffer(command_buffer, *item.vertices);
+                vkz::draw(command_buffer, item.vertex_count);
             }
         }
 
@@ -650,8 +649,7 @@ mat4 get_model_matrix() {
 
     vkDestroySemaphore(context.device.logical, render_finished, nullptr);
     vkDestroySemaphore(context.device.logical, image_available, nullptr);
-    vkDestroyPipeline(context.device.logical, scene_pipeline, nullptr);
-    vkDestroyPipelineLayout(context.device.logical, scene_pipeline_layout, nullptr);
+    scene_pipeline.destroy();
     scene_descriptor_set_layout.destroy();
     scene_mapping.unmap();
     split_mapping.unmap();

@@ -55,15 +55,24 @@ vkz::compute_pipeline_builder &vkz::compute_pipeline_builder::name(const std::st
     return *this;
 }
 
-VkPipeline vkz::compute_pipeline_builder::build() {
+VkPipeline vkz::compute_pipeline_builder::build_native() {
     if (parent()) {
-        return parent()->build();
+        return parent()->build_native();
     }
     if (!_pipeline_layout) {
         throw std::runtime_error{"either provide or create a pipeline_layout"};
     }
     VkPipelineLayout unused{};
     return build(unused);
+}
+
+vkz::pipeline vkz::compute_pipeline_builder::build() {
+    vkz::pipeline result{
+        .bind_point = VK_PIPELINE_BIND_POINT_COMPUTE,
+        .device = device(),
+    };
+    result.handle = build(result.layout);
+    return result;
 }
 
 VkPipeline vkz::compute_pipeline_builder::build(VkPipelineLayout &pipeline_layout) {
