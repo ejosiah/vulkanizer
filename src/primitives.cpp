@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstddef>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -177,7 +178,16 @@ namespace vkz::prim {
             const auto nz = std::sin(u) * std::sin(v);
             const auto z = r * nz;
 
-            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
+            const auto tx = -r * std::sin(u) * std::sin(v);
+            const auto ty = 0.0f;
+            const auto tz = r * std::cos(u) * std::sin(v);
+
+            const auto bx = r * std::cos(u) * std::cos(v);
+            const auto by = -r * std::sin(v);
+            const auto bz = r * std::sin(u) * std::cos(v);
+
+            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz),
+                                   glm::vec3(tx, ty, tz), glm::vec3(bx, by, bz));
         };
 
         return surface(p, q, f, color, xform, topology);
@@ -200,7 +210,12 @@ namespace vkz::prim {
             float nz = std::sin(u) * std::sin(v);
             float z = radius * nz;
 
-            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
+            const glm::vec3 tangent{-radius * std::sin(u) * std::sin(v), 0.0f,
+                                    radius * std::cos(u) * std::sin(v)};
+            const glm::vec3 bitangent{radius * std::cos(u) * std::cos(v), -radius * std::sin(v),
+                                      radius * std::sin(u) * std::cos(v)};
+
+            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz), tangent, bitangent);
         };
 
         return surface(p, q, f, color, glm::mat4{1}, topology);
@@ -225,7 +240,10 @@ namespace vkz::prim {
             float nz = 0;
             float z = v - h * 0.5f;
 
-            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
+            const glm::vec3 tangent{-radius * v * std::sin(u), radius * v * std::cos(u), 0.0f};
+            const glm::vec3 bitangent{radius * std::cos(u), radius * std::sin(u), 1.0f};
+
+            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz), tangent, bitangent);
         };
 
         return surface(p, q, f, color, glm::mat4{1}, topology);
@@ -249,7 +267,11 @@ namespace vkz::prim {
             float nz = std::cos(u);
             float z = radius * height * std::cos(u);
 
-            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
+            const glm::vec3 tangent{radius * height * std::cos(u), 0.0f,
+                                    -radius * height * std::sin(u)};
+            const glm::vec3 bitangent{0.0f, 1.0f, 0.0f};
+
+            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz), tangent, bitangent);
         };
 
         return surface(p, q, f, color, glm::mat4{1}, topology);
@@ -275,7 +297,12 @@ namespace vkz::prim {
             float z = r * std::sin(v);
             float nz = std::sin(v);
 
-            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
+            const glm::vec3 tangent{-(R + r * std::cos(v)) * std::sin(u),
+                                    (R + r * std::cos(v)) * std::cos(u), 0.0f};
+            const glm::vec3 bitangent{-r * std::sin(v) * std::cos(u),
+                                      -r * std::sin(v) * std::sin(u), r * std::cos(v)};
+
+            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz), tangent, bitangent);
         };
 
 
@@ -306,7 +333,8 @@ namespace vkz::prim {
             float nz = 1;
 
 
-            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
+            return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz),
+                                   glm::vec3{1.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f});
         };
 
         return surface(p, q, f, color, xform, topology);
@@ -336,7 +364,8 @@ namespace vkz::prim {
             const auto dfdy = (func(x, y + dy) - func(x, y - dy)) / (2.0f * dy);
             auto normal = glm::normalize(glm::vec3{-dfdx, -dfdy, 1.0f});
 
-            return std::make_tuple(glm::vec3(x, y, z), normal);
+            return std::make_tuple(glm::vec3(x, y, z), normal,
+                                   glm::vec3{1.0f, 0.0f, dfdx}, glm::vec3{0.0f, 1.0f, dfdy});
         };
 
         return surface(p, q, f, color, xform, topology);
@@ -350,11 +379,16 @@ namespace vkz::prim {
         auto nXform = glm::inverseTranspose(glm::mat3(xform));
         for (int j = 0; j <= q; j++) {
             for (int i = 0; i <= p; i++) {
-                auto [position, normal] = func(i, j);
+                auto sample = func(i, j);
+                const auto& position = std::get<0>(sample);
+                const auto& normal = std::get<1>(sample);
                 vertex vertex{};
                 vertex.position = xform * glm::vec4(position, 1.0);
                 vertex.normal = nXform * normal;
-                // TODO construct tangents
+                if constexpr (std::tuple_size_v<std::decay_t<decltype(sample)>> >= 4) {
+                    vertex.tangent = nXform * std::get<2>(sample);
+                    vertex.bitangent = nXform * std::get<3>(sample);
+                }
                 vertex.color = color;
                 vertex.uv = {static_cast<float>(p - i) / static_cast<float>(p), static_cast<float>(q - j) / static_cast<float>(q)};
                 vertices.vertices.push_back(vertex);
