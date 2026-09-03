@@ -40,4 +40,5 @@ namespace vkz {
 
 
     void render(VkCommandBuffer command_buffer, const render_info& render_info, scene scene);
+    void render_local(VkCommandBuffer command_buffer, const render_info& render_info, scene scene);
 }

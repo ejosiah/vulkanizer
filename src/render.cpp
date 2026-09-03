@@ -1,9 +1,12 @@
 #include "vulkanizer/render.hpp"
 
 #include <vector>
+#include <utility>
 
 namespace vkz {
-    void render(VkCommandBuffer command_buffer, const render_info& render_data, scene scene) {
+    namespace {
+    void render(VkCommandBuffer command_buffer, const render_info& render_data, scene scene,
+                VkImageLayout color_attachment_layout) {
         VkRenderingInfo info{ VK_STRUCTURE_TYPE_RENDERING_INFO };
         info.flags = 0;
         info.renderArea = {{0, 0}, {render_data.render_area.x, render_data.render_area.y}};
@@ -13,7 +16,7 @@ namespace vkz {
         std::vector<VkRenderingAttachmentInfo> color_attachments;
         for(const auto& [view, format, clear_value, resolve, clear] : render_data.color_attachments) {
             VkRenderingAttachmentInfo attachment_info{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
-            attachment_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            attachment_info.imageLayout = color_attachment_layout;
             attachment_info.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
             attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
             attachment_info.clearValue.color = {clear_value.r, clear_value.g, clear_value.b, clear_value.a};
@@ -21,7 +24,7 @@ namespace vkz {
 
             if (resolve.has_value()) {
                 attachment_info.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
-                attachment_info.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                attachment_info.resolveImageLayout = color_attachment_layout;
                 attachment_info.resolveImageView = resolve->handle;
             }
 
@@ -62,5 +65,14 @@ namespace vkz {
         vkCmdBeginRendering(command_buffer, &info);
         scene();
         vkCmdEndRendering(command_buffer);
+    }
+    }
+
+    void render(VkCommandBuffer command_buffer, const render_info& render_data, scene scene) {
+        render(command_buffer, render_data, std::move(scene), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    }
+
+    void render_local(VkCommandBuffer command_buffer, const render_info& render_data, scene scene) {
+        render(command_buffer, render_data, std::move(scene), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ_KHR);
     }
 }
