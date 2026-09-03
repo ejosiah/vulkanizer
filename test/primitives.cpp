@@ -406,16 +406,15 @@ int main() {
         color_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         color_range.levelCount = 1;
         color_range.layerCount = 1;
-        VkImage color_handle = color_image;
+        const auto color_initialized = color_image.layout != VK_IMAGE_LAYOUT_UNDEFINED;
         vkz::barrier::push_and_flush(
             command_buffer,
-            color_handle,
+            color_image,
             color_range,
-            VK_PIPELINE_STAGE_2_NONE,
+            color_initialized ? VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_2_NONE,
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_ACCESS_2_NONE,
+            color_initialized ? VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT : VK_ACCESS_2_NONE,
             VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         vkz::barrier::push_and_flush(
             command_buffer,
@@ -432,16 +431,15 @@ int main() {
         depth_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
         depth_range.levelCount = 1;
         depth_range.layerCount = 1;
-        VkImage depth_handle = depth_image;
+        const auto depth_initialized = depth_image.layout != VK_IMAGE_LAYOUT_UNDEFINED;
         vkz::barrier::push_and_flush(
             command_buffer,
-            depth_handle,
+            depth_image,
             depth_range,
-            VK_PIPELINE_STAGE_2_NONE,
+            depth_initialized ? VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_2_NONE,
             VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-            VK_ACCESS_2_NONE,
+            depth_initialized ? VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT : VK_ACCESS_2_NONE,
             VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
         vkz::render_info render_info{};

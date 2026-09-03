@@ -1,5 +1,6 @@
 #include "vulkanizer/ktx.hpp"
 
+#include "vulkanizer/barrier.hpp"
 #include "vulkanizer/commands.hpp"
 #include "vulkanizer/status.hpp"
 
@@ -230,39 +231,19 @@ namespace vkz {
                 allocator.device, upload_queue_family, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, upload_queue};
             const VkCommandBuffer command_buffer = commands.create_command_buffer();
 
-            VkImageMemoryBarrier to_transfer{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-            to_transfer.srcAccessMask = 0;
-            to_transfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            to_transfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            to_transfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            to_transfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            to_transfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            to_transfer.image = result.image.handle;
-            to_transfer.subresourceRange = range;
-            vkCmdPipelineBarrier(
-                command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                0, 0, nullptr, 0, nullptr, 1, &to_transfer);
+            barrier::push_and_flush(command_buffer, result.image, range, VK_PIPELINE_STAGE_2_NONE, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                    VK_ACCESS_2_NONE, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
             const auto regions = copy_regions(source.get());
             vkCmdCopyBufferToImage(
                 command_buffer, staging, result.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 VKZ_COUNT(regions), regions.data());
 
-            VkImageMemoryBarrier to_shader_read{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-            to_shader_read.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            to_shader_read.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            to_shader_read.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            to_shader_read.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            to_shader_read.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            to_shader_read.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            to_shader_read.image = result.image.handle;
-            to_shader_read.subresourceRange = range;
-            vkCmdPipelineBarrier(
-                command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                0, 0, nullptr, 0, nullptr, 1, &to_shader_read);
+            barrier::push_and_flush(command_buffer, result.image, range, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                    VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                    VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_READ_BIT,
+                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             commands.submit_and_wait(command_buffer);
-            result.image.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
             const auto& device = allocator.device;
             result.image_view = image_view::builder(device)

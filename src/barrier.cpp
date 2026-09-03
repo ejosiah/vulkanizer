@@ -391,12 +391,26 @@ namespace vkz::barrier {
     });
 }
 
+void push(image& image, VkImageSubresourceRange subresource_range,
+          VkPipelineStageFlags2 src_stage_mask, VkPipelineStageFlags2 dst_stage_mask,
+          VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask, VkImageLayout new_layout) {
+    push(image.handle, subresource_range, src_stage_mask, dst_stage_mask, src_access_mask, dst_access_mask, image.layout, new_layout);
+    image.layout = new_layout;
+}
+
 void push_and_flush(VkCommandBuffer command_buffer, VkImage &image,
                             VkImageSubresourceRange subresource_range, VkPipelineStageFlags2 src_stage_mask,
                             VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 src_access_mask,
                             VkAccessFlags2 dst_access_mask, VkImageLayout old_layout, VkImageLayout new_layout) {
 
     push(image, subresource_range, src_stage_mask, dst_stage_mask, src_access_mask, dst_access_mask, old_layout, new_layout);
+    flush(command_buffer);
+}
+
+void push_and_flush(VkCommandBuffer command_buffer, image& image, VkImageSubresourceRange subresource_range,
+                    VkPipelineStageFlags2 src_stage_mask, VkPipelineStageFlags2 dst_stage_mask,
+                    VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask, VkImageLayout new_layout) {
+    push(image, subresource_range, src_stage_mask, dst_stage_mask, src_access_mask, dst_access_mask, new_layout);
     flush(command_buffer);
 }
 

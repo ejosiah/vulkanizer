@@ -4,6 +4,7 @@
 
 #include <volk.h>
 
+#include <cassert>
 #include <format>
 #include <stdexcept>
 #include <string>
@@ -16,6 +17,12 @@
 
 #define VKZ_REPORT_ERROR(result, msg) if(result != VK_SUCCESS) throw std::runtime_error{msg};
 #define VKZ_THROW(msg) vkz_throw(msg, nullptr, FILE_AND_LINE);
+
+#ifndef NDEBUG
+#define VKZ_ASSERT(condition, message) assert((condition) && (message))
+#else
+#define VKZ_ASSERT(condition, message) do { if(!(condition)) { VKZ_THROW(message) } } while(false)
+#endif
 
 #define VKZ_CHECK_VULKAN(expr) do { const auto vkz_result = (expr); if(vkz_result < 0) { \
     const auto vkz_message = std::format("{}({}): Vulkan call failed: {} returned {} ({})", \

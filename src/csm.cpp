@@ -672,16 +672,13 @@ private:
 
         barrier::push_and_flush(
             command_buffer,
-            shadow_map_image.handle,
+            shadow_map_image,
             subresource_range,
             src_stage_mask,
             dst_stage_mask,
             src_access_mask,
             dst_access_mask,
-            old_layout,
             new_layout);
-
-        shadow_map_image.layout = new_layout;
     }
 
     VkDevice& device() {

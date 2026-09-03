@@ -66,12 +66,11 @@ namespace vkz {
         }
 
         barrier::push_and_flush(
-            command_buffer, image.handle,
+            command_buffer, image,
             {VK_IMAGE_ASPECT_COLOR_BIT, 0, levels, 0, layers},
             VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
             VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-            VK_ACCESS_2_TRANSFER_WRITE_BIT,
-            old_layout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         auto width = static_cast<int32_t>(image.create_info.extent.width);
         auto height = static_cast<int32_t>(image.create_info.extent.height);
@@ -115,12 +114,10 @@ namespace vkz {
         }
 
         barrier::push_and_flush(
-            command_buffer, image.handle,
+            command_buffer, image,
             {VK_IMAGE_ASPECT_COLOR_BIT, levels - 1, 1, 0, layers},
             VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
             VK_ACCESS_2_TRANSFER_WRITE_BIT,
-            VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, old_layout);
-        image.layout = old_layout;
+            VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT, old_layout);
     }
 }

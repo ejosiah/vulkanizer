@@ -73,11 +73,10 @@ int main() {
     const VkImageSubresourceRange all_mips{
         VK_IMAGE_ASPECT_COLOR_BIT, 0, mip_levels, 0, 1};
     vkz::barrier::push_and_flush(
-        command_buffer, image.handle, all_mips,
+        command_buffer, image, all_mips,
         VK_PIPELINE_STAGE_2_NONE, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
         VK_ACCESS_2_NONE, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    image.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     vkz::copy(command_buffer, staging, image);
     vkz::generate_mip_maps(command_buffer, image);
@@ -86,8 +85,6 @@ int main() {
 
     const auto readback_command_buffer = commands.create_command_buffer();
 
-    const VkImageSubresourceRange final_mip{
-        VK_IMAGE_ASPECT_COLOR_BIT, mip_levels - 1, 1, 0, 1};
     auto final_mip_view = vkz::image_view::builder(context.device)
         .image(image)
         .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
@@ -96,11 +93,10 @@ int main() {
         .layer_count(1)
         .build();
     vkz::barrier::push_and_flush(
-        readback_command_buffer, image.handle, final_mip,
+        readback_command_buffer, image, all_mips,
         VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
         VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
-        image.layout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    image.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
     vkz::copy(readback_command_buffer, image, final_mip_view, readback);
     vkz::barrier::push_and_flush(

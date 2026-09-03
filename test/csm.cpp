@@ -626,6 +626,8 @@ mat4 get_model_matrix() {
 
         vkz::imgui::render(command_buffer);
         vkCmdEndRenderPass(command_buffer);
+        color_image.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        depth_image.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
         commands.enqueue(command_buffer);

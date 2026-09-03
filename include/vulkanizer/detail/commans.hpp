@@ -2,11 +2,13 @@
 
 #include "../memory.hpp"
 #include "../pipeline.hpp"
+#include "../status.hpp"
 #include "../texture.hpp"
+#include "../barrier.hpp"
 #include "functions.hpp"
 
 #include <algorithm>
-#include <cassert>
+#include <bit>
 #include <cstdint>
 #include <limits>
 #include <span>
@@ -14,12 +16,28 @@
 
 namespace vkz {
 
+    inline void transition_for_transfer(VkCommandBuffer command_buffer, image& image, VkImageAspectFlags aspect_mask, VkImageLayout layout,
+                                        VkAccessFlags2 access_mask) {
+        if (image.layout == layout) return;
+        const auto undefined = image.layout == VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier::push_and_flush(command_buffer, image,
+                                {aspect_mask, 0, image.create_info.mipLevels, 0, image.create_info.arrayLayers},
+                                undefined ? VK_PIPELINE_STAGE_2_NONE : VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                                VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                undefined ? VK_ACCESS_2_NONE : VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                                access_mask, layout);
+    }
+
+    inline void bind_descriptor_sets(VkCommandBuffer command_buffer, const pipeline& pipeline, std::span<const descriptor_set> descriptor_sets,
+                                     uint32_t first_set = 0, std::span<const uint32_t> dynamic_offsets = {}) {
+        const auto sets = map_range(descriptor_sets, [](const auto& set) { return set.handle; });
+        vkCmdBindDescriptorSets(command_buffer, pipeline.bind_point, pipeline.layout, first_set, static_cast<uint32_t>(sets.size()), sets.data(),
+                                static_cast<uint32_t>(dynamic_offsets.size()), dynamic_offsets.data());
+    }
+
     inline void bind_pipeline(VkCommandBuffer command_buffer, const pipeline& pipeline) {
         vkCmdBindPipeline(command_buffer, pipeline.bind_point, pipeline.handle);
-
-        const auto& sets = map_range(pipeline.descriptor_sets, [](const auto& set) { return set.handle; });
-        vkCmdBindDescriptorSets(command_buffer, pipeline.bind_point, pipeline.layout, 0, static_cast<uint32_t>(sets.size()), sets.data(), 0,
-                                VK_NULL_HANDLE);
+        bind_descriptor_sets(command_buffer, pipeline, pipeline.descriptor_sets);
     }
 
     template <typename PushConstants>
@@ -94,6 +112,34 @@ namespace vkz {
         vkCmdDrawIndexedIndirectCount(command_buffer, indirect_buffer._, offset, count_buffer._, count_offset, max_draw_count, stride);
     }
 
+    inline void dispatch(VkCommandBuffer command_buffer, uint32_t group_count_x, uint32_t group_count_y = 1, uint32_t group_count_z = 1) {
+        vkCmdDispatch(command_buffer, group_count_x, group_count_y, group_count_z);
+    }
+
+    inline void dispatch_indirect(VkCommandBuffer command_buffer, const buffer& indirect_buffer, VkDeviceSize offset = 0) {
+        vkCmdDispatchIndirect(command_buffer, indirect_buffer._, offset);
+    }
+
+    inline void dispatch_base(VkCommandBuffer command_buffer, uint32_t base_group_x, uint32_t base_group_y, uint32_t base_group_z,
+                              uint32_t group_count_x, uint32_t group_count_y = 1, uint32_t group_count_z = 1) {
+        vkCmdDispatchBase(command_buffer, base_group_x, base_group_y, base_group_z, group_count_x, group_count_y, group_count_z);
+    }
+
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+    inline void dispatch_graph(VkCommandBuffer command_buffer, VkDeviceAddress scratch, const VkDispatchGraphCountInfoAMDX& count_info) {
+        vkCmdDispatchGraphAMDX(command_buffer, scratch, &count_info);
+    }
+
+    inline void dispatch_graph_indirect(VkCommandBuffer command_buffer, VkDeviceAddress scratch,
+                                        const VkDispatchGraphCountInfoAMDX& count_info) {
+        vkCmdDispatchGraphIndirectAMDX(command_buffer, scratch, &count_info);
+    }
+
+    inline void dispatch_graph_indirect_count(VkCommandBuffer command_buffer, VkDeviceAddress scratch, VkDeviceAddress count_info) {
+        vkCmdDispatchGraphIndirectCountAMDX(command_buffer, scratch, count_info);
+    }
+#endif
+
     inline void bind_and_draw(VkCommandBuffer command_buffer, const mesh& mesh, uint instance_count = 1) {
         bind_mesh(command_buffer, mesh);
         if (mesh.index_buffer.has_value()) {
@@ -109,14 +155,14 @@ namespace vkz {
                 index_size = sizeof(uint32_t);
                 break;
             default:
-                assert(false && "unsupported mesh index type");
+                VKZ_ASSERT(false, "unsupported mesh index type");
                 return;
             }
 
             const auto buffer_size = mesh.index_buffer->create_info.size;
-            assert(buffer_size % index_size == 0 && "index buffer size must be a multiple of its index type");
+            VKZ_ASSERT(buffer_size % index_size == 0, "index buffer size must be a multiple of its index type");
             const auto index_count = buffer_size / index_size;
-            assert(index_count <= std::numeric_limits<uint32_t>::max() && "index count exceeds Vulkan's limit");
+            VKZ_ASSERT(index_count <= std::numeric_limits<uint32_t>::max(), "index count exceeds Vulkan's limit");
 
             draw_indexed(command_buffer, static_cast<uint32_t>(index_count), instance_count);
         }
@@ -124,16 +170,11 @@ namespace vkz {
 
     inline void copy(VkCommandBuffer command_buffer, const buffer& src_buffer, const buffer& dst_buffer, VkDeviceSize src_offset = 0,
                      VkDeviceSize dst_offset = 0) {
-        assert(command_buffer != VK_NULL_HANDLE && "a valid command buffer is required");
-        assert(src_buffer._ != VK_NULL_HANDLE && "a valid source buffer is required");
-        assert(dst_buffer._ != VK_NULL_HANDLE && "a valid destination buffer is required");
-        assert(src_offset <= src_buffer.create_info.size && "source offset exceeds the source buffer size");
-        assert(dst_offset <= dst_buffer.create_info.size && "destination offset exceeds the destination buffer size");
-
-        if (command_buffer == VK_NULL_HANDLE || src_buffer._ == VK_NULL_HANDLE || dst_buffer._ == VK_NULL_HANDLE ||
-            src_offset > src_buffer.create_info.size || dst_offset > dst_buffer.create_info.size) {
-            return;
-        }
+        VKZ_ASSERT(command_buffer != VK_NULL_HANDLE, "a valid command buffer is required");
+        VKZ_ASSERT(src_buffer._ != VK_NULL_HANDLE, "a valid source buffer is required");
+        VKZ_ASSERT(dst_buffer._ != VK_NULL_HANDLE, "a valid destination buffer is required");
+        VKZ_ASSERT(src_offset <= src_buffer.create_info.size, "source offset exceeds the source buffer size");
+        VKZ_ASSERT(dst_offset <= dst_buffer.create_info.size, "destination offset exceeds the destination buffer size");
 
         const auto copy_size = std::min(src_buffer.create_info.size - src_offset, dst_buffer.create_info.size - dst_offset);
         if (copy_size == 0) {
@@ -148,24 +189,19 @@ namespace vkz {
         vkCmdCopyBuffer(command_buffer, src_buffer._, dst_buffer._, 1, &region);
     }
 
-    inline void copy(VkCommandBuffer command_buffer, const buffer& src_buffer, const image& dst_image,
+    inline void copy(VkCommandBuffer command_buffer, const buffer& src_buffer, image& dst_image,
                      VkImageAspectFlagBits aspect = VK_IMAGE_ASPECT_COLOR_BIT) {
-        assert(command_buffer != VK_NULL_HANDLE && "a valid command buffer is required");
-        assert(src_buffer._ != VK_NULL_HANDLE && "a valid source buffer is required");
-        assert(dst_image.handle != VK_NULL_HANDLE && "a valid destination image is required");
-        assert(src_buffer.create_info.size > 0 && "the source buffer must not be empty");
-        assert(dst_image.create_info.extent.width > 0 && dst_image.create_info.extent.height > 0 && dst_image.create_info.extent.depth > 0 &&
-               "the destination image extent must not be empty");
-        assert(dst_image.create_info.arrayLayers > 0 && "the destination image must have an array layer");
-        assert((dst_image.layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL || dst_image.layout == VK_IMAGE_LAYOUT_GENERAL) &&
-               "the destination image must be in a transfer destination compatible layout");
+        VKZ_ASSERT(command_buffer != VK_NULL_HANDLE, "a valid command buffer is required");
+        VKZ_ASSERT(src_buffer._ != VK_NULL_HANDLE, "a valid source buffer is required");
+        VKZ_ASSERT(dst_image.handle != VK_NULL_HANDLE, "a valid destination image is required");
+        VKZ_ASSERT(src_buffer.create_info.size > 0, "the source buffer must not be empty");
+        VKZ_ASSERT(dst_image.create_info.extent.width > 0 && dst_image.create_info.extent.height > 0 &&
+                       dst_image.create_info.extent.depth > 0,
+                   "the destination image extent must not be empty");
+        VKZ_ASSERT(dst_image.create_info.arrayLayers > 0, "the destination image must have an array layer");
 
-        if (command_buffer == VK_NULL_HANDLE || src_buffer._ == VK_NULL_HANDLE || dst_image.handle == VK_NULL_HANDLE ||
-            src_buffer.create_info.size == 0 || dst_image.create_info.extent.width == 0 || dst_image.create_info.extent.height == 0 ||
-            dst_image.create_info.extent.depth == 0 || dst_image.create_info.arrayLayers == 0 ||
-            (dst_image.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && dst_image.layout != VK_IMAGE_LAYOUT_GENERAL)) {
-            return;
-        }
+        transition_for_transfer(command_buffer, dst_image, static_cast<VkImageAspectFlags>(aspect), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
         const VkBufferImageCopy region{
             .bufferOffset = 0,
@@ -184,33 +220,32 @@ namespace vkz {
         vkCmdCopyBufferToImage(command_buffer, src_buffer._, dst_image.handle, dst_image.layout, 1, &region);
     }
 
-    inline void copy(VkCommandBuffer command_buffer, const buffer& src_buffer, const image& dst_image, const image_view& dst_image_view) {
+    inline void copy(VkCommandBuffer command_buffer, const buffer& src_buffer, image& dst_image, const image_view& dst_image_view) {
         const auto& range = dst_image_view.create_info.subresourceRange;
         const auto mip_level = range.baseMipLevel;
         const auto layer_count =
             range.layerCount == VK_REMAINING_ARRAY_LAYERS ? dst_image.create_info.arrayLayers - range.baseArrayLayer : range.layerCount;
 
-        assert(command_buffer != VK_NULL_HANDLE && "a valid command buffer is required");
-        assert(src_buffer._ != VK_NULL_HANDLE && "a valid source buffer is required");
-        assert(src_buffer.create_info.size > 0 && "the source buffer must not be empty");
-        assert(dst_image.handle != VK_NULL_HANDLE && "a valid destination image is required");
-        assert(dst_image_view.handle != VK_NULL_HANDLE && "a valid destination image view is required");
-        assert(dst_image_view.create_info.image == dst_image.handle && "the image view must reference the destination image");
-        assert(range.aspectMask != 0 && "the image view must select an image aspect");
-        assert(mip_level < dst_image.create_info.mipLevels && "the image view base mip level is out of range");
-        assert(range.baseArrayLayer < dst_image.create_info.arrayLayers && "the image view base array layer is out of range");
-        assert(layer_count > 0 && layer_count <= dst_image.create_info.arrayLayers - range.baseArrayLayer &&
-               "the image view array layers are out of range");
-        assert((dst_image.layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL || dst_image.layout == VK_IMAGE_LAYOUT_GENERAL) &&
-               "the destination image must be in a transfer destination compatible layout");
+        VKZ_ASSERT(command_buffer != VK_NULL_HANDLE, "a valid command buffer is required");
+        VKZ_ASSERT(src_buffer._ != VK_NULL_HANDLE, "a valid source buffer is required");
+        VKZ_ASSERT(src_buffer.create_info.size > 0, "the source buffer must not be empty");
+        VKZ_ASSERT(dst_image.handle != VK_NULL_HANDLE, "a valid destination image is required");
+        VKZ_ASSERT(dst_image_view.handle != VK_NULL_HANDLE, "a valid destination image view is required");
+        VKZ_ASSERT(dst_image_view.create_info.image == dst_image.handle, "the image view must reference the destination image");
+        VKZ_ASSERT(range.aspectMask != 0, "the image view must select an image aspect");
+        VKZ_ASSERT(mip_level < dst_image.create_info.mipLevels, "the image view base mip level is out of range");
+        VKZ_ASSERT(range.baseArrayLayer < dst_image.create_info.arrayLayers, "the image view base array layer is out of range");
+        VKZ_ASSERT(layer_count > 0 && layer_count <= dst_image.create_info.arrayLayers - range.baseArrayLayer,
+                   "the image view array layers are out of range");
 
         if (command_buffer == VK_NULL_HANDLE || src_buffer._ == VK_NULL_HANDLE || src_buffer.create_info.size == 0 ||
             dst_image.handle == VK_NULL_HANDLE || dst_image_view.handle == VK_NULL_HANDLE || dst_image_view.create_info.image != dst_image.handle ||
             range.aspectMask == 0 || mip_level >= dst_image.create_info.mipLevels || range.baseArrayLayer >= dst_image.create_info.arrayLayers ||
-            layer_count == 0 || layer_count > dst_image.create_info.arrayLayers - range.baseArrayLayer ||
-            (dst_image.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && dst_image.layout != VK_IMAGE_LAYOUT_GENERAL)) {
+            layer_count == 0 || layer_count > dst_image.create_info.arrayLayers - range.baseArrayLayer) {
             return;
         }
+
+        transition_for_transfer(command_buffer, dst_image, range.aspectMask, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
         const auto mip_extent = [mip_level](uint32_t extent) { return std::max(1u, extent >> mip_level); };
         const VkBufferImageCopy region{
@@ -235,22 +270,20 @@ namespace vkz {
         vkCmdCopyBufferToImage(command_buffer, src_buffer._, dst_image.handle, dst_image.layout, 1, &region);
     }
 
-    inline void copy(VkCommandBuffer command_buffer, const buffer& src_buffer, const texture& texture) {
+    inline void copy(VkCommandBuffer command_buffer, const buffer& src_buffer, texture& texture) {
         copy(command_buffer, src_buffer, texture.image, texture.image_view);
     }
 
-    inline void copy(VkCommandBuffer command_buffer, const image& src_image, const buffer& dst_buffer,
+    inline void copy(VkCommandBuffer command_buffer, image& src_image, const buffer& dst_buffer,
                      VkImageAspectFlagBits aspect = VK_IMAGE_ASPECT_COLOR_BIT) {
-        assert(command_buffer != VK_NULL_HANDLE && "a valid command buffer is required");
-        assert(src_image.handle != VK_NULL_HANDLE && "a valid source image is required");
-        assert(dst_buffer._ != VK_NULL_HANDLE && "a valid destination buffer is required");
-        assert((src_image.layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL || src_image.layout == VK_IMAGE_LAYOUT_GENERAL) &&
-               "the source image must be in a transfer source compatible layout");
+        VKZ_ASSERT(command_buffer != VK_NULL_HANDLE, "a valid command buffer is required");
+        VKZ_ASSERT(src_image.handle != VK_NULL_HANDLE, "a valid source image is required");
+        VKZ_ASSERT(dst_buffer._ != VK_NULL_HANDLE, "a valid destination buffer is required");
 
-        if (command_buffer == VK_NULL_HANDLE || src_image.handle == VK_NULL_HANDLE || dst_buffer._ == VK_NULL_HANDLE ||
-            (src_image.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL && src_image.layout != VK_IMAGE_LAYOUT_GENERAL)) {
-            return;
-        }
+        if (command_buffer == VK_NULL_HANDLE || src_image.handle == VK_NULL_HANDLE || dst_buffer._ == VK_NULL_HANDLE) return;
+
+        transition_for_transfer(command_buffer, src_image, static_cast<VkImageAspectFlags>(aspect), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                VK_ACCESS_2_TRANSFER_READ_BIT);
 
         const VkBufferImageCopy region{
             .imageSubresource =
@@ -265,22 +298,24 @@ namespace vkz {
         vkCmdCopyImageToBuffer(command_buffer, src_image.handle, src_image.layout, dst_buffer._, 1, &region);
     }
 
-    inline void copy(VkCommandBuffer command_buffer, const image& src_image, const image_view& src_image_view, const buffer& dst_buffer) {
+    inline void copy(VkCommandBuffer command_buffer, image& src_image, const image_view& src_image_view, const buffer& dst_buffer) {
         const auto& range = src_image_view.create_info.subresourceRange;
         const auto mip_level = range.baseMipLevel;
         const auto layer_count =
             range.layerCount == VK_REMAINING_ARRAY_LAYERS ? src_image.create_info.arrayLayers - range.baseArrayLayer : range.layerCount;
-        assert(src_image_view.create_info.image == src_image.handle && "the image view must reference the source image");
-        assert(mip_level < src_image.create_info.mipLevels && "the image view base mip level is out of range");
-        assert(range.baseArrayLayer < src_image.create_info.arrayLayers && "the image view base array layer is out of range");
-        assert(layer_count > 0 && layer_count <= src_image.create_info.arrayLayers - range.baseArrayLayer &&
-               "the image view array layers are out of range");
+        VKZ_ASSERT(src_image_view.create_info.image == src_image.handle, "the image view must reference the source image");
+        VKZ_ASSERT(mip_level < src_image.create_info.mipLevels, "the image view base mip level is out of range");
+        VKZ_ASSERT(range.baseArrayLayer < src_image.create_info.arrayLayers, "the image view base array layer is out of range");
+        VKZ_ASSERT(layer_count > 0 && layer_count <= src_image.create_info.arrayLayers - range.baseArrayLayer,
+                   "the image view array layers are out of range");
 
         if (src_image_view.create_info.image != src_image.handle || mip_level >= src_image.create_info.mipLevels ||
             range.baseArrayLayer >= src_image.create_info.arrayLayers || layer_count == 0 ||
             layer_count > src_image.create_info.arrayLayers - range.baseArrayLayer) {
             return;
         }
+
+        transition_for_transfer(command_buffer, src_image, range.aspectMask, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_2_TRANSFER_READ_BIT);
 
         const auto mip_extent = [mip_level](uint32_t extent) { return std::max(1u, extent >> mip_level); };
         const VkBufferImageCopy region{
@@ -301,8 +336,49 @@ namespace vkz {
         vkCmdCopyImageToBuffer(command_buffer, src_image.handle, src_image.layout, dst_buffer._, 1, &region);
     }
 
-    inline void copy(VkCommandBuffer command_buffer, const texture& texture, const buffer& dst_buffer) {
+    inline void copy(VkCommandBuffer command_buffer, texture& texture, const buffer& dst_buffer) {
         copy(command_buffer, texture.image, texture.image_view, dst_buffer);
+    }
+
+    template <typename T> inline void update(VkCommandBuffer command_buffer, const buffer& buffer, const T& value) {
+        static_assert(std::is_trivially_copyable_v<T>, "buffer update values must be trivially copyable");
+        static_assert(sizeof(T) % 4 == 0, "buffer update sizes must be a multiple of four bytes");
+        static_assert(sizeof(T) <= 65536, "buffer updates cannot exceed 65536 bytes");
+        VKZ_ASSERT(sizeof(T) <= buffer.create_info.size, "the update value exceeds the destination buffer");
+        vkCmdUpdateBuffer(command_buffer, buffer._, 0, sizeof(T), &value);
+    }
+
+    template <typename T> inline void fill(VkCommandBuffer command_buffer, const buffer& buffer, const T& value) {
+        static_assert(std::is_trivially_copyable_v<T> && sizeof(T) == sizeof(uint32_t),
+                      "buffer fill values must be four-byte trivially copyable types");
+        VKZ_ASSERT(buffer.create_info.size % 4 == 0, "the destination buffer size must be a multiple of four bytes");
+        vkCmdFillBuffer(command_buffer, buffer._, 0, VK_WHOLE_SIZE, std::bit_cast<uint32_t>(value));
+    }
+
+    inline VkImageSubresourceRange image_subresource_range(const sub_resource& resource) {
+        return {resource.aspect_mask, resource.base_mip_level, resource.level_count, resource.base_array_layer, resource.layer_count};
+    }
+
+    template <typename ClearColor>
+    inline void clear(VkCommandBuffer command_buffer, image& image, const ClearColor& clear_color, const sub_resource& resource) {
+        static_assert(std::is_same_v<std::remove_cv_t<ClearColor>, VkClearColorValue> ||
+                          std::is_same_v<std::remove_cv_t<ClearColor>, VkClearDepthStencilValue>,
+                      "image clear values must be VkClearColorValue or VkClearDepthStencilValue");
+        const auto range = image_subresource_range(resource);
+        transition_for_transfer(command_buffer, image, resource.aspect_mask, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+        if constexpr (std::is_same_v<std::remove_cv_t<ClearColor>, VkClearColorValue>) {
+            vkCmdClearColorImage(command_buffer, image.handle, image.layout, &clear_color, 1, &range);
+        } else {
+            vkCmdClearDepthStencilImage(command_buffer, image.handle, image.layout, &clear_color, 1, &range);
+        }
+    }
+
+    template <typename ClearColor>
+    inline void clear(VkCommandBuffer command_buffer, image& image, std::span<ClearColor> clear_colors,
+                      std::span<sub_resource> resources) {
+        VKZ_ASSERT(clear_colors.size() == resources.size(), "each clear value must have a matching subresource");
+        const auto count = std::min(clear_colors.size(), resources.size());
+        for (size_t index = 0; index < count; ++index) clear(command_buffer, image, clear_colors[index], resources[index]);
     }
 
 } // namespace vkz
