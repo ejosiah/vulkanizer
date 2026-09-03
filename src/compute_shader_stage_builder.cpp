@@ -56,5 +56,8 @@ VkPipelineShaderStageCreateInfo &vkz::compute_shader_stage_builder::build_shader
 }
 
 void vkz::compute_shader_stage_builder::clear_stages() {
-    _shader.module = nullptr;
+    if (_shader.module) {
+        vkDestroyShaderModule(_device.logical, _shader.module, nullptr);
+        _shader.module = VK_NULL_HANDLE;
+    }
 }

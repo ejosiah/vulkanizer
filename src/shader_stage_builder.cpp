@@ -227,6 +227,7 @@ namespace vkz {
 
     void shader_stage_builder::clear_stages() {
         _vk_stages.clear();
+        _shader_builders.clear();
     }
 
     bool shader_stage_builder::mesh_shaderSupported() const {
