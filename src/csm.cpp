@@ -729,9 +729,9 @@ private:
     VkSampleCountFlagBits debug_samples_{VK_SAMPLE_COUNT_1_BIT};
 
     struct {
-        VkPipeline pipeline;
-        VkPipelineLayout layout;
-    } debug_;
+        VkPipeline pipeline{};
+        VkPipelineLayout layout{};
+    } debug_{};
 };
 
     namespace {
