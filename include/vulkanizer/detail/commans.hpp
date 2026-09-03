@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <bit>
 #include <cstdint>
+#include <initializer_list>
 #include <limits>
 #include <span>
 #include <type_traits>
@@ -35,6 +36,13 @@ namespace vkz {
                                 static_cast<uint32_t>(dynamic_offsets.size()), dynamic_offsets.data());
     }
 
+    inline void bind_descriptor_sets(VkCommandBuffer command_buffer, const pipeline& pipeline,
+                                     std::initializer_list<descriptor_set> descriptor_sets, uint32_t first_set = 0,
+                                     std::initializer_list<uint32_t> dynamic_offsets = {}) {
+        bind_descriptor_sets(command_buffer, pipeline, std::span<const descriptor_set>{descriptor_sets.begin(), descriptor_sets.size()}, first_set,
+                             std::span<const uint32_t>{dynamic_offsets.begin(), dynamic_offsets.size()});
+    }
+
     inline void bind_pipeline(VkCommandBuffer command_buffer, const pipeline& pipeline) {
         vkCmdBindPipeline(command_buffer, pipeline.bind_point, pipeline.handle);
         bind_descriptor_sets(command_buffer, pipeline, pipeline.descriptor_sets);
@@ -57,10 +65,14 @@ namespace vkz {
         vkCmdBindVertexBuffers(command_buffer, 0, 1, &buffer._, &offset);
     }
 
-    inline void bind_vertex_buffers(VkCommandBuffer command_buffer, std::span<buffer> buffers) {
+    inline void bind_vertex_buffers(VkCommandBuffer command_buffer, std::span<const buffer> buffers) {
         const auto offsets = map_range(buffers, [](auto _) { return VkDeviceSize{0}; });
         const auto vk_buffers = map_range(buffers, [](auto buffer) { return buffer._; });
         vkCmdBindVertexBuffers(command_buffer, 0, static_cast<uint32_t>(buffers.size()), vk_buffers.data(), offsets.data());
+    }
+
+    inline void bind_vertex_buffers(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers) {
+        bind_vertex_buffers(command_buffer, std::span<const buffer>{buffers.begin(), buffers.size()});
     }
 
     template <typename index_type = int32_t> inline void bind_index_buffer(VkCommandBuffer command_buffer, const buffer& buffer) {
@@ -374,11 +386,18 @@ namespace vkz {
     }
 
     template <typename ClearColor>
-    inline void clear(VkCommandBuffer command_buffer, image& image, std::span<ClearColor> clear_colors,
-                      std::span<sub_resource> resources) {
+    inline void clear(VkCommandBuffer command_buffer, image& image, std::span<const ClearColor> clear_colors,
+                      std::span<const sub_resource> resources) {
         VKZ_ASSERT(clear_colors.size() == resources.size(), "each clear value must have a matching subresource");
         const auto count = std::min(clear_colors.size(), resources.size());
         for (size_t index = 0; index < count; ++index) clear(command_buffer, image, clear_colors[index], resources[index]);
+    }
+
+    template <typename ClearColor>
+    inline void clear(VkCommandBuffer command_buffer, image& image, std::initializer_list<ClearColor> clear_colors,
+                      std::initializer_list<sub_resource> resources) {
+        clear(command_buffer, image, std::span<const ClearColor>{clear_colors.begin(), clear_colors.size()},
+              std::span<const sub_resource>{resources.begin(), resources.size()});
     }
 
     inline void set_viewport(VkCommandBuffer command_buffer, const viewport& viewport) {
@@ -393,6 +412,10 @@ namespace vkz {
         vkCmdSetViewport(command_buffer, 0, static_cast<uint32_t>(vk_viewports.size()), vk_viewports.data());
     }
 
+    inline void set_viewports(VkCommandBuffer command_buffer, std::initializer_list<viewport> viewports) {
+        set_viewports(command_buffer, std::span<const viewport>{viewports.begin(), viewports.size()});
+    }
+
     inline void set_scissor(VkCommandBuffer command_buffer, const rect2d& scissor) {
         const VkRect2D vk_scissor{{scissor.origin.x, scissor.origin.y}, {scissor.dimensions.x, scissor.dimensions.y}};
         vkCmdSetScissor(command_buffer, 0, 1, &vk_scissor);
@@ -403,6 +426,10 @@ namespace vkz {
             return VkRect2D{{scissor.origin.x, scissor.origin.y}, {scissor.dimensions.x, scissor.dimensions.y}};
         });
         vkCmdSetScissor(command_buffer, 0, static_cast<uint32_t>(vk_scissors.size()), vk_scissors.data());
+    }
+
+    inline void set_scissors(VkCommandBuffer command_buffer, std::initializer_list<rect2d> scissors) {
+        set_scissors(command_buffer, std::span<const rect2d>{scissors.begin(), scissors.size()});
     }
 
 
