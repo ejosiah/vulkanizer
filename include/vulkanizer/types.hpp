@@ -53,4 +53,13 @@ namespace vkz {
         } value{};
     };
 
+    struct viewport {
+        float x{0};
+        float y{0};
+        float width{1};
+        float height{1};
+        float min_depth{0};
+        float max_depth{1};
+    };
+
 }

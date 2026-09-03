@@ -381,4 +381,29 @@ namespace vkz {
         for (size_t index = 0; index < count; ++index) clear(command_buffer, image, clear_colors[index], resources[index]);
     }
 
+    inline void set_viewport(VkCommandBuffer command_buffer, const viewport& viewport) {
+        const VkViewport vk_viewport{viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth};
+        vkCmdSetViewport(command_buffer, 0, 1, &vk_viewport);
+    }
+
+    inline void set_viewports(VkCommandBuffer command_buffer, std::span<const viewport> viewports) {
+        const auto vk_viewports = map_range(viewports, [](const auto& viewport) {
+            return VkViewport{viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth};
+        });
+        vkCmdSetViewport(command_buffer, 0, static_cast<uint32_t>(vk_viewports.size()), vk_viewports.data());
+    }
+
+    inline void set_scissor(VkCommandBuffer command_buffer, const rect2d& scissor) {
+        const VkRect2D vk_scissor{{scissor.origin.x, scissor.origin.y}, {scissor.dimensions.x, scissor.dimensions.y}};
+        vkCmdSetScissor(command_buffer, 0, 1, &vk_scissor);
+    }
+
+    inline void set_scissors(VkCommandBuffer command_buffer, std::span<const rect2d> scissors) {
+        const auto vk_scissors = map_range(scissors, [](const auto& scissor) {
+            return VkRect2D{{scissor.origin.x, scissor.origin.y}, {scissor.dimensions.x, scissor.dimensions.y}};
+        });
+        vkCmdSetScissor(command_buffer, 0, static_cast<uint32_t>(vk_scissors.size()), vk_scissors.data());
+    }
+
+
 } // namespace vkz
