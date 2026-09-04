@@ -6,7 +6,7 @@ from pathlib import Path
 
 class VulkanizerConan(ConanFile):
     name = "vulkanizer"
-    version = "0.0.28"
+    version = "0.0.29"
     package_type = "static-library"
 
     license = "MIT"

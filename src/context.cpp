@@ -237,6 +237,7 @@ namespace vkz {
         VkPhysicalDeviceFeatures enabled_features{};
         const surface_provider* surface_provider{};
         VkSurfaceKHR surface{};
+        vkz::device_factory* factory{};
 
         VkQueueFlags queue_flags{VK_QUEUE_GRAPHICS_BIT};
         VkQueueFlags unique_queue_flags{};
@@ -253,46 +254,7 @@ namespace vkz {
             rebuild_pointer_list(device_validation_layer_pointers, device_validation_layers);
         }
 
-        context build(void* extension_chain) {
-#ifdef VKZ_ENABLE_NSIGHT_AFTERMATH
-            if (!aftermath::enable()) {
-                warn("NVIDIA Nsight Aftermath is available but could not be enabled");
-            }
-#endif
-            application_info.pApplicationName = app_name.c_str();
-            application_info.pEngineName = engine_name.c_str();
-
-            auto result = context{};
-            result.api_version = application_info.apiVersion;
-            result.instance = create_instance();
-            volkLoadInstance(result.instance);
-            result.surface = create_surface(result.instance);
-            surface = result.surface;
-            result.debug_messenger = create_debug_messenger(result.instance);
-            result.device.physical = pick_physical_device(result.instance);
-#ifdef VKZ_ENABLE_NSIGHT_AFTERMATH
-            VkDeviceDiagnosticsConfigCreateInfoNV diagnostics{
-                VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV};
-            const std::vector<const char*> diagnostics_extensions{
-                VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME};
-            if (supports_device_extensions(result.device.physical, diagnostics_extensions)) {
-                device_extensions.emplace_back(VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME);
-                rebuild_pointers();
-                diagnostics.flags =
-                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV |
-                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV |
-                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_ERROR_REPORTING_BIT_NV;
-                diagnostics.pNext = extension_chain;
-                extension_chain = &diagnostics;
-            } else {
-                warn("VK_NV_device_diagnostics_config is unavailable; Aftermath dumps will contain reduced diagnostics");
-            }
-#endif
-            result.device.logical = create_device(result.device.physical, extension_chain);
-            volkLoadDevice(result.device.logical);
-
-            return result;
-        }
+        context build(const builder& owner, void* extension_chain);
 
     private:
         static void rebuild_pointer_list(std::vector<const char*>& pointers, const std::vector<std::string>& strings) {
@@ -312,44 +274,7 @@ namespace vkz {
             return (*surface_provider)(instance);
         }
 
-        VkInstance create_instance() {
-#ifndef NDEBUG
-            instance_extension_pointers.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#endif
-
-            VKZ_CHECK_VULKAN(volkInitialize());
-
-            if (!supports_instance_layers(instance_validation_layer_pointers)) {
-                VKZ_THROW("One or more requested Vulkan instance layers are not available")
-            }
-
-            if (!supports_instance_extensions(instance_extension_pointers)) {
-                VKZ_THROW("One or more requested Vulkan instance extensions are not available")
-            }
-
-            log_extensions("instance", instance_extension_pointers);
-
-            VkInstanceCreateInfo create_info{};
-            create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-            create_info.pApplicationInfo = &application_info;
-            create_info.enabledExtensionCount = VKZ_COUNT(instance_extension_pointers);
-            create_info.ppEnabledExtensionNames = instance_extension_pointers.data();
-            create_info.enabledLayerCount = VKZ_COUNT(instance_validation_layer_pointers);
-            create_info.ppEnabledLayerNames = instance_validation_layer_pointers.data();
-
-#ifndef NDEBUG
-            VkDebugUtilsMessengerCreateInfoEXT debug_create_info{};
-            if (contains(instance_extension_pointers, VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-                debug_create_info = debug_messenger_create_info();
-                create_info.pNext = &debug_create_info;
-            }
-#endif
-
-            VkInstance instance{};
-            VKZ_CHECK_VULKAN(vkCreateInstance(&create_info, nullptr, &instance));
-            return instance;
-        }
-
+    public:
         VkDebugUtilsMessengerEXT create_debug_messenger(VkInstance instance) const {
 #ifdef NDEBUG
             return {};
@@ -370,94 +295,167 @@ namespace vkz {
 #endif
         }
 
+    };
+
+    class default_factory final : public device_factory {
+    public:
+        default_factory(vkz::builder::Impl& impl, void* extension_chain)
+            : impl_{impl}, extension_chain_{extension_chain} {
+        }
+
+        VkInstance create_instance() override {
+#ifndef NDEBUG
+            impl_.instance_extension_pointers.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#endif
+            VKZ_CHECK_VULKAN(volkInitialize());
+
+            if (!supports_instance_layers(impl_.instance_validation_layer_pointers)) {
+                VKZ_THROW("One or more requested Vulkan instance layers are not available")
+            }
+            if (!supports_instance_extensions(impl_.instance_extension_pointers)) {
+                VKZ_THROW("One or more requested Vulkan instance extensions are not available")
+            }
+
+            log_extensions("instance", impl_.instance_extension_pointers);
+
+            VkInstanceCreateInfo create_info{};
+            create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+            create_info.pApplicationInfo = &impl_.application_info;
+            create_info.enabledExtensionCount = VKZ_COUNT(impl_.instance_extension_pointers);
+            create_info.ppEnabledExtensionNames = impl_.instance_extension_pointers.data();
+            create_info.enabledLayerCount = VKZ_COUNT(impl_.instance_validation_layer_pointers);
+            create_info.ppEnabledLayerNames = impl_.instance_validation_layer_pointers.data();
+
+#ifndef NDEBUG
+            VkDebugUtilsMessengerCreateInfoEXT debug_create_info{};
+            if (contains(impl_.instance_extension_pointers, VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+                debug_create_info = debug_messenger_create_info();
+                create_info.pNext = &debug_create_info;
+            }
+#endif
+
+            VkInstance instance{};
+            VKZ_CHECK_VULKAN(vkCreateInstance(&create_info, nullptr, &instance));
+            instance_ = instance;
+            return instance;
+        }
+
+        std::tuple<VkPhysicalDevice, VkDevice> create_device() override {
+            const auto physical_device = pick_physical_device(instance_);
+
+#ifdef VKZ_ENABLE_NSIGHT_AFTERMATH
+            VkDeviceDiagnosticsConfigCreateInfoNV diagnostics{
+                VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV};
+            const std::vector<const char*> diagnostics_extensions{
+                VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME};
+            if (supports_device_extensions(physical_device, diagnostics_extensions)) {
+                impl_.device_extensions.emplace_back(VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME);
+                impl_.rebuild_pointers();
+                diagnostics.flags =
+                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV |
+                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV |
+                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_ERROR_REPORTING_BIT_NV;
+                diagnostics.pNext = extension_chain_;
+                extension_chain_ = &diagnostics;
+            } else {
+                warn("VK_NV_device_diagnostics_config is unavailable; Aftermath dumps will contain reduced diagnostics");
+            }
+#endif
+
+            impl_.queue_priorities.clear();
+            std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+            queue_create_infos.reserve(impl_.selected_queue_families.size());
+
+            for (auto family_index : impl_.selected_queue_families) {
+                const auto queue_count = queue_count_for_family(family_index);
+                auto& priorities = impl_.queue_priorities.emplace_back(queue_count, 1.0f);
+
+                VkDeviceQueueCreateInfo create_info{};
+                create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+                create_info.queueFamilyIndex = family_index;
+                create_info.queueCount = queue_count;
+                create_info.pQueuePriorities = priorities.data();
+                queue_create_infos.push_back(create_info);
+            }
+
+            VkDeviceCreateInfo create_info{};
+            create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+            create_info.pNext = extension_chain_;
+            create_info.queueCreateInfoCount = VKZ_COUNT(queue_create_infos);
+            create_info.pQueueCreateInfos = queue_create_infos.data();
+            create_info.enabledExtensionCount = VKZ_COUNT(impl_.device_extension_pointers);
+            create_info.ppEnabledExtensionNames = impl_.device_extension_pointers.data();
+            create_info.enabledLayerCount = VKZ_COUNT(impl_.device_validation_layer_pointers);
+            create_info.ppEnabledLayerNames = impl_.device_validation_layer_pointers.data();
+            create_info.pEnabledFeatures = &impl_.enabled_features;
+
+            log_extensions("device", impl_.device_extension_pointers);
+
+            VkDevice device{};
+            VKZ_CHECK_VULKAN(vkCreateDevice(physical_device, &create_info, nullptr, &device));
+            return {physical_device, device};
+        }
+
+    private:
         VkPhysicalDevice pick_physical_device(VkInstance instance) {
             uint32_t device_count{};
             VKZ_CHECK_VULKAN(vkEnumeratePhysicalDevices(instance, &device_count, nullptr));
-
             if (device_count == 0) {
                 VKZ_THROW("No Vulkan physical devices are available")
             }
 
             std::vector<VkPhysicalDevice> devices(device_count);
             VKZ_CHECK_VULKAN(vkEnumeratePhysicalDevices(instance, &device_count, devices.data()));
-
             for (auto physical_device : devices) {
                 if (is_suitable(physical_device)) {
                     return physical_device;
                 }
             }
-
             VKZ_THROW("No suitable Vulkan physical device was found")
         }
 
         bool is_suitable(VkPhysicalDevice physical_device) {
-            if (!supports_device_extensions(physical_device, device_extension_pointers)) {
-                return false;
-            }
-
-            if (!supports_device_layers(physical_device, device_validation_layer_pointers)) {
+            if (!supports_device_extensions(physical_device, impl_.device_extension_pointers) ||
+                !supports_device_layers(physical_device, impl_.device_validation_layer_pointers)) {
                 return false;
             }
 
             uint32_t queue_family_count{};
             vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, nullptr);
-
-            queue_families.resize(queue_family_count);
-            vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_families.data());
-
+            impl_.queue_families.resize(queue_family_count);
+            vkGetPhysicalDeviceQueueFamilyProperties(
+                physical_device, &queue_family_count, impl_.queue_families.data());
             return select_queue_families(physical_device);
         }
 
         bool select_queue_families(VkPhysicalDevice physical_device) {
-            selected_queue_families.clear();
-
-            for (auto bit : queue_bits(unique_queue_flags)) {
-                const auto family = find_queue_family(physical_device, bit, surface, true);
-                if (family == invalid_queue_family()) {
-                    return false;
-                }
-
-                selected_queue_families.insert(family);
+            impl_.selected_queue_families.clear();
+            for (auto bit : queue_bits(unique_queue_flags())) {
+                const auto family = find_queue_family(physical_device, bit, true);
+                if (family == invalid_queue_family()) return false;
+                impl_.selected_queue_families.insert(family);
             }
-
-            for (auto bit : queue_bits(queue_flags)) {
-                const auto family = find_queue_family(physical_device, bit, surface, false);
-                if (family == invalid_queue_family()) {
-                    return false;
-                }
-
-                selected_queue_families.insert(family);
+            for (auto bit : queue_bits(queue_flags())) {
+                const auto family = find_queue_family(physical_device, bit, false);
+                if (family == invalid_queue_family()) return false;
+                impl_.selected_queue_families.insert(family);
             }
-
             return true;
         }
 
-        uint32_t find_queue_family(
-                VkPhysicalDevice physical_device,
-                VkQueueFlagBits flag,
-                VkSurfaceKHR surface,
-                bool unique) const {
-            for (uint32_t i = 0; i < queue_families.size(); ++i) {
-                const auto& family = queue_families[i];
-                if (unique && selected_queue_families.contains(i)) {
-                    continue;
-                }
-
-                if (!(family.queueFlags & flag)) {
-                    continue;
-                }
-
-                if (surface) {
+        uint32_t find_queue_family(VkPhysicalDevice physical_device, VkQueueFlagBits flag, bool unique) const {
+            for (uint32_t i = 0; i < impl_.queue_families.size(); ++i) {
+                const auto& family = impl_.queue_families[i];
+                if (unique && impl_.selected_queue_families.contains(i)) continue;
+                if (!(family.queueFlags & flag)) continue;
+                if (impl_.surface) {
                     VkBool32 supports_present{};
-                    VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &supports_present));
-                    if (!supports_present) {
-                        continue;
-                    }
+                    VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(
+                        physical_device, i, impl_.surface, &supports_present));
+                    if (!supports_present) continue;
                 }
-
                 return i;
             }
-
             return invalid_queue_family();
         }
 
@@ -465,54 +463,45 @@ namespace vkz {
             return std::numeric_limits<uint32_t>::max();
         }
 
-        VkDevice create_device(VkPhysicalDevice physical_device, void* extension_chain) {
-            queue_priorities.clear();
-
-            std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-            queue_create_infos.reserve(selected_queue_families.size());
-
-            for (auto family_index : selected_queue_families) {
-                const auto queue_count = queue_count_for_family(family_index);
-
-                auto& priorities = queue_priorities.emplace_back(queue_count, 1.0f);
-
-                VkDeviceQueueCreateInfo create_info{};
-                create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-                create_info.queueFamilyIndex = family_index;
-                create_info.queueCount = queue_count;
-                create_info.pQueuePriorities = priorities.data();
-
-                queue_create_infos.push_back(create_info);
-            }
-
-            VkDeviceCreateInfo create_info{};
-            create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-            create_info.pNext = extension_chain;
-            create_info.queueCreateInfoCount = VKZ_COUNT(queue_create_infos);
-            create_info.pQueueCreateInfos = queue_create_infos.data();
-            create_info.enabledExtensionCount = VKZ_COUNT(device_extension_pointers);
-            create_info.ppEnabledExtensionNames = device_extension_pointers.data();
-            create_info.enabledLayerCount = VKZ_COUNT(device_validation_layer_pointers);
-            create_info.ppEnabledLayerNames = device_validation_layer_pointers.data();
-            create_info.pEnabledFeatures = &enabled_features;
-
-            log_extensions("device", device_extension_pointers);
-
-            VkDevice device{};
-            VKZ_CHECK_VULKAN(vkCreateDevice(physical_device, &create_info, nullptr, &device));
-            return device;
-        }
-
         uint32_t queue_count_for_family(uint32_t family_index) const {
             auto count = 1u;
-
-            if (queue_families[family_index].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                count = std::max(count, num_graphics_queues);
+            if (impl_.queue_families[family_index].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                count = std::max(count, graphics_queue_count());
             }
-
-            return std::min(count, queue_families[family_index].queueCount);
+            return std::min(count, impl_.queue_families[family_index].queueCount);
         }
+
+        builder::Impl& impl_;
+        void* extension_chain_{};
+        VkInstance instance_{};
     };
+
+    context builder::Impl::build(const builder& owner, void* extension_chain) {
+#ifdef VKZ_ENABLE_NSIGHT_AFTERMATH
+        if (!aftermath::enable()) {
+            warn("NVIDIA Nsight Aftermath is available but could not be enabled");
+        }
+#endif
+        application_info.pApplicationName = app_name.c_str();
+        application_info.pEngineName = engine_name.c_str();
+
+        default_factory fallback{*this, extension_chain};
+        auto& selected_factory = factory ? *factory : static_cast<vkz::device_factory&>(fallback);
+        selected_factory.set_builder(owner);
+
+        auto result = context{};
+        result.api_version = application_info.apiVersion;
+        result.instance = selected_factory.create_instance();
+        volkLoadInstance(result.instance);
+        result.surface = create_surface(result.instance);
+        surface = result.surface;
+        result.debug_messenger = create_debug_messenger(result.instance);
+
+        std::tie(result.device.physical, result.device.logical) = selected_factory.create_device();
+        volkLoadDevice(result.device.logical);
+
+        return result;
+    }
 
     vkz::builder context::builder() {
         return {};
@@ -662,6 +651,12 @@ namespace vkz {
         return *this;
     }
 
+    builder& builder::device_factory(vkz::device_factory& factory) {
+        pimpl->factory = &factory;
+        factory.set_builder(*this);
+        return *this;
+    }
+
     builder& builder::add_queue(VkQueueFlagBits flag) {
         pimpl->queue_flags |= flag;
         return *this;
@@ -677,6 +672,30 @@ namespace vkz {
         return *this;
     }
 
+    VkQueueFlags builder::queue_flags() const {
+        return pimpl->queue_flags;
+    }
+
+    VkQueueFlags builder::unique_queue_flags() const {
+        return pimpl->unique_queue_flags;
+    }
+
+    uint32_t builder::graphics_queue_count() const {
+        return pimpl->num_graphics_queues;
+    }
+
+    VkQueueFlags device_factory::queue_flags() const {
+        return builder_->queue_flags();
+    }
+
+    VkQueueFlags device_factory::unique_queue_flags() const {
+        return builder_->unique_queue_flags();
+    }
+
+    uint32_t device_factory::graphics_queue_count() const {
+        return builder_->graphics_queue_count();
+    }
+
     builder& builder::add_extension_chain(const device_extension_chain& extensions) {
         _extensions.add(extensions);
         return *this;
@@ -684,6 +703,6 @@ namespace vkz {
 
     context builder::build() {
         pimpl->rebuild_pointers();
-        return pimpl->build(_extensions.head());
+        return pimpl->build(*this, _extensions.head());
     }
 }

@@ -7,6 +7,7 @@
 
 #include <concepts>
 #include <string>
+#include <tuple>
 
 namespace vkz {
 
@@ -42,6 +43,29 @@ namespace vkz {
 
     private:
         bool owns_components_{true};
+    };
+
+    class device_factory {
+    public:
+        virtual ~device_factory() = default;
+
+        virtual VkInstance create_instance() = 0;
+
+        virtual std::tuple<VkPhysicalDevice, VkDevice> create_device() = 0;
+
+        void set_builder(const vkz::builder& builder) {
+            builder_ = &builder;
+        }
+
+    protected:
+        [[nodiscard]] VkQueueFlags queue_flags() const;
+
+        [[nodiscard]] VkQueueFlags unique_queue_flags() const;
+
+        [[nodiscard]] uint32_t graphics_queue_count() const;
+
+    private:
+        const vkz::builder* builder_{};
     };
 
     class builder {
@@ -80,11 +104,19 @@ namespace vkz {
 
         builder& surface(const surface_provider& surface);
 
+        builder& device_factory(vkz::device_factory& factory);
+
         builder& add_queue(VkQueueFlagBits flag);
 
         builder& add_unique_queue(VkQueueFlagBits flag);
 
         builder& num_graphics_queues(uint count);
+
+        [[nodiscard]] VkQueueFlags queue_flags() const;
+
+        [[nodiscard]] VkQueueFlags unique_queue_flags() const;
+
+        [[nodiscard]] uint32_t graphics_queue_count() const;
 
         builder& add_extension_chain(const device_extension_chain& extensions);
 
@@ -97,6 +129,7 @@ namespace vkz {
         [[nodiscard]] context build();
 
     private:
+        friend class default_factory;
         class Impl;
 
         device_extension_chain _extensions;
