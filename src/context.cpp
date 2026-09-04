@@ -696,6 +696,30 @@ namespace vkz {
         return builder_->graphics_queue_count();
     }
 
+    std::span<const char* const> device_factory::instance_extensions() const {
+        return builder_->pimpl->instance_extension_pointers;
+    }
+
+    std::span<const char* const> device_factory::instance_layers() const {
+        return builder_->pimpl->instance_validation_layer_pointers;
+    }
+
+    std::span<const char* const> device_factory::device_extensions() const {
+        return builder_->pimpl->device_extension_pointers;
+    }
+
+    std::span<const char* const> device_factory::device_layers() const {
+        return builder_->pimpl->device_validation_layer_pointers;
+    }
+
+    const VkPhysicalDeviceFeatures& device_factory::enabled_features() const {
+        return builder_->pimpl->enabled_features;
+    }
+
+    const void* device_factory::device_extension_chain() const {
+        return builder_->_extensions.head();
+    }
+
     builder& builder::add_extension_chain(const device_extension_chain& extensions) {
         _extensions.add(extensions);
         return *this;

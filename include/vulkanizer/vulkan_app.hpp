@@ -21,6 +21,7 @@ namespace vkz {
         uint32_t width{};
         uint32_t height{};
         const char* title{};
+        uint32_t api_version{VK_API_VERSION_1_3};
         bool synchronization2{true};
         bool dynamic_rendering{true};
         bool multiview{};

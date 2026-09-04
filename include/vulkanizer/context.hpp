@@ -6,6 +6,7 @@
 #include "device_extension_chain.hpp"
 
 #include <concepts>
+#include <span>
 #include <string>
 #include <tuple>
 
@@ -63,6 +64,18 @@ namespace vkz {
         [[nodiscard]] VkQueueFlags unique_queue_flags() const;
 
         [[nodiscard]] uint32_t graphics_queue_count() const;
+
+        [[nodiscard]] std::span<const char* const> instance_extensions() const;
+
+        [[nodiscard]] std::span<const char* const> instance_layers() const;
+
+        [[nodiscard]] std::span<const char* const> device_extensions() const;
+
+        [[nodiscard]] std::span<const char* const> device_layers() const;
+
+        [[nodiscard]] const VkPhysicalDeviceFeatures& enabled_features() const;
+
+        [[nodiscard]] const void* device_extension_chain() const;
 
     private:
         const vkz::builder* builder_{};
@@ -130,6 +143,7 @@ namespace vkz {
 
     private:
         friend class default_factory;
+        friend class device_factory;
         class Impl;
 
         device_extension_chain _extensions;

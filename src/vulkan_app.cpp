@@ -22,13 +22,25 @@ namespace {
             nullptr,
             create_info.synchronization2 ? VK_TRUE : VK_FALSE,
         };
+        VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2_khr{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR,
+            nullptr,
+            create_info.synchronization2 ? VK_TRUE : VK_FALSE,
+        };
         VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering{
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
             nullptr,
             create_info.dynamic_rendering ? VK_TRUE : VK_FALSE,
         };
-        VkPhysicalDeviceVulkan11Features vulkan11{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
-        vulkan11.multiview = create_info.multiview ? VK_TRUE : VK_FALSE;
+        VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_khr{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
+            nullptr,
+            create_info.dynamic_rendering ? VK_TRUE : VK_FALSE,
+        };
+        VkPhysicalDeviceMultiviewFeatures multiview{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES};
+        multiview.multiview = create_info.multiview ? VK_TRUE : VK_FALSE;
+        VkPhysicalDeviceMultiviewFeaturesKHR multiview_khr{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR};
+        multiview_khr.multiview = create_info.multiview ? VK_TRUE : VK_FALSE;
 
         const auto& features = create_info.enabled_features;
         const VkPhysicalDeviceFeatures enabled_features{
@@ -92,7 +104,7 @@ namespace {
         auto builder = vkz::context::builder();
         builder
             .app_name(create_info.title)
-            .api_version(VK_API_VERSION_1_3)
+            .api_version(create_info.api_version)
             .surface(surface_provider)
             .enabled_features(enabled_features)
             .add_device_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -105,13 +117,28 @@ namespace {
         }
 
         if (create_info.synchronization2) {
-            builder.add_extension(synchronization2);
+            if (create_info.api_version >= VK_API_VERSION_1_3) {
+                builder.add_extension(synchronization2);
+            } else {
+                builder.add_device_extension(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+                builder.add_extension(synchronization2_khr);
+            }
         }
         if (create_info.dynamic_rendering) {
-            builder.add_extension(dynamic_rendering);
+            if (create_info.api_version >= VK_API_VERSION_1_3) {
+                builder.add_extension(dynamic_rendering);
+            } else {
+                builder.add_device_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+                builder.add_extension(dynamic_rendering_khr);
+            }
         }
         if (create_info.multiview) {
-            builder.add_extension(vulkan11);
+            if (create_info.api_version >= VK_API_VERSION_1_1) {
+                builder.add_extension(multiview);
+            } else {
+                builder.add_device_extension(VK_KHR_MULTIVIEW_EXTENSION_NAME);
+                builder.add_extension(multiview_khr);
+            }
         }
 
         for (uint32_t i = 0; i < required_extension_count; ++i) {
