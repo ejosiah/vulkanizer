@@ -81,9 +81,29 @@ namespace {
         require(std::abs(glm::length(camera.position - target) - Scalar(4)) < Scalar(1e-4), "Repeated rotations must preserve radius");
         require(near(camera.view * Vec4(target, 1), Vec4(0, 0, -4, 1)), "Repeated rotations must keep the target centered");
     }
+
+    template<typename Scalar>
+    void test_free_camera_ignores_wheel(vkz::camera::movement_type movement) {
+        vkz::camera::camera_t<Scalar> camera;
+        vkz::camera::input_device input;
+        vkz::camera::controller_t<Scalar> controller(camera, movement, input);
+        const auto projection = camera.projection;
+        const auto zoom = camera.zoom;
+        input.mouse.scroll_offset.y = 1;
+        controller.process_input();
+        controller.update(0.016f);
+        require(camera.zoom == zoom, "Free camera wheel input must not change zoom");
+        for (int column = 0; column < 4; ++column)
+            require(camera.projection[column] == projection[column],
+                    "Free camera wheel input must not change projection");
+    }
 }
 
 int main() {
     test_orbit<float>();
     test_orbit<double>();
+    test_free_camera_ignores_wheel<float>(vkz::camera::movement_type::spectator);
+    test_free_camera_ignores_wheel<double>(vkz::camera::movement_type::spectator);
+    test_free_camera_ignores_wheel<float>(vkz::camera::movement_type::first_person);
+    test_free_camera_ignores_wheel<double>(vkz::camera::movement_type::first_person);
 }

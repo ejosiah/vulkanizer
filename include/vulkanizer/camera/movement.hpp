@@ -73,6 +73,8 @@ namespace vkz::camera {
 
         void update(Scalar dt, Base::Vec2 rotation_delta, Base::Vec3 position_delta) override;
 
+        [[nodiscard]] bool handle_zoom() const override;
+
     };
 
     template<typename Scalar>

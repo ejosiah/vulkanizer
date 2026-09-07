@@ -241,6 +241,11 @@ namespace vkz::camera {
     template<typename Scalar>
     spectator_t<Scalar>::spectator_t(Base::camera &camera):Base(camera) {}
 
+    template<typename Scalar>
+    bool spectator_t<Scalar>::handle_zoom() const {
+        return false;
+    }
+
 
     template<typename Scalar>
     void spectator_t<Scalar>::rotate(Scalar headingDegrees, Scalar pitchDegrees, Scalar rollDegrees) {
