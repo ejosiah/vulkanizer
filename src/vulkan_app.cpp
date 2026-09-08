@@ -169,18 +169,21 @@ namespace vkz {
         return surface;
     }
 
-    glfw_runtime::glfw_runtime() {
-        if (!glfwInit()) {
+    glfw_runtime::glfw_runtime(bool initialize)
+        : initialized_{initialize} {
+        if (initialized_ && !glfwInit()) {
             VKZ_THROW("Failed to initialize GLFW")
         }
     }
 
     glfw_runtime::~glfw_runtime() {
-        glfwTerminate();
+        if (initialized_) {
+            glfwTerminate();
+        }
     }
 
     void glfw_window_deleter::operator()(GLFWwindow* window) const {
-        if (window) {
+        if (owned && window) {
             glfwDestroyWindow(window);
         }
     }
@@ -201,6 +204,25 @@ namespace vkz {
 
         surface_provider_ = glfw_surface_provider{window_.get()};
         context_ = create_context(create_info, surface_provider_);
+        queue_family_index_ = find_graphics_present_queue_family(context_.device.physical, context_.surface);
+        vkGetDeviceQueue(context_.device.logical, queue_family_index_, 0, &graphics_queue_);
+    }
+
+    vulkan_app::vulkan_app(GLFWwindow* window, vkz::context& context, bool vsync)
+        : runtime_{false},
+          window_{window, glfw_window_deleter{false}},
+          surface_provider_{window},
+          context_{vkz::context::create_not_owned(
+              context.instance,
+              context.device,
+              context.surface,
+              context.debug_messenger,
+              context.api_version)},
+          vsync_{vsync} {
+        if (!window_) {
+            VKZ_THROW("A valid GLFW window is required")
+        }
+
         queue_family_index_ = find_graphics_present_queue_family(context_.device.physical, context_.surface);
         vkGetDeviceQueue(context_.device.logical, queue_family_index_, 0, &graphics_queue_);
     }

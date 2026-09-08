@@ -47,20 +47,28 @@ namespace vkz {
 
     class glfw_runtime {
     public:
-        glfw_runtime();
+        explicit glfw_runtime(bool initialize = true);
         ~glfw_runtime();
 
         glfw_runtime(const glfw_runtime&) = delete;
         glfw_runtime& operator=(const glfw_runtime&) = delete;
+
+    private:
+        bool initialized_{};
     };
 
     struct glfw_window_deleter {
+        bool owned{true};
+
         void operator()(GLFWwindow* window) const;
     };
 
     class vulkan_app {
     public:
         explicit vulkan_app(const vulkan_app_create_info& create_info);
+
+        // The caller retains ownership and must keep both objects alive for the lifetime of this app.
+        vulkan_app(GLFWwindow* window, vkz::context& context, bool vsync = true);
         ~vulkan_app();
 
         vulkan_app(const vulkan_app&) = delete;
