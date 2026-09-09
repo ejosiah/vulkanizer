@@ -1,5 +1,7 @@
 #define VKZ_IOSTREAM_ADAPTER
 
+#include "timeout.hpp"
+
 #include <vulkanizer/vulkan_app.hpp>
 
 #include <vulkanizer/barrier.hpp>
@@ -212,7 +214,8 @@ namespace {
     }
 }
 
-int main() {
+int main(int argc, char **argv) {
+    const test_timeout timeout{argc, argv};
     vkz::iostream_adapter::install(std::cout);
 
     vkz::vulkan_app app{{
@@ -494,7 +497,7 @@ mat4 get_model_matrix() {
         {"Front and back", VK_CULL_MODE_FRONT_AND_BACK},
     }};
 
-    while (!app.should_close()) {
+    while (!app.should_close() && !timeout.expired()) {
         app.poll_events();
         app.wait_for_drawable_window();
         if (app.should_close()) {

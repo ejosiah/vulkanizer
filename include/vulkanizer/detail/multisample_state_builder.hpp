@@ -2,7 +2,7 @@
 
 namespace vkz {
 
-    class multisample_state_builder : public graphics_pipeline_builder {
+    class multisample_state_builder : public graphics_pipeline_builder_proxy<multisample_state_builder> {
     public:
         multisample_state_builder(vkz::device device, graphics_pipeline_builder *parent);
 

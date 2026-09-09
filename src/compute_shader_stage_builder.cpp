@@ -10,27 +10,24 @@
 
 
 vkz::compute_shader_stage_builder::compute_shader_stage_builder(vkz::device device, vkz::compute_pipeline_builder *parent)
-    : compute_pipeline_builder(device, parent) {}
-
-vkz::compute_shader_stage_builder::compute_shader_stage_builder(vkz::compute_shader_stage_builder *parent)
-: compute_pipeline_builder(parent->_device, parent){}
+    : compute_pipeline_builder_proxy{parent} {}
 
 vkz::compute_shader_stage_builder &
 vkz::compute_shader_stage_builder::compute_shader(const vkz::compute_shader_stage_builder::shader_source &source) {
     _shader.stage = VK_SHADER_STAGE_COMPUTE_BIT;
     std::visit(overloaded{
-            [&](const byte_string& source) { _shader.module = create_shader_module(_device, source); },
-            [&](const std::vector<uint32_t>& source) { _shader.module = create_shader_module(_device, source); },
-            [&](const std::string &source) { _shader.module = create_shader_module(_device, source); },
+            [&](const byte_string& source) { _shader.module = create_shader_module(device(), source); },
+            [&](const std::vector<uint32_t>& source) { _shader.module = create_shader_module(device(), source); },
+            [&](const std::string &source) { _shader.module = create_shader_module(device(), source); },
     }, source);
 
     return *this;
 }
 
 vkz::compute_shader_stage_builder::~compute_shader_stage_builder() {
-    assert(_device.logical);
+    assert(device().logical);
     if(_shader.module) {
-        vkDestroyShaderModule(_device.logical, _shader.module, nullptr);
+        vkDestroyShaderModule(device().logical, _shader.module, nullptr);
     }
 }
 
@@ -57,7 +54,7 @@ VkPipelineShaderStageCreateInfo &vkz::compute_shader_stage_builder::build_shader
 
 void vkz::compute_shader_stage_builder::clear_stages() {
     if (_shader.module) {
-        vkDestroyShaderModule(_device.logical, _shader.module, nullptr);
+        vkDestroyShaderModule(device().logical, _shader.module, nullptr);
         _shader.module = VK_NULL_HANDLE;
     }
 }

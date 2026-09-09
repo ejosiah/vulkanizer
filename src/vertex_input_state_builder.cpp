@@ -9,7 +9,7 @@
 namespace vkz {
 
     vertex_input_state_builder::vertex_input_state_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : graphics_pipeline_builder(device, parent) {
+            : graphics_pipeline_builder_proxy(parent) {
 
     }
 

@@ -10,19 +10,20 @@ namespace vkz {
 
     class color_blend_attachment_state_builder;
 
-    class color_blend_state_builder : public graphics_pipeline_builder {
+    class color_blend_state_builder : public graphics_pipeline_builder_proxy<color_blend_state_builder> {
     public:
+        friend class color_blend_attachment_state_builder;
+        friend class graphics_pipeline_builder;
+
         color_blend_state_builder(vkz::device device, graphics_pipeline_builder *parent);
 
-        ~color_blend_state_builder() override;
-
-        explicit color_blend_state_builder(color_blend_state_builder *parent);
+        ~color_blend_state_builder();
 
         color_blend_state_builder &blend_constants(float r, float g, float b, float a);
 
-        virtual color_blend_attachment_state_builder &attachment();
+        color_blend_attachment_state_builder &attachment();
 
-        virtual color_blend_attachment_state_builder &attachments(uint32_t count);
+        color_blend_attachment_state_builder &attachments(uint32_t count);
 
         inline logic_op <color_blend_state_builder> &logic_operation() {
             return _logic_op;
@@ -36,9 +37,10 @@ namespace vkz {
         VkPipelineColorBlendStateCreateInfo _info{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
         logic_op <color_blend_state_builder> _logic_op{};
         color_blend_attachment_state_builder *_color_blend_attachment_state_builder{nullptr};
+        void *_next_chain{};
     };
 
-    class color_blend_attachment_state_builder : public color_blend_state_builder {
+    class color_blend_attachment_state_builder : public graphics_pipeline_builder_proxy<color_blend_attachment_state_builder> {
     public:
         explicit color_blend_attachment_state_builder(color_blend_state_builder *parent);
 
@@ -84,7 +86,7 @@ namespace vkz {
 
         color_blend_attachment_state_builder &clear();
 
-        color_blend_attachment_state_builder &attachment() override;
+        color_blend_attachment_state_builder &attachment();
 
 
         std::vector<VkPipelineColorBlendAttachmentState> &build_color_blend_attachment_state();
@@ -108,5 +110,6 @@ namespace vkz {
         blend_op <color_blend_attachment_state_builder> _alpha_blend_op{};
         VkPipelineColorBlendAttachmentState _scratchpad;
         bool _dirty = false;
+        color_blend_state_builder *_parent{};
     };
 }

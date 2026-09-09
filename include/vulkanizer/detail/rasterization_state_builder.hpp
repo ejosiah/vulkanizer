@@ -2,7 +2,7 @@
 
 namespace vkz {
 
-    class rasterization_state_builder : public graphics_pipeline_builder {
+    class rasterization_state_builder : public graphics_pipeline_builder_proxy<rasterization_state_builder> {
     public:
         rasterization_state_builder(vkz::device device, graphics_pipeline_builder *parent);
 

@@ -6,7 +6,7 @@
 
 namespace vkz {
 
-    class compute_pipeline_layout_builder : public compute_pipeline_builder {
+    class compute_pipeline_layout_builder : public compute_pipeline_builder_proxy<compute_pipeline_layout_builder> {
     public:
         compute_pipeline_layout_builder(vkz::device device, compute_pipeline_builder *builder);
 

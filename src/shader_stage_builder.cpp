@@ -117,14 +117,9 @@ namespace vkz {
     }
 
     shader_stage_builder::shader_stage_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : graphics_pipeline_builder(device, parent) {
+            : graphics_pipeline_builder_proxy(parent) {
         _features.pNext = &_mesh_features;
         vkGetPhysicalDeviceFeatures2(device.physical, &_features);
-    }
-
-    shader_stage_builder::shader_stage_builder(shader_stage_builder *parent)
-            : graphics_pipeline_builder(parent->_device, parent) {
-        _mesh_features = parent->_mesh_features;
     }
 
     shader_builder &shader_stage_builder::vertex_shader(const shader_source &source) {
@@ -240,28 +235,28 @@ namespace vkz {
 
 
     shader_builder::shader_builder(shader_stage_builder *parent)
-            : shader_stage_builder(parent) {}
+            : graphics_pipeline_builder_proxy(parent->_builder), _parent{parent} {}
 
     shader_builder::shader_builder(const shader_source &source, VkShaderStageFlagBits stage, shader_stage_builder *parent)
-            : shader_stage_builder(parent) {
+            : graphics_pipeline_builder_proxy(parent->_builder), _parent{parent} {
         _shader.stage = stage;
         std::visit(overloaded{
-                [&](const byte_string& source) { _shader.module = create_shader_module(_device, source); },
-                [&](const std::vector<uint32_t>& source) { _shader.module = create_shader_module(_device, source); },
+                [&](const byte_string& source) { _shader.module = create_shader_module(device(), source); },
+                [&](const std::vector<uint32_t>& source) { _shader.module = create_shader_module(device(), source); },
                 [&](const std::string &source) {
                     if (is_glsl_source(source)) {
-                        _shader.module = create_shader_module(_device, compile_inline_glsl(source, stage));
+                        _shader.module = create_shader_module(device(), compile_inline_glsl(source, stage));
                     } else {
-                        _shader.module = create_shader_module(_device, source);
+                        _shader.module = create_shader_module(device(), source);
                     }
                 },
         }, source);
     }
 
     shader_builder::~shader_builder() {
-        assert(_device.logical);
+        assert(device().logical);
         if(_shader.module) {
-            vkDestroyShaderModule(_device.logical, _shader.module, nullptr);
+            vkDestroyShaderModule(device().logical, _shader.module, nullptr);
         }
     }
 
@@ -281,35 +276,31 @@ namespace vkz {
     }
 
     shader_builder &shader_builder::vertex_shader(const shader_stage_builder::shader_source &source) {
-        return parent()->vertex_shader(source);
+        return _parent->vertex_shader(source);
     }
 
     shader_builder &shader_builder::task_shader(const shader_stage_builder::shader_source &source) {
-        return parent()->task_shader(source);
+        return _parent->task_shader(source);
     }
 
     shader_builder &shader_builder::mesh_shader(const shader_stage_builder::shader_source &source) {
-        return parent()->mesh_shader(source);
+        return _parent->mesh_shader(source);
     }
 
     shader_builder &shader_builder::fragment_shader(const shader_stage_builder::shader_source &source) {
-        return parent()->fragment_shader(source);
-    }
-
-    shader_stage_builder *shader_builder::parent() {
-        return reinterpret_cast<shader_stage_builder *>(_parent);
+        return _parent->fragment_shader(source);
     }
 
     shader_builder &shader_builder::geometry_shader(const shader_stage_builder::shader_source &source) {
-        return parent()->geometry_shader(source);
+        return _parent->geometry_shader(source);
     }
 
     shader_builder &shader_builder::tessellation_evaluation_shader(const shader_stage_builder::shader_source &source) {
-        return parent()->tessellation_evaluation_shader(source);
+        return _parent->tessellation_evaluation_shader(source);
     }
 
     shader_builder &shader_builder::tessellation_control_shader(const shader_stage_builder::shader_source &source) {
-        return parent()->tessellation_control_shader(source);
+        return _parent->tessellation_control_shader(source);
     }
 
     bool shader_builder::is_vertex_shader() const {

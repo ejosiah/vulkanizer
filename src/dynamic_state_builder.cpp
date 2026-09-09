@@ -3,7 +3,7 @@
 namespace vkz {
 
     dynamic_state_builder::dynamic_state_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : graphics_pipeline_builder(device, parent),
+            : graphics_pipeline_builder_proxy(parent),
             _info{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO},
               _dynamic_states{} {}
 

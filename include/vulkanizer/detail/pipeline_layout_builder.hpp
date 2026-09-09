@@ -6,7 +6,7 @@
 
 namespace vkz {
 
-    class pipeline_layout_builder : public graphics_pipeline_builder {
+    class pipeline_layout_builder : public graphics_pipeline_builder_proxy<pipeline_layout_builder> {
     public:
         pipeline_layout_builder(vkz::device device, graphics_pipeline_builder *builder);
 

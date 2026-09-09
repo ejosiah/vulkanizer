@@ -8,17 +8,18 @@ namespace vkz {
 
     class scissor_builder;
 
-    class viewport_state_builder : public graphics_pipeline_builder {
+    class viewport_state_builder : public graphics_pipeline_builder_proxy<viewport_state_builder> {
     public:
-        viewport_state_builder(vkz::device device, graphics_pipeline_builder *builder);
+        friend class viewport_builder;
+        friend class scissor_builder;
 
-        explicit viewport_state_builder(viewport_state_builder *parent);
+        viewport_state_builder(vkz::device device, graphics_pipeline_builder *builder);
 
         ~viewport_state_builder();
 
-        virtual viewport_builder &viewport();
+        viewport_builder &viewport();
 
-        virtual scissor_builder &scissor();
+        scissor_builder &scissor();
 
         VkPipelineViewportStateCreateInfo &build_viewport_state();
 
@@ -32,7 +33,7 @@ namespace vkz {
         VkPipelineViewportStateCreateInfo _info{ VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
     };
 
-    class viewport_builder : public viewport_state_builder {
+    class viewport_builder : public graphics_pipeline_builder_proxy<viewport_builder> {
     public:
         explicit viewport_builder(viewport_state_builder *builder);
 
@@ -56,11 +57,9 @@ namespace vkz {
 
         viewport_builder &add();
 
-        viewport_state_builder *parent() override;
+        viewport_builder &viewport();
 
-        viewport_builder &viewport() override;
-
-        scissor_builder &scissor() override;
+        scissor_builder &scissor();
 
         void checkpoint();
 
@@ -75,9 +74,10 @@ namespace vkz {
     private:
         std::vector<VkViewport> _viewports{};
         VkViewport _scratchpad{};
+        viewport_state_builder *_parent{};
     };
 
-    class scissor_builder : public viewport_state_builder {
+    class scissor_builder : public graphics_pipeline_builder_proxy<scissor_builder> {
     public:
         explicit scissor_builder(viewport_state_builder *builder);
 
@@ -97,17 +97,16 @@ namespace vkz {
 
         void checkpoint();
 
-        viewport_builder &viewport() override;
+        viewport_builder &viewport();
 
-        scissor_builder &scissor() override;
-
-        viewport_state_builder *parent() override;
+        scissor_builder &scissor();
 
         void copy(const scissor_builder &source);
 
     private:
         std::vector<VkRect2D> _scissors;
         VkRect2D _scratchpad{};
+        viewport_state_builder *_parent{};
     };
 
 }

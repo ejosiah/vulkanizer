@@ -3,7 +3,7 @@
 namespace vkz {
 
     tessellation_state_builder::tessellation_state_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : graphics_pipeline_builder(device, parent) {}
+            : graphics_pipeline_builder_proxy(parent) {}
 
     tessellation_state_builder &tessellation_state_builder::patch_control_points(uint32_t count) {
         _info.patchControlPoints = count;
@@ -27,9 +27,8 @@ namespace vkz {
 
 
     graphics_pipeline_builder &tessellation_state_builder::clear() {
-        auto parent_builder = reinterpret_cast<graphics_pipeline_builder *>(_parent);
         _info = {VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO};
-        return *parent_builder;
+        return *_builder;
     }
 
 }

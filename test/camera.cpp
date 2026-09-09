@@ -1,5 +1,7 @@
 #define VKZ_IOSTREAM_ADAPTER
 
+#include "timeout.hpp"
+
 #include <vulkanizer/vulkan_app.hpp>
 #include <vulkanizer/barrier.hpp>
 #include <vulkanizer/commands.hpp>
@@ -117,7 +119,8 @@ namespace {
     }
 }
 
-int main() {
+int main(int argc, char **argv) {
+    const test_timeout timeout{argc, argv};
 #ifdef _WIN32
     CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 #endif
@@ -134,7 +137,7 @@ int main() {
     const auto queue = app.graphics_queue();
     const auto family = app.queue_family_index();
 
-    vkz::glfw_input_adaptor input(app.window(), true);
+    vkz::glfw_input_adaptor input(app.window(), timeout.game_controller_enabled());
     input.bind();
     vkz::camera::camera camera;
     camera.position = {0, 1, 5};
@@ -224,7 +227,7 @@ int main() {
     uint32_t frame{};
     auto previous = std::chrono::steady_clock::now();
 
-    while (!app.should_close()) {
+    while (!app.should_close() && !timeout.expired()) {
         app.poll_events();
         input.process_game_pad_input();
         const auto now = std::chrono::steady_clock::now();

@@ -4,7 +4,7 @@
 
 namespace vkz {
 
-    class dynamic_render_pass_builder : public graphics_pipeline_builder {
+    class dynamic_render_pass_builder : public graphics_pipeline_builder_proxy<dynamic_render_pass_builder> {
     public:
         explicit dynamic_render_pass_builder(vkz::device device, graphics_pipeline_builder *parent);
 

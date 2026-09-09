@@ -4,7 +4,7 @@
 
 namespace vkz {
 
-    class vertex_input_state_builder : public graphics_pipeline_builder {
+    class vertex_input_state_builder : public graphics_pipeline_builder_proxy<vertex_input_state_builder> {
     public:
         explicit vertex_input_state_builder(vkz::device device, graphics_pipeline_builder *parent);
 

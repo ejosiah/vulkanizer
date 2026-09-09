@@ -1,5 +1,7 @@
 #define VKZ_IOSTREAM_ADAPTER
 
+#include "timeout.hpp"
+
 #include <vulkanizer/application.hpp>
 #include <vulkanizer/imgui.hpp>
 #include <vulkanizer/io.hpp>
@@ -18,9 +20,10 @@
 namespace {
     class texture_test final : public vkz::application {
     public:
-        explicit texture_test(std::filesystem::path path)
+        texture_test(std::filesystem::path path, const test_timeout &timeout)
             : application{"vulkanizer texture test", {1280, 800}}
-            , path_{std::move(path)} {
+            , path_{std::move(path)}
+            , timeout_{timeout} {
         }
 
         ~texture_test() {
@@ -68,8 +71,15 @@ namespace {
             ImGui::End();
         }
 
+        void end_frame() override {
+            if (timeout_.expired()) {
+                glfwSetWindowShouldClose(app_.window(), GLFW_TRUE);
+            }
+        }
+
     private:
         std::filesystem::path path_;
+        const test_timeout &timeout_;
         vkz::texture texture_{};
         VkDescriptorSet descriptor_set_{};
     };
@@ -78,10 +88,12 @@ namespace {
 int main(int argc, char** argv) {
     vkz::iostream_adapter::install(std::cout);
 
-    if (argc != 2) {
-        std::cerr << "Usage: vulkanizer_texture_test <image-path>\n";
+    if (argc != 2 && argc != 4) {
+        std::cerr << "Usage: vulkanizer_texture_test <image-path> [--timeout seconds]\n";
         return 1;
     }
+
+    const test_timeout timeout{argc, argv};
 
     const std::filesystem::path path{argv[1]};
     if (!std::filesystem::is_regular_file(path)) {
@@ -90,7 +102,7 @@ int main(int argc, char** argv) {
     }
 
     try {
-        texture_test app{path};
+        texture_test app{path, timeout};
         app.main_loop();
     } catch (const std::exception& error) {
         std::cerr << "Texture test failed: " << error.what() << '\n';

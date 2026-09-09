@@ -1,7 +1,7 @@
 function(vulkanizer_add_test_executable target source)
     add_executable(${target} ${source})
     target_link_libraries(${target} PRIVATE vulkanizer)
-    add_test(NAME ${target} COMMAND ${target})
+    add_test(NAME ${target} COMMAND ${target} ${ARGN})
     if(TARGET nsight_aftermath)
         add_custom_command(TARGET ${target} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -9,14 +9,14 @@ function(vulkanizer_add_test_executable target source)
     endif()
 endfunction()
 
-vulkanizer_add_test_executable(vulkanizer_context_test main.cpp)
-vulkanizer_add_test_executable(vulkanizer_csm_test csm.cpp)
-vulkanizer_add_test_executable(vulkanizer_primitive_test primitives.cpp)
-vulkanizer_add_test_executable(vulkanizer_camera_test camera.cpp)
+vulkanizer_add_test_executable(vulkanizer_context_test main.cpp --timeout 2)
+vulkanizer_add_test_executable(vulkanizer_csm_test csm.cpp --timeout 2)
+vulkanizer_add_test_executable(vulkanizer_primitive_test primitives.cpp --timeout 2)
+vulkanizer_add_test_executable(vulkanizer_camera_test camera.cpp --timeout 2 --no-game-controller)
 vulkanizer_add_test_executable(vulkanizer_camera_movement_test camera_movement.cpp)
 vulkanizer_add_test_executable(vulkanizer_commands_test commands.cpp)
 vulkanizer_add_test_executable(vulkanizer_mip_map_test mip_map.cpp)
-vulkanizer_add_test_executable(vulkanizer_texture_test texture.cpp)
+vulkanizer_add_test_executable(vulkanizer_texture_test texture.cpp "${CMAKE_CURRENT_LIST_DIR}/resources/skybox/front.jpg" --timeout 2)
 
 find_program(GLSLC_EXECUTABLE glslc)
 if(NOT GLSLC_EXECUTABLE)

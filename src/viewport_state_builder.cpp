@@ -6,12 +6,8 @@
 namespace vkz {
 
     viewport_state_builder::viewport_state_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : graphics_pipeline_builder(device, parent), _viewport_builder{new viewport_builder{this}},
+            : graphics_pipeline_builder_proxy{parent}, _viewport_builder{new viewport_builder{this}},
               _scissor_builder{new scissor_builder{this}} {
-    }
-
-    viewport_state_builder::viewport_state_builder(viewport_state_builder *parent)
-            : graphics_pipeline_builder(parent->_device, parent) {
     }
 
     viewport_state_builder::~viewport_state_builder() {
@@ -52,7 +48,7 @@ namespace vkz {
     }
 
 
-    viewport_builder::viewport_builder(viewport_state_builder *builder) : viewport_state_builder(builder) {
+    viewport_builder::viewport_builder(viewport_state_builder *builder) : graphics_pipeline_builder_proxy{builder->_builder}, _parent{builder} {
         reset_scratchpad();
     }
 
@@ -141,10 +137,6 @@ namespace vkz {
         _viewports = decltype(_viewports)(source._viewports.begin(), source._viewports.end());
     }
 
-    viewport_state_builder *viewport_builder::parent() {
-        return dynamic_cast<viewport_state_builder *>(_parent);
-    }
-
     viewport_builder &viewport_builder::viewport() {
         checkpoint();
         return *this;
@@ -152,11 +144,11 @@ namespace vkz {
 
     scissor_builder &viewport_builder::scissor() {
         checkpoint();
-        return parent()->scissor();
+        return _parent->scissor();
     }
 
     scissor_builder::scissor_builder(viewport_state_builder *builder)
-            : viewport_state_builder(builder) {
+            : graphics_pipeline_builder_proxy{builder->_builder}, _parent{builder} {
         reset_scratchpad();
     }
 
@@ -200,10 +192,6 @@ namespace vkz {
         }
     }
 
-    viewport_state_builder *scissor_builder::parent() {
-        return dynamic_cast<viewport_state_builder *>(_parent);
-    }
-
     bool scissor_builder::ready() const {
         return _scratchpad.extent.width > 0 && _scratchpad.extent.height > 0;
     }
@@ -214,7 +202,7 @@ namespace vkz {
 
     viewport_builder &scissor_builder::viewport() {
         checkpoint();
-        return parent()->viewport();
+        return _parent->viewport();
     }
 
     scissor_builder &scissor_builder::scissor() {
