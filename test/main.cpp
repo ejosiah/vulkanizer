@@ -1,5 +1,7 @@
 #define VKZ_IOSTREAM_ADAPTER
 
+#include "timeout.hpp"
+
 #include <vulkanizer/vulkan_app.hpp>
 
 #include <vulkanizer/barrier.hpp>
@@ -18,7 +20,8 @@ namespace {
     constexpr uint32_t window_height = 800;
 }
 
-int main() {
+int main(int argc, char **argv) {
+    const test_timeout timeout{argc, argv};
     vkz::iostream_adapter::install(std::cout);
 
     vkz::vulkan_app app{{window_width, window_height, "vulkanizer context test"}};
@@ -71,7 +74,7 @@ int main() {
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     ImGuiIO& io = ImGui::GetIO();
 
-    while (!app.should_close()) {
+    while (!app.should_close() && !timeout.expired()) {
         app.poll_events();
         app.wait_for_drawable_window();
         if (app.should_close()) {

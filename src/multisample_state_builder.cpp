@@ -4,7 +4,7 @@
 namespace vkz {
 
     multisample_state_builder::multisample_state_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : graphics_pipeline_builder(device, parent),
+            : graphics_pipeline_builder_proxy(parent),
             _info{
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
                 .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT

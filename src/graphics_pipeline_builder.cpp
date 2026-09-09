@@ -9,7 +9,7 @@
 namespace vkz {
 
     graphics_pipeline_builder::graphics_pipeline_builder(vkz::device device)
-            : builder_base{device, nullptr}, _shader_stage_builder{std::make_unique<shader_stage_builder>(device, this)},
+            : _shader_stage_builder{std::make_unique<shader_stage_builder>(device, this)},
               _vertex_input_state_builder{std::make_unique<vertex_input_state_builder>(device, this)},
               _input_assembly_state_builder{std::make_unique<input_assembly_state_builder>(device, this)},
               _pipeline_layout_builder{std::make_unique<pipeline_layout_builder>(device, this)},
@@ -20,11 +20,7 @@ namespace vkz {
               _color_blend_state_builder{std::make_unique<color_blend_state_builder>(device, this)},
               _dynamic_state_builder{std::make_unique<dynamic_state_builder>(device, this)},
               _tessellation_state_builder{std::make_unique<tessellation_state_builder>(device, this)},
-              _dynamic_render_state_builder{std::make_unique<dynamic_render_pass_builder>(device, this)} {}
-
-    graphics_pipeline_builder::graphics_pipeline_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : builder_base{device, parent} {
-    }
+              _dynamic_render_state_builder{std::make_unique<dynamic_render_pass_builder>(device, this)}, _device{device} {}
 
     graphics_pipeline_builder::graphics_pipeline_builder(graphics_pipeline_builder &&source) {
         _shader_stage_builder = std::move(source._shader_stage_builder);
@@ -38,6 +34,7 @@ namespace vkz {
         _color_blend_state_builder = std::move(source._color_blend_state_builder);
         _dynamic_state_builder = std::move(source._dynamic_state_builder);
         _tessellation_state_builder = std::move(source._tessellation_state_builder);
+        _dynamic_render_state_builder = std::move(source._dynamic_render_state_builder);
         _name = std::move(source._name);
         _flags = source._flags;
         _render_pass = std::exchange(source._render_pass, VK_NULL_HANDLE);
@@ -46,107 +43,77 @@ namespace vkz {
         _subpass = source._subpass;
         _base_pipeline = std::move(source._base_pipeline);
         _pipeline_cache = std::move(source._pipeline_cache);
-        next_chain = std::exchange(source.next_chain, nullptr);
-        _parent = std::exchange(source._parent, nullptr);
         _device = source._device;
+        _shader_stage_builder->rebind(this);
+        _vertex_input_state_builder->rebind(this);
+        _input_assembly_state_builder->rebind(this);
+        _pipeline_layout_builder->rebind(this);
+        _viewport_state_builder->rebind(this);
+        _rasterization_state_builder->rebind(this);
+        _multisample_state_builder->rebind(this);
+        _depth_stencil_state_builder->rebind(this);
+        _color_blend_state_builder->rebind(this);
+        _dynamic_state_builder->rebind(this);
+        _tessellation_state_builder->rebind(this);
+        _dynamic_render_state_builder->rebind(this);
     }
 
 
     graphics_pipeline_builder::~graphics_pipeline_builder() = default;
 
     shader_stage_builder &graphics_pipeline_builder::shader_stage() {
-        if (parent()) {
-            return parent()->shader_stage();
-        }
         return *_shader_stage_builder;
     }
 
     vertex_input_state_builder &graphics_pipeline_builder::vertex_input_state() {
-        if (parent()) {
-            return parent()->vertex_input_state();
-        }
         return *_vertex_input_state_builder;
     }
 
-    graphics_pipeline_builder *graphics_pipeline_builder::parent() {
-        return dynamic_cast<graphics_pipeline_builder *>(builder_base::parent());
-    }
-
     input_assembly_state_builder &graphics_pipeline_builder::input_assembly_state() {
-        if (parent()) {
-            return parent()->input_assembly_state();
-        }
         return *_input_assembly_state_builder;
     }
 
     tessellation_state_builder &graphics_pipeline_builder::tessellation_state() {
-        if (parent()) {
-            return parent()->tessellation_state();
-        }
         return *_tessellation_state_builder;
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::allow_derivatives() {
-        if (parent()) {
-            return parent()->allow_derivatives();
-        }
         _flags |= VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
         return *this;
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::set_derivatives() {
-        if (parent()) {
-            return parent()->set_derivatives();
-        }
         _flags |= VK_PIPELINE_CREATE_DERIVATIVE_BIT;
         return *this;
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::subpass(uint32_t value) {
-        if (parent()) {
-            return parent()->subpass(value);
-        }
         _subpass = value;
         return *this;
     }
 
 
     graphics_pipeline_builder &graphics_pipeline_builder::layout(const vkz::pipeline& pipeline) {
-        if (parent()) {
-            return parent()->layout(pipeline);
-        }
         _pipeline_layout = pipeline.layout;
         return *this;
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::render_pass(VkRenderPass render_pass) {
-        if (parent()) {
-            return parent()->render_pass(render_pass);
-        }
         _render_pass = render_pass;
         return *this;
     }
 
     dynamic_render_pass_builder &graphics_pipeline_builder::dynamic_render_pass() {
-        if (parent()) {
-            return parent()->dynamic_render_pass();
-        }
         _render_pass = VK_NULL_HANDLE;
         _dynamic_render_state_builder->enable();
         return *_dynamic_render_state_builder;
     }
 
     pipeline_layout_builder &graphics_pipeline_builder::layout() {
-        if (parent()) {
-            return parent()->layout();
-        }
         return *_pipeline_layout_builder;
     }
 
     VkPipeline graphics_pipeline_builder::build_native() {
-        if (parent()) {
-            return parent()->build_native();
-        }
         if (!_pipeline_layout) {
             throw std::runtime_error{"either provide or create a pipeline_layout"};
         }
@@ -165,9 +132,6 @@ namespace vkz {
     }
 
     VkPipeline graphics_pipeline_builder::build(VkPipelineLayout &pipeline_layout) {
-        if (parent()) {
-            return parent()->build(pipeline_layout);
-        }
         auto info = create_info();
         pipeline_layout = _pipeline_layout_owned;
 
@@ -182,8 +146,6 @@ namespace vkz {
     }
 
     VkGraphicsPipelineCreateInfo graphics_pipeline_builder::create_info() {
-        if (parent()) return parent()->create_info();
-
         auto &shader_stages = _shader_stage_builder->build_shader_stage();
         auto &vertex_input_state = _vertex_input_state_builder->build_vertex_input_state();
         auto &input_assembly_state = _input_assembly_state_builder->build_input_assembly_state();
@@ -232,46 +194,28 @@ namespace vkz {
     }
 
     viewport_state_builder &graphics_pipeline_builder::viewport_state() {
-        if (parent()) {
-            return parent()->viewport_state();
-        }
         return *_viewport_state_builder;
     }
 
     rasterization_state_builder &graphics_pipeline_builder::rasterization_state() {
-        if (parent()) {
-            return parent()->rasterization_state();
-        }
         return *_rasterization_state_builder;
     }
 
     depth_stencil_state_builder &graphics_pipeline_builder::depth_stencil_state() {
-        if (parent()) {
-            return parent()->depth_stencil_state();
-        }
         return *_depth_stencil_state_builder;
     }
 
     color_blend_state_builder &graphics_pipeline_builder::color_blend_state(void *next) {
-        if (parent()) {
-            return parent()->color_blend_state(next);
-        }
-        _color_blend_state_builder->next_chain = next;
+        _color_blend_state_builder->_next_chain = next;
         return *_color_blend_state_builder;
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::name(const std::string &value) {
-        if (parent()) {
-            parent()->name(value);
-        }
         _name = value;
         return *this;
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::reuse() {
-        if (parent()) {
-            parent()->reuse();
-        }
         _vertex_input_state_builder->clear();
         _shader_stage_builder->clear();
         _pipeline_layout_builder->clear_layouts();
@@ -281,24 +225,15 @@ namespace vkz {
 
     graphics_pipeline_builder &graphics_pipeline_builder::base_pipeline(const vkz::pipeline& pipeline) {
         set_derivatives();
-        if (parent()) {
-            parent()->base_pipeline(pipeline);
-        }
         _base_pipeline = pipeline.handle;
         return *this;
     }
 
     multisample_state_builder &graphics_pipeline_builder::multisample_state() {
-        if (parent()) {
-            return parent()->multisample_state();
-        }
         return *_multisample_state_builder;
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::pipeline_cache(VkPipelineCache pipeline_cache) {
-        if (parent()) {
-            parent()->pipeline_cache(pipeline_cache);
-        }
         _pipeline_cache = pipeline_cache;
         return *this;
     }
@@ -311,9 +246,6 @@ namespace vkz {
     }
 
     dynamic_state_builder &graphics_pipeline_builder::dynamic_state() {
-        if (parent()) {
-            return parent()->dynamic_state();
-        }
         return *_dynamic_state_builder;
     }
 
@@ -340,7 +272,6 @@ namespace vkz {
 
         _base_pipeline = source._base_pipeline;
         _pipeline_cache = source._pipeline_cache;
-        next_chain = source.next_chain;
     }
 
 }

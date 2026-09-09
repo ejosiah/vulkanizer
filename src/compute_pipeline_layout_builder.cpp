@@ -3,7 +3,7 @@
 namespace vkz {
 
     compute_pipeline_layout_builder::compute_pipeline_layout_builder(vkz::device device, compute_pipeline_builder *builder)
-            : compute_pipeline_builder(device, builder) {
+            : compute_pipeline_builder_proxy{builder} {
 
     }
 

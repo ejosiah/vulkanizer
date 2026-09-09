@@ -3,7 +3,7 @@
 namespace vkz {
 
     pipeline_layout_builder::pipeline_layout_builder(vkz::device device, graphics_pipeline_builder *builder)
-            : graphics_pipeline_builder(device, builder) {
+            : graphics_pipeline_builder_proxy(builder) {
 
     }
 

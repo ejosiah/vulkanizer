@@ -2,7 +2,7 @@
 
 namespace vkz {
 
-    class input_assembly_state_builder : public graphics_pipeline_builder {
+    class input_assembly_state_builder : public graphics_pipeline_builder_proxy<input_assembly_state_builder> {
     public:
         input_assembly_state_builder(vkz::device device, graphics_pipeline_builder *parent);
 

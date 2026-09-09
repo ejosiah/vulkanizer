@@ -4,7 +4,7 @@
 
 namespace vkz {
 
-    class dynamic_state_builder : public graphics_pipeline_builder {
+    class dynamic_state_builder : public graphics_pipeline_builder_proxy<dynamic_state_builder> {
     public:
         dynamic_state_builder(vkz::device device, graphics_pipeline_builder *parent);
 

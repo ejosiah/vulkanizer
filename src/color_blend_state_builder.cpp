@@ -5,14 +5,9 @@
 namespace vkz {
 
     color_blend_state_builder::color_blend_state_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : graphics_pipeline_builder(device, parent),
+            : graphics_pipeline_builder_proxy(parent),
               _color_blend_attachment_state_builder{new color_blend_attachment_state_builder{this}},
               _logic_op{this} {}
-
-    color_blend_state_builder::color_blend_state_builder(color_blend_state_builder *parent)
-            : graphics_pipeline_builder(parent->_device, parent) {
-
-    }
 
     color_blend_state_builder::~color_blend_state_builder() {
         delete _color_blend_attachment_state_builder;
@@ -45,6 +40,7 @@ namespace vkz {
         _info.pAttachments = color_attachment_states.data();
         _info.logicOpEnable = _logic_op.enabled;
         _info.logicOp = _logic_op.value;
+        _info.pNext = _next_chain;
         return _info;
     }
 
@@ -56,7 +52,7 @@ namespace vkz {
 
 
     color_blend_attachment_state_builder::color_blend_attachment_state_builder(color_blend_state_builder *parent)
-            : color_blend_state_builder(parent) {
+            : graphics_pipeline_builder_proxy(parent->_builder), _parent{parent} {
         _src_color_blend_factor._caller = this;
         _dst_color_blend_factor._caller = this;
         _src_alpha_blend_factor._caller = this;

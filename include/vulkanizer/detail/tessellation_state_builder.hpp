@@ -2,7 +2,7 @@
 
 namespace vkz {
 
-    class tessellation_state_builder : public graphics_pipeline_builder {
+    class tessellation_state_builder : public graphics_pipeline_builder_proxy<tessellation_state_builder> {
     public:
         tessellation_state_builder(vkz::device device, graphics_pipeline_builder *parent);
 

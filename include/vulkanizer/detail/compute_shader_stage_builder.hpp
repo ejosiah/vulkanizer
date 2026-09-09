@@ -8,13 +8,11 @@
 
 namespace vkz {
 
-    class compute_shader_stage_builder : public compute_pipeline_builder {
+    class compute_shader_stage_builder : public compute_pipeline_builder_proxy<compute_shader_stage_builder> {
     public:
         using shader_source = std::variant<byte_string, std::vector<uint32_t>, std::string>;
 
         compute_shader_stage_builder(vkz::device device, compute_pipeline_builder *parent);
-
-        explicit compute_shader_stage_builder(compute_shader_stage_builder *parent);
 
         ~compute_shader_stage_builder();
 

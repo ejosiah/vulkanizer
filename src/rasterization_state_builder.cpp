@@ -3,7 +3,7 @@
 namespace vkz {
 
     rasterization_state_builder::rasterization_state_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : graphics_pipeline_builder(device, parent),
+            : graphics_pipeline_builder_proxy(parent),
             _info{
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
                 .lineWidth = 1.0f

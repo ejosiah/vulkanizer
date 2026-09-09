@@ -7,13 +7,10 @@
 #include <utility>
 
 vkz::compute_pipeline_builder::compute_pipeline_builder(vkz::device device)
-: builder_base{device, nullptr}
+: _device{device}
 , _shader_stage_builder{std::make_unique<compute_shader_stage_builder>(device, this)}
 , _pipeline_layout_builder{std::make_unique<compute_pipeline_layout_builder>(device, this)}
 {}
-
-vkz::compute_pipeline_builder::compute_pipeline_builder(vkz::device device, vkz::compute_pipeline_builder *parent)
-:builder_base(device, parent){}
 
 vkz::compute_pipeline_builder::compute_pipeline_builder(vkz::compute_pipeline_builder &&source) noexcept {
     _shader_stage_builder = std::move(source._shader_stage_builder);
@@ -25,40 +22,25 @@ vkz::compute_pipeline_builder::compute_pipeline_builder(vkz::compute_pipeline_bu
     _base_pipeline = std::exchange(source._base_pipeline, nullptr);
     _pipeline_cache = std::exchange(source._pipeline_cache, nullptr);
     _next_chain = std::exchange(source._next_chain, nullptr);
-    _parent = std::exchange(source._parent, nullptr);
     _device = source._device;
-}
-
-vkz::compute_pipeline_builder *vkz::compute_pipeline_builder::parent() {
-    return dynamic_cast<compute_pipeline_builder *>(builder_base::parent());
+    _shader_stage_builder->rebind(this);
+    _pipeline_layout_builder->rebind(this);
 }
 
 vkz::compute_shader_stage_builder &vkz::compute_pipeline_builder::shader_stage() {
-    if (parent()) {
-        return parent()->shader_stage();
-    }
     return *_shader_stage_builder;
 }
 
 vkz::compute_pipeline_layout_builder &vkz::compute_pipeline_builder::layout() {
-    if (parent()) {
-        return parent()->layout();
-    }
     return *_pipeline_layout_builder;
 }
 
 vkz::compute_pipeline_builder &vkz::compute_pipeline_builder::name(const std::string &value) {
-    if (parent()) {
-        parent()->name(value);
-    }
     _name = value;
     return *this;
 }
 
 VkPipeline vkz::compute_pipeline_builder::build_native() {
-    if (parent()) {
-        return parent()->build_native();
-    }
     if (!_pipeline_layout) {
         throw std::runtime_error{"either provide or create a pipeline_layout"};
     }
@@ -76,9 +58,6 @@ vkz::pipeline vkz::compute_pipeline_builder::build() {
 }
 
 VkPipeline vkz::compute_pipeline_builder::build(VkPipelineLayout &pipeline_layout) {
-    if (parent()) {
-        return parent()->build(pipeline_layout);
-    }
     auto info = create_info();
     pipeline_layout = std::move(_pipeline_layout_owned);
 
@@ -93,8 +72,6 @@ VkPipeline vkz::compute_pipeline_builder::build(VkPipelineLayout &pipeline_layou
 }
 
 VkComputePipelineCreateInfo vkz::compute_pipeline_builder::create_info() {
-    if (parent()) return parent()->create_info();
-
     auto &shader_stage = _shader_stage_builder->build_shader_stage();
 
     auto info = makeStruct<VkComputePipelineCreateInfo>();

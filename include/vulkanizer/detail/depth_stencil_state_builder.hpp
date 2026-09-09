@@ -4,11 +4,13 @@ namespace vkz {
 
     class stencil_op_state_builder;
 
-    class depth_stencil_state_builder : public graphics_pipeline_builder {
+    class depth_stencil_state_builder : public graphics_pipeline_builder_proxy<depth_stencil_state_builder> {
     public:
+        friend class stencil_op_state_builder;
+
         depth_stencil_state_builder(vkz::device device, graphics_pipeline_builder *parent);
 
-        explicit depth_stencil_state_builder(depth_stencil_state_builder *parent);
+        ~depth_stencil_state_builder();
 
         depth_stencil_state_builder &enable_depth_test();
 
@@ -18,21 +20,21 @@ namespace vkz {
 
         depth_stencil_state_builder &disable_depth_write();
 
-        virtual depth_stencil_state_builder &compare_op_never();
+        depth_stencil_state_builder &compare_op_never();
 
-        virtual depth_stencil_state_builder &compare_op_less();
+        depth_stencil_state_builder &compare_op_less();
 
-        virtual depth_stencil_state_builder &compare_op_equal();
+        depth_stencil_state_builder &compare_op_equal();
 
-        virtual depth_stencil_state_builder &compare_op_less_or_equal();
+        depth_stencil_state_builder &compare_op_less_or_equal();
 
-        virtual depth_stencil_state_builder &compare_op_greater();
+        depth_stencil_state_builder &compare_op_greater();
 
-        virtual depth_stencil_state_builder &compare_op_greater_or_equal();
+        depth_stencil_state_builder &compare_op_greater_or_equal();
 
-        virtual depth_stencil_state_builder &compare_op_not_equal();
+        depth_stencil_state_builder &compare_op_not_equal();
 
-        virtual depth_stencil_state_builder &compare_op_always();
+        depth_stencil_state_builder &compare_op_always();
 
         depth_stencil_state_builder &enable_depth_bounds_test();
 
@@ -60,7 +62,7 @@ namespace vkz {
         stencil_op_state_builder *_back = nullptr;
     };
 
-    class stencil_op_state_builder : public depth_stencil_state_builder {
+    class stencil_op_state_builder : public graphics_pipeline_builder_proxy<stencil_op_state_builder> {
     public:
         explicit stencil_op_state_builder(depth_stencil_state_builder *parent);
 
@@ -112,21 +114,21 @@ namespace vkz {
 
         stencil_op_state_builder &depth_fail_opDecrementAndWrap();
 
-        stencil_op_state_builder &compare_op_never() override;
+        stencil_op_state_builder &compare_op_never();
 
-        stencil_op_state_builder &compare_op_less() override;
+        stencil_op_state_builder &compare_op_less();
 
-        stencil_op_state_builder &compare_op_equal() override;
+        stencil_op_state_builder &compare_op_equal();
 
-        stencil_op_state_builder &compare_op_less_or_equal() override;
+        stencil_op_state_builder &compare_op_less_or_equal();
 
-        stencil_op_state_builder &compare_op_greater() override;
+        stencil_op_state_builder &compare_op_greater();
 
-        stencil_op_state_builder &compare_op_greater_or_equal() override;
+        stencil_op_state_builder &compare_op_greater_or_equal();
 
-        stencil_op_state_builder &compare_op_not_equal() override;
+        stencil_op_state_builder &compare_op_not_equal();
 
-        stencil_op_state_builder &compare_op_always() override;
+        stencil_op_state_builder &compare_op_always();
 
         stencil_op_state_builder &compare_mask(uint32_t value);
 
@@ -139,6 +141,9 @@ namespace vkz {
         VkStencilOpState build_stencil_op_state();
 
         VkStencilOpState _stencil_op_state;
+
+    private:
+        depth_stencil_state_builder *_parent{};
     };
 
 }

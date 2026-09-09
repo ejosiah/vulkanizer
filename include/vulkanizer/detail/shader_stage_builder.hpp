@@ -13,34 +13,34 @@ namespace vkz {
 
     class shader_builder;
 
-    class shader_stage_builder : public graphics_pipeline_builder {
+    class shader_stage_builder : public graphics_pipeline_builder_proxy<shader_stage_builder> {
     public:
+        friend class shader_builder;
+
         using shader_source = std::variant<byte_string, std::vector<uint32_t>, std::string>;
 
         shader_stage_builder(vkz::device device, graphics_pipeline_builder *parent);
 
-        explicit shader_stage_builder(shader_stage_builder *parent);
+        [[maybe_unused]]
+        shader_builder &vertex_shader(const shader_source &source);
 
         [[maybe_unused]]
-        virtual shader_builder &vertex_shader(const shader_source &source);
+        shader_builder &task_shader(const shader_source &source);
 
         [[maybe_unused]]
-        virtual shader_builder &task_shader(const shader_source &source);
+        shader_builder &mesh_shader(const shader_source &source);
 
         [[maybe_unused]]
-        virtual shader_builder &mesh_shader(const shader_source &source);
+        shader_builder &fragment_shader(const shader_source &source);
 
         [[maybe_unused]]
-        virtual shader_builder &fragment_shader(const shader_source &source);
+        shader_builder &geometry_shader(const shader_source &source);
 
         [[maybe_unused]]
-        virtual shader_builder &geometry_shader(const shader_source &source);
+        shader_builder &tessellation_evaluation_shader(const shader_source &source);
 
         [[maybe_unused]]
-        virtual shader_builder &tessellation_evaluation_shader(const shader_source &source);
-
-        [[maybe_unused]]
-        virtual shader_builder &tessellation_control_shader(const shader_source &source);
+        shader_builder &tessellation_control_shader(const shader_source &source);
 
         shader_stage_builder &clear();
 
@@ -72,13 +72,15 @@ namespace vkz {
         VkPhysicalDeviceMeshShaderFeaturesEXT _mesh_features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT};
     };
 
-    class shader_builder : public shader_stage_builder {
+    class shader_builder : public graphics_pipeline_builder_proxy<shader_builder> {
     public:
+        using shader_source = shader_stage_builder::shader_source;
+
         explicit shader_builder(shader_stage_builder *parent);
 
         shader_builder(const shader_source &source, VkShaderStageFlagBits stage, shader_stage_builder *parent);
 
-        ~shader_builder() override;
+        ~shader_builder();
 
         template<typename T>
         shader_builder &add_specialization(T value, uint32_t constant_id) {
@@ -92,21 +94,19 @@ namespace vkz {
             return *this;
         }
 
-        shader_stage_builder *parent() override;
+        shader_builder &vertex_shader(const shader_source &source);
 
-        shader_builder &vertex_shader(const shader_source &source) override;
+        shader_builder &task_shader(const shader_source &source);
 
-        shader_builder &task_shader(const shader_source &source) override;
+        shader_builder &mesh_shader(const shader_source &source);
 
-        shader_builder &mesh_shader(const shader_source &source) override;
+        shader_builder &fragment_shader(const shader_source &source);
 
-        shader_builder &fragment_shader(const shader_source &source) override;
+        shader_builder &geometry_shader(const shader_source &source);
 
-        shader_builder &geometry_shader(const shader_source &source) override;
+        shader_builder &tessellation_evaluation_shader(const shader_source &source);
 
-        shader_builder &tessellation_evaluation_shader(const shader_source &source) override;
-
-        shader_builder &tessellation_control_shader(const shader_source &source) override;
+        shader_builder &tessellation_control_shader(const shader_source &source);
 
         VkPipelineShaderStageCreateInfo &build_shader();
 
@@ -129,5 +129,6 @@ namespace vkz {
         uint32_t _offset{};
         VkPipelineShaderStageCreateInfo _create_info{};
         VkSpecializationInfo _specialization{};
+        shader_stage_builder *_parent{};
     };
 }

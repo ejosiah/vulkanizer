@@ -3,23 +3,20 @@
 namespace vkz {
 
     depth_stencil_state_builder::depth_stencil_state_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : graphics_pipeline_builder(device, parent),
+            : graphics_pipeline_builder_proxy(parent),
             _info{ VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO },
             _front{new stencil_op_state_builder{this}},
             _back{new stencil_op_state_builder{this}}
     {
-        dynamic_cast<depth_stencil_state_builder *>(_front)->_front = _front;
-        dynamic_cast<depth_stencil_state_builder *>(_front)->_back = _back;
-        dynamic_cast<depth_stencil_state_builder *>(_back)->_front = _front;
-        dynamic_cast<depth_stencil_state_builder *>(_back)->_back = _back;
-    }
-
-    depth_stencil_state_builder::depth_stencil_state_builder(depth_stencil_state_builder *parent)
-            : graphics_pipeline_builder(parent->_device, parent) {
         _info.depthTestEnable = VK_FALSE;
         _info.depthWriteEnable = VK_FALSE;
         _info.minDepthBounds = 0.f;
         _info.maxDepthBounds = 1.f;
+    }
+
+    depth_stencil_state_builder::~depth_stencil_state_builder() {
+        delete _front;
+        delete _back;
     }
 
     depth_stencil_state_builder &depth_stencil_state_builder::enable_depth_test() {
@@ -134,7 +131,7 @@ namespace vkz {
 
 
     stencil_op_state_builder::stencil_op_state_builder(depth_stencil_state_builder *parent)
-            : depth_stencil_state_builder(parent), _stencil_op_state{} {
+            : graphics_pipeline_builder_proxy(parent->_builder), _stencil_op_state{}, _parent{parent} {
     }
 
     stencil_op_state_builder &stencil_op_state_builder::fail_opKeep() {

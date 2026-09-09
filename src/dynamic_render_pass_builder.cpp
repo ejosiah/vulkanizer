@@ -3,7 +3,7 @@
 namespace vkz {
 
     dynamic_render_pass_builder::dynamic_render_pass_builder(vkz::device device, graphics_pipeline_builder *parent)
-            : graphics_pipeline_builder(device, parent) {}
+            : graphics_pipeline_builder_proxy(parent) {}
 
     dynamic_render_pass_builder &dynamic_render_pass_builder::view_mask(uint32_t value) {
         m_renderingCreateInfo.viewMask = value;
