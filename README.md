@@ -134,6 +134,32 @@ Construct the controller with `movement_type::spectator` for free-flight movemen
 
 Use `movement_type::orbit` to rotate around `camera.target` with left mouse drag and change the distance with the mouse wheel. Orbit zoom is bounded by `camera.minZoom` and `camera.maxZoom` and leaves the field of view unchanged.
 
+## CPU profiling
+
+`vkz::profiler` can measure CPU scopes without initializing Vulkan:
+
+```cpp
+#include <vulkanizer/profiler.hpp>
+
+vkz::profiler timings;
+timings.add_cpu_query("update");
+timings.profile_cpu("update", [&] {
+    update_scene();
+});
+const auto milliseconds = timings.cpu_query_stats().at("update").mean;
+```
+
+CPU scopes measure monotonic elapsed wall time, including waits. Each successful
+call records a sample and updates its average immediately; no `commit()` or
+`end_frame()` call is required. Exceptions propagate without recording a sample.
+`paused` skips measurement while still running the body. CPU and GPU queries have
+separate names and statistics, so the same label can be used for both.
+Raw samples and averages in `cpu_queries` are nanoseconds; statistics are
+milliseconds (variance is milliseconds squared). `clear_cpu(name)` resets an
+average, and `clear_runtimes()` clears both CPU and GPU sample histories.
+CPU queries survive GPU `init()`/`deinit()`. Access to a profiler must be externally
+synchronized; use separate instances for concurrent threads.
+
 ## Examples
 
 The executables under `test/` are interactive examples:

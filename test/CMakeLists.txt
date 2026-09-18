@@ -15,6 +15,7 @@ vulkanizer_add_test_executable(vulkanizer_primitive_test primitives.cpp --timeou
 vulkanizer_add_test_executable(vulkanizer_camera_test camera.cpp --timeout 2 --no-game-controller)
 vulkanizer_add_test_executable(vulkanizer_camera_movement_test camera_movement.cpp)
 vulkanizer_add_test_executable(vulkanizer_commands_test commands.cpp)
+vulkanizer_add_test_executable(vulkanizer_profiler_test profiler.cpp)
 vulkanizer_add_test_executable(vulkanizer_mip_map_test mip_map.cpp)
 vulkanizer_add_test_executable(vulkanizer_texture_test texture.cpp "${CMAKE_CURRENT_LIST_DIR}/resources/skybox/front.jpg" --timeout 2)
 
