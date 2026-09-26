@@ -1,0 +1,13 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8) in;
+#include "resolve.glsl"
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, ivec2(uniforms.resolution)))) {
+        return;
+    }
+    vec3 color = max(resolve(pixel), vec3(0.0));
+    imageStore(resolve_image, pixel, vec4(color, texelFetch(color_buffer, pixel, 0).a));
+    imageStore(next_depth, pixel, vec4(read_depth(pixel)));
+}

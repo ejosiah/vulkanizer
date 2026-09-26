@@ -186,7 +186,7 @@ namespace vkz {
 
             [[nodiscard]] VkDeviceSize offset() const;
             [[nodiscard]] VkDeviceSize size() const;
-            [[nodiscard]] VkBuffer source_buffer() const;
+            [[nodiscard]] buffer source_buffer() const;
             [[nodiscard]] bool valid() const;
 
             void copy_from(const void* source, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize destination_offset = 0) const;

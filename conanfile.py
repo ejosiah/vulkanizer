@@ -6,7 +6,7 @@ from pathlib import Path
 
 class VulkanizerConan(ConanFile):
     name = "vulkanizer"
-    version = "0.0.34"
+    version = "0.0.40"
     package_type = "static-library"
 
     license = "MIT"
@@ -20,14 +20,14 @@ class VulkanizerConan(ConanFile):
     exports_sources = "CMakeLists.txt", "cmake/*", "include/*", "src/*"
 
     def requirements(self):
-        self.requires("volk/1.3.296.0", transitive_headers=True)
-        self.requires("glfw/3.4", transitive_headers=True)
-        self.requires("imgui/1.92.7", transitive_headers=True)
-        self.requires("glm/1.0.1", transitive_headers=True)
-        self.requires("vulkan-memory-allocator/3.3.0", transitive_headers=True)
-        self.requires("glslang/11.7.0", transitive_headers=True)
-        self.requires("ktx/4.4.2", transitive_headers=True)
-        self.requires("stb/cci.20240531", transitive_headers=True)
+        self.requires("volk/1.3.296.0", transitive_headers=True, force=True)
+        self.requires("glfw/3.4", transitive_headers=True, force=True)
+        self.requires("imgui/1.92.7", transitive_headers=True, force=True)
+        self.requires("glm/1.0.1", transitive_headers=True, force=True)
+        self.requires("vulkan-memory-allocator/3.3.0", transitive_headers=True, force=True)
+        self.requires("glslang/11.7.0", transitive_headers=True, force=True)
+        self.requires("ktx/4.4.2", transitive_headers=True, force=True)
+        self.requires("stb/cci.20240531", transitive_headers=True, force=True)
 
     def layout(self):
         cmake_layout(self)

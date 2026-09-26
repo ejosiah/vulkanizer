@@ -215,7 +215,7 @@ namespace vkz {
         return size_;
     }
 
-    VkBuffer staging_buffer::borrowed_memory::source_buffer() const {
+    buffer staging_buffer::borrowed_memory::source_buffer() const {
         if (!valid()) {
             VKZ_THROW("Cannot access returned staging memory")
         }

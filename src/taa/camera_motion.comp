@@ -1,0 +1,19 @@
+#version 450
+#include "uniforms.glsl"
+layout(local_size_x = 8, local_size_y = 8) in;
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, ivec2(uniforms.resolution)))) {
+        return;
+    }
+    vec2 uv = (vec2(pixel) + 0.5) / uniforms.resolution;
+    vec2 ndc = uv * 2.0 - 1.0 - 2.0 * uniforms.jitter_xy / uniforms.resolution;
+    vec4 world = uniforms.inverse_current_view_projection * vec4(ndc, read_depth(pixel), 1.0);
+    // Keep homogeneous coordinates so an infinite far plane works for sky pixels.
+    vec4 previous = uniforms.previous_view_projection * world;
+    bool valid = uniforms.state.x != 0u && previous.w > 1e-8;
+    vec3 projected = valid ? previous.xyz / previous.w : vec3(0.0);
+    // UV displacement, with camera jitter excluded; history contains the reconstructed image.
+    imageStore(velocity_out, pixel, vec4((ndc - projected.xy) * 0.5, projected.z, valid ? 1.0 : 0.0));
+}

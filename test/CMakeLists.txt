@@ -92,3 +92,5 @@ target_compile_definitions(vulkanizer_camera_test PRIVATE
 if(WIN32)
     target_link_libraries(vulkanizer_camera_test PRIVATE windowscodecs ole32)
 endif()
+
+vulkanizer_add_test_executable(vulkanizer_taa_test taa.cpp)

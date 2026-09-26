@@ -17,12 +17,13 @@ The library currently provides:
 - Reusable staging-buffer memory with aligned borrowing, GPU transfer helpers, and explicit range returns
 - Descriptor-pool creation, allocation, freeing, resetting, and explicit cleanup
 - Descriptor, primitive, transform, CSM, and Dear ImGui utilities
+- Portable temporal anti-aliasing with camera motion, history rejection and configurable reconstruction filters
 
 ## Requirements
 
 - CMake 3.24 or newer
 - A C++20 compiler
-- Vulkan SDK, including `glslc` when building the tests
+- Vulkan SDK, including `glslc` to embed the TAA shaders
 - Conan 2
 
 The Conan recipe supplies Volk, GLFW, Dear ImGui, GLM, and Vulkan Memory Allocator.
@@ -178,3 +179,48 @@ On a Visual Studio Debug build, the camera example can be run with:
 ## License
 
 MIT
+
+## Temporal anti-aliasing
+
+Include `<vulkanizer/taa.hpp>`. Like CSM, TAA uses a handle and free functions;
+`vkz::taa::camera` contains only an unjittered view-projection matrix and a pixel
+jitter offset, with no dependency on Vulkanizer's camera controllers.
+
+```cpp
+auto taa = vkz::taa::create({
+    .device = device,
+    .memory_allocator = allocator,
+    .color = hdr_color,
+    .depth = scene_depth,
+    .in_flight_frames = frames_in_flight,
+});
+
+// Before drawing the scene:
+const auto offset = vkz::taa::jitter(frame);
+const auto raster_projection = vkz::taa::jitter_projection(projection, offset, extent);
+vkz::taa::update(taa, {.view_projection = projection * view, .jitter = offset}, frame);
+
+// After the scene and before tone mapping/UI, outside a render pass:
+// Transition/synchronize the inputs to the readable layouts supplied at creation.
+vkz::taa::resolve(taa, command_buffer);
+```
+
+Color and depth are borrowed, single-sample 2D textures with matching extents.
+Color must be RGBA16F or RGBA32F with sampled and transfer-destination usage;
+depth needs sampled usage. A color texture containing Vulkan [0,1] depth is also
+accepted; select its channel with `params::depth_channel`. Reverse-Z is not
+supported. Render every current-frame pixel; sparse Bayer cloud reconstruction
+requires a separate validity mask and is not provided by this resolve.
+
+The resolve writes back into the supplied color image and restores its layout.
+It owns its descriptors, samplers, camera uniforms, motion vectors and history.
+Shaders are embedded at build time, so applications need no runtime shader paths
+or bindless texture registry. Submit updates/resolves once per frame on a single
+graphics/compute queue that supports transfer operations.
+
+`configure` changes filtering and resets history. Use `reset` for camera cuts or
+scene changes. After finishing outstanding GPU work, use `resize` with replacement
+inputs or `destroy` to release the instance. Moving objects and animated cloud
+motion currently use camera-only reprojection; object motion vectors are not
+part of this API. `motion_vectors` returns a borrowed diagnostic texture in
+GENERAL layout (XY UV displacement, Z previous depth, W validity).

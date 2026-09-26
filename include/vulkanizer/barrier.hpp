@@ -39,8 +39,11 @@ namespace vkz::barrier {
     void compute_write_to_draw_indirect(VkCommandBuffer command_buffer);
     void compute_write_to_draw_indirect(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
+    void transfer_write_to_host_read(VkCommandBuffer command_buffer);
+
     void transfer_write_to_compute_read(VkCommandBuffer command_buffer);
     void transfer_write_to_compute_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
+    void transfer_write_to_compute_read_write(VkCommandBuffer command_buffer);
 
     void transfer_write_to_compute_write(VkCommandBuffer command_buffer);
     void transfer_write_to_compute_write(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
@@ -66,6 +69,7 @@ namespace vkz::barrier {
     void ray_trace_write_to_fragment_read(VkCommandBuffer command_buffer);
     void ray_trace_write_to_fragment_read(VkCommandBuffer command_buffer, std::initializer_list<buffer> buffers);
 
+    void prepare_draw(VkCommandBuffer command_buffer);
 
     void push(VkImage& image, VkImageSubresourceRange subresource_range,
                     VkPipelineStageFlags2 src_stage_mask,VkPipelineStageFlags2 dst_stage_mask,

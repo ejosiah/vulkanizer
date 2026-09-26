@@ -31,6 +31,7 @@ namespace vkz {
 
     inline void bind_descriptor_sets(VkCommandBuffer command_buffer, const pipeline& pipeline, std::span<const descriptor_set> descriptor_sets,
                                      uint32_t first_set = 0, std::span<const uint32_t> dynamic_offsets = {}) {
+        if(descriptor_sets.empty()) return;
         const auto sets = map_range(descriptor_sets, [](const auto& set) { return set.handle; });
         vkCmdBindDescriptorSets(command_buffer, pipeline.bind_point, pipeline.layout, first_set, static_cast<uint32_t>(sets.size()), sets.data(),
                                 static_cast<uint32_t>(dynamic_offsets.size()), dynamic_offsets.data());
@@ -352,7 +353,27 @@ namespace vkz {
         copy(command_buffer, texture.image, texture.image_view, dst_buffer);
     }
 
-    template <typename T> inline void update(VkCommandBuffer command_buffer, const buffer& buffer, const T& value) {
+    // Copy one complete 2D color subresource; layout transitions are tracked on both images.
+    inline void copy(VkCommandBuffer command_buffer, image &source, image &destination) {
+        VKZ_ASSERT(source.handle && destination.handle && source.handle != destination.handle, "distinct valid images are required");
+        VKZ_ASSERT(source.create_info.format == destination.create_info.format, "image copy formats must match");
+        VKZ_ASSERT(source.create_info.extent.width == destination.create_info.extent.width && source.create_info.extent.height == destination.create_info.extent.height,
+                   "image copy extents must match");
+        VKZ_ASSERT(source.create_info.imageType == VK_IMAGE_TYPE_2D && destination.create_info.imageType == VK_IMAGE_TYPE_2D, "image copy requires 2D images");
+        VKZ_ASSERT(source.create_info.samples == VK_SAMPLE_COUNT_1_BIT && destination.create_info.samples == VK_SAMPLE_COUNT_1_BIT, "image copy requires single-sample images");
+        VKZ_ASSERT((source.create_info.usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) && (destination.create_info.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT),
+                   "image copy requires transfer source/destination usage");
+        transition_for_transfer(command_buffer, source, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_2_TRANSFER_READ_BIT);
+        transition_for_transfer(command_buffer, destination, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+        const VkImageCopy region{
+            .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+            .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+            .extent = source.create_info.extent,
+        };
+        vkCmdCopyImage(command_buffer, source.handle, source.layout, destination.handle, destination.layout, 1, &region);
+    }
+
+    template <typename T> inline void update(VkCommandBuffer command_buffer, const buffer &buffer, const T &value) {
         static_assert(std::is_trivially_copyable_v<T>, "buffer update values must be trivially copyable");
         static_assert(sizeof(T) % 4 == 0, "buffer update sizes must be a multiple of four bytes");
         static_assert(sizeof(T) <= 65536, "buffer updates cannot exceed 65536 bytes");

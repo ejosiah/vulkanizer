@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(vulkanizer VERSION 0.0.34)
+project(vulkanizer VERSION 0.0.40)
 set(CMAKE_CXX_STANDARD 20)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -63,6 +63,30 @@ add_library(vulkanizer STATIC
         "${IMGUI_BINDINGS_DIR}/imgui_impl_glfw.cpp"
         "${IMGUI_BINDINGS_DIR}/imgui_impl_vulkan.cpp")
 add_library(vulkanizer::vulkanizer ALIAS vulkanizer)
+
+# Embed TAA SPIR-V so installed consumers need neither source paths nor runtime shader files.
+find_program(VULKANIZER_GLSLC glslc REQUIRED)
+set(TAA_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/taa")
+set(TAA_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/taa")
+file(MAKE_DIRECTORY "${TAA_GENERATED_DIR}")
+foreach(shader IN ITEMS camera_motion resolve resolve16)
+    set(source "${TAA_SHADER_DIR}/${shader}.comp")
+    set(defines)
+    if(shader STREQUAL "resolve16")
+        set(source "${TAA_SHADER_DIR}/resolve.comp")
+        set(defines -DTAA_RGBA16F)
+    endif()
+    set(spv "${TAA_GENERATED_DIR}/${shader}.spv")
+    set(header "${TAA_GENERATED_DIR}/${shader}.hpp")
+    add_custom_command(OUTPUT "${header}"
+        COMMAND "${VULKANIZER_GLSLC}" --target-env=vulkan1.1 ${defines} "${source}" -o "${spv}"
+        COMMAND "${CMAKE_COMMAND}" "-DINPUT=${spv}" "-DOUTPUT=${header}" "-DSYMBOL=taa_${shader}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+        DEPENDS "${source}" "${TAA_SHADER_DIR}/uniforms.glsl" "${TAA_SHADER_DIR}/resolve.glsl" "${TAA_SHADER_DIR}/filters.glsl" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+        VERBATIM)
+    target_sources(vulkanizer PRIVATE "${header}")
+endforeach()
+target_include_directories(vulkanizer PRIVATE "${TAA_GENERATED_DIR}")
+
 target_link_libraries(vulkanizer PUBLIC
         volk::volk
         glfw

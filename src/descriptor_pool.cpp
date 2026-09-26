@@ -130,4 +130,9 @@ namespace vkz {
     descriptor_pool::operator VkDescriptorPool() const {
         return _pool;
     }
+
+    std::vector<descriptor_set> descriptor_pool::allocate(std::initializer_list<descriptor_set_layout> layouts) {
+        std::vector<descriptor_set_layout> v_layouts(layouts.begin(), layouts.end());
+        return allocate(v_layouts);
+    }
 }

@@ -170,6 +170,8 @@ namespace vkz {
 
         descriptor_set allocate(descriptor_set_layout layout);
 
+        std::vector<descriptor_set> allocate(std::initializer_list<descriptor_set_layout> layouts);
+
         std::vector<descriptor_set> allocate_n(descriptor_set_layout layout, size_t count);
 
         void free(descriptor_set set);
