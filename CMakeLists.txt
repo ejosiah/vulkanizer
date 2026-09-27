@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(vulkanizer VERSION 0.0.40)
+project(vulkanizer VERSION 0.0.41)
 set(CMAKE_CXX_STANDARD 20)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -86,6 +86,24 @@ foreach(shader IN ITEMS camera_motion resolve resolve16)
     target_sources(vulkanizer PRIVATE "${header}")
 endforeach()
 target_include_directories(vulkanizer PRIVATE "${TAA_GENERATED_DIR}")
+
+# Software-paged virtual shadows: internal SPIR-V is embedded; the public GLSL integration
+# include is installed with the headers for application-owned deformation/material pipelines.
+set(SVSM_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/svsm")
+file(MAKE_DIRECTORY "${SVSM_GENERATED_DIR}")
+foreach(shader IN ITEMS manage.comp shadow.vert shadow.frag)
+    string(REPLACE "." "_" symbol "svsm_${shader}")
+    set(source "${CMAKE_CURRENT_SOURCE_DIR}/src/svsm/${shader}")
+    set(header "${SVSM_GENERATED_DIR}/${symbol}.hpp")
+    set(spv "${SVSM_GENERATED_DIR}/${shader}.spv")
+    add_custom_command(OUTPUT "${header}"
+        COMMAND "${VULKANIZER_GLSLC}" --target-env=vulkan1.3 -I "${CMAKE_CURRENT_SOURCE_DIR}/include" "${source}" -o "${spv}"
+        COMMAND "${CMAKE_COMMAND}" "-DINPUT=${spv}" "-DOUTPUT=${header}" "-DSYMBOL=${symbol}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+        DEPENDS "${source}" "${CMAKE_CURRENT_SOURCE_DIR}/include/vulkanizer/shaders/svsm.glsl" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+        VERBATIM)
+    target_sources(vulkanizer PRIVATE "${header}")
+endforeach()
+target_include_directories(vulkanizer PRIVATE "${SVSM_GENERATED_DIR}")
 
 target_link_libraries(vulkanizer PUBLIC
         volk::volk

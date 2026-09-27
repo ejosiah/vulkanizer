@@ -94,3 +94,34 @@ if(WIN32)
 endif()
 
 vulkanizer_add_test_executable(vulkanizer_taa_test taa.cpp)
+
+vulkanizer_add_test_executable(vulkanizer_svsm_test svsm.cpp)
+set(SVSM_TEST_SHADER_DIR "${CMAKE_CURRENT_BINARY_DIR}/svsm_shaders")
+file(MAKE_DIRECTORY "${SVSM_TEST_SHADER_DIR}")
+add_custom_command(OUTPUT "${SVSM_TEST_SHADER_DIR}/svsm_sample.comp.spv"
+    COMMAND "${GLSLC_EXECUTABLE}" --target-env=vulkan1.3 -I "${PROJECT_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/svsm_sample.comp" -o "${SVSM_TEST_SHADER_DIR}/svsm_sample.comp.spv"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/shaders/svsm_sample.comp" "${PROJECT_SOURCE_DIR}/include/vulkanizer/shaders/svsm.glsl"
+    VERBATIM)
+add_custom_target(vulkanizer_svsm_test_shaders DEPENDS "${SVSM_TEST_SHADER_DIR}/svsm_sample.comp.spv")
+add_dependencies(vulkanizer_svsm_test vulkanizer_svsm_test_shaders)
+target_compile_definitions(vulkanizer_svsm_test PRIVATE VKZ_SVSM_SHADER_DIR="${SVSM_TEST_SHADER_DIR}")
+
+# Large local assets are optional; build the viewer everywhere, run it explicitly with --obj.
+add_executable(vulkanizer_svsm_bistro svsm_bistro.cpp)
+target_link_libraries(vulkanizer_svsm_bistro PRIVATE vulkanizer)
+target_compile_definitions(vulkanizer_svsm_bistro PRIVATE
+    VKZ_SVSM_SHADER_DIR="${SVSM_TEST_SHADER_DIR}" VKZ_SVSM_RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources")
+set(BISTRO_SHADER_OUTPUTS)
+foreach(shader IN ITEMS bistro.vert bistro.frag bistro_depth.frag bistro_shadow.vert bistro_shadow.frag bistro_sky.vert bistro_sky.frag bistro_pages.frag)
+    set(output "${SVSM_TEST_SHADER_DIR}/${shader}.spv")
+    add_custom_command(OUTPUT "${output}"
+        COMMAND "${GLSLC_EXECUTABLE}" --target-env=vulkan1.3 -I "${PROJECT_SOURCE_DIR}/include"
+            "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}" -o "${output}"
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}" "${CMAKE_CURRENT_SOURCE_DIR}/shaders/bistro_common.glsl"
+            "${PROJECT_SOURCE_DIR}/include/vulkanizer/shaders/svsm.glsl"
+        VERBATIM)
+    list(APPEND BISTRO_SHADER_OUTPUTS "${output}")
+endforeach()
+add_custom_target(vulkanizer_bistro_shaders DEPENDS ${BISTRO_SHADER_OUTPUTS})
+add_dependencies(vulkanizer_svsm_bistro vulkanizer_bistro_shaders)

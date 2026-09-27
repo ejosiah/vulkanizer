@@ -1,0 +1,181 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#define SVSM_COMPUTE
+#include "vulkanizer/shaders/svsm.glsl"
+layout(local_size_x=64) in;
+struct Bounds { vec4 center; vec4 extent; uvec4 metadata; };
+struct Draw { uint indexCount; uint instanceCount; uint firstIndex; int vertexOffset; uint firstInstance; };
+layout(set=0,binding=3) uniform sampler2D receiverDepth;
+layout(std430,set=0,binding=4) readonly buffer Casters { Bounds casters[]; };
+layout(std430,set=0,binding=5) readonly buffer Changes { Bounds changes[]; };
+layout(std430,set=0,binding=6) buffer Hierarchy { uint hierarchy[]; };
+layout(std430,set=0,binding=8) readonly buffer Templates { Draw templates[]; };
+layout(std430,set=0,binding=9) buffer Commands { Draw commands[]; };
+layout(std430,set=0,binding=10) buffer Owners { uint owners[]; };
+layout(std430,set=0,binding=11) buffer Statistics {
+    uint requested; uint rendered; uint cached; uint missing;
+    uint resident; uint evicted; uint visible; uint reserved;
+} stats;
+layout(push_constant) uniform Control { uint mode; uint a; uint b; uint c; } control;
+
+bool boundsRect(Bounds bounds,uint level,out ivec2 lo,out ivec2 hi) {
+    vec3 center=(svsm.light[level]*vec4(bounds.center.xyz,1)).xyz;
+    mat3 m=mat3(svsm.light[level]);
+    vec3 extent=(mat3(abs(m[0]),abs(m[1]),abs(m[2]))*abs(bounds.extent.xyz));
+    // Malformed/unknown bounds must never cause false-negative culling.
+    if (any(isnan(center)) || any(isinf(center)) || any(isnan(extent)) || any(isinf(extent))) {
+        lo=ivec2(0); hi=ivec2(svsmPageCount()-1u); return true;
+    }
+    if (control.mode==6u && (center.z+extent.z<0.0 || center.z-extent.z>1.0)) return false;
+    vec2 minimum=(center.xy-extent.xy)*0.5+0.5;
+    vec2 maximum=(center.xy+extent.xy)*0.5+0.5;
+    float margin=1.0/float(svsm.config.x);
+    if (any(lessThan(maximum,vec2(-margin))) || any(greaterThan(minimum,vec2(1+margin)))) return false;
+    // Clamp before integer conversion to avoid overflow for huge world bounds.
+    lo=ivec2(floor(clamp(minimum-margin,0.0,1.0)*float(svsmPageCount())));
+    hi=ivec2(floor(clamp(maximum+margin,0.0,1.0)*float(svsmPageCount())));
+    lo=clamp(lo,ivec2(0),ivec2(svsmPageCount()-1u));
+    hi=clamp(hi,ivec2(0),ivec2(svsmPageCount()-1u));
+    return true;
+}
+uint hierarchyOffset(uint mip) {
+    uint offset=0u, n=svsmPageCount();
+    for (uint i=0u;i<mip;++i) { offset+=n*n; n/=2u; }
+    return offset;
+}
+bool overlapsScheduled(uint level,ivec2 lo,ivec2 hi) {
+    uint root=uint(findMSB(svsmPageCount()));
+    uvec3 stack[32]; uint count=1u, visits=0u;
+    stack[0]=uvec3(0,0,root);
+    while (count>0u) {
+        if (++visits>256u) return true; // Conservative bounded traversal.
+        uvec3 node=stack[--count];
+        ivec2 minimum=ivec2(node.xy<<node.z), maximum=minimum+ivec2((1u<<node.z)-1u);
+        if (any(greaterThan(minimum,hi)) || any(lessThan(maximum,lo))) continue;
+        uint n=svsmPageCount()>>node.z;
+        if (hierarchy[level*svsm.limits.z+hierarchyOffset(node.z)+node.y*n+node.x]==0u) continue;
+        if (node.z==0u) return true;
+        if (count+4u>32u) return true;
+        for (uint y=0u;y<2u;++y) for (uint x=0u;x<2u;++x)
+            stack[count++]=uvec3(node.xy*2u+uvec2(x,y),node.z-1u);
+    }
+    return false;
+}
+void main() {
+    uint i=gl_GlobalInvocationID.x, n=svsmPageCount(), total=n*n*svsm.config.z;
+    if (control.mode==0u) { // Reset transient state, retag entering clipmap strips.
+        if (i>=total) return;
+        uint level=i/(n*n), p=i%(n*n);
+        ivec2 wrapped=ivec2(p%n,p/n);
+        ivec2 local=(wrapped-(svsm.origin[level].xy & int(n-1u))) & int(n-1u);
+        ivec2 address=svsm.origin[level].xy+local;
+        if (svsm.work.z!=0u) {
+            svsmPages[i]=SvsmPage(address,SVSM_NONE,0u);
+        } else if (any(notEqual(svsmPages[i].address,address))) {
+            if ((svsmPages[i].flags & SVSM_RESIDENT)!=0u) owners[svsmPages[i].physical]=SVSM_NONE;
+            svsmPages[i]=SvsmPage(address,SVSM_NONE,0u);
+        } else {
+            svsmPages[i].flags &= SVSM_RESIDENT|SVSM_VALID|SVSM_DIRTY;
+            if (svsm.work.w==0u) svsmPages[i].flags=(svsmPages[i].flags & ~SVSM_VALID)|SVSM_DIRTY;
+        }
+        if (svsm.options.z!=0u) svsmPages[i].flags |= SVSM_REQUESTED;
+    } else if (control.mode==1u) { // Receiver requests; include ALL covering coarser levels.
+        ivec2 size=textureSize(receiverDepth,0);
+        ivec2 pixel=ivec2(i,gl_GlobalInvocationID.y);
+        if (pixel.x>=size.x || pixel.y>=size.y) return;
+        float depth=texelFetch(receiverDepth,pixel,0)[svsm.options.x];
+        if (isnan(depth) || isinf(depth) || depth==svsm.receiver.x) return;
+        vec2 uv=(vec2(pixel)+0.5)/vec2(size);
+        vec4 world=svsm.inverseViewProjection*vec4(uv*2.0-1.0,depth,1);
+        if (abs(world.w)<1e-20) return;
+        world/=world.w;
+        for (uint level=0u;level<svsm.config.z;++level) {
+            vec3 p=(svsm.light[level]*world).xyz;
+            vec2 texel=(p.xy*0.5+0.5)*float(svsm.config.x);
+            if (p.z<0.0 || p.z>1.0 || any(lessThan(texel,vec2(0))) || any(greaterThanEqual(texel,vec2(svsm.config.x)))) continue;
+            ivec2 lo=ivec2(floor((texel-float(svsm.options.y))/float(svsm.config.y)));
+            ivec2 hi=ivec2(floor((texel+float(svsm.options.y))/float(svsm.config.y)));
+            for (int y=lo.y;y<=hi.y;++y) for (int x=lo.x;x<=hi.x;++x) {
+                ivec2 address=svsm.origin[level].xy+ivec2(x,y);
+                if (svsmInside(level,address)) atomicOr(svsmPages[svsmPageIndex(level,address)].flags,SVSM_REQUESTED);
+            }
+        }
+    } else if (control.mode==2u) { // Invalidate old/new bounds; don't clip along light depth.
+        uint level=gl_GlobalInvocationID.y;
+        if (i>=svsm.work.y) return;
+        ivec2 lo,hi;
+        if (!boundsRect(changes[i],level,lo,hi)) return;
+        for (int y=lo.y;y<=hi.y;++y) for (int x=lo.x;x<=hi.x;++x) {
+            uint entry=svsmPageIndex(level,svsm.origin[level].xy+ivec2(x,y));
+            atomicOr(svsmPages[entry].flags,SVSM_DIRTY);
+            atomicAnd(svsmPages[entry].flags,~SVSM_VALID);
+        }
+    } else if (control.mode==3u) { // Deterministic GPU allocator, coarse first, no readback.
+        if (i!=0u) return;
+        uint cursor=0u; bool exhausted=false;
+        for (uint reverse=0u;reverse<total;++reverse) {
+            uint entry=total-1u-reverse;
+            SvsmPage page=svsmPages[entry];
+            if ((page.flags & SVSM_REQUESTED)==0u) continue;
+            ++stats.requested;
+            if ((page.flags & SVSM_VALID)!=0u) { ++stats.cached; continue; }
+            if (stats.rendered>=svsm.limits.x) { ++stats.missing; continue; }
+            if ((page.flags & SVSM_RESIDENT)==0u) {
+                if (exhausted) { ++stats.missing; continue; }
+                uint physical=SVSM_NONE;
+                for (uint attempt=0u;attempt<svsm.limits.y;++attempt) {
+                    uint candidate=cursor; cursor=(cursor+1u)%svsm.limits.y;
+                    uint owner=owners[candidate];
+                    if (owner==SVSM_NONE || (svsmPages[owner].flags & SVSM_REQUESTED)==0u || owner/(n*n)<entry/(n*n)) {
+                        if (owner!=SVSM_NONE) {
+                            svsmPages[owner].flags=(svsmPages[owner].flags & SVSM_REQUESTED)|SVSM_DIRTY;
+                            svsmPages[owner].physical=SVSM_NONE; ++stats.evicted;
+                        }
+                        physical=candidate; owners[candidate]=entry; break;
+                    }
+                }
+                if (physical==SVSM_NONE) { exhausted=true; ++stats.missing; continue; }
+                page.physical=physical;
+            }
+            page.flags=SVSM_RESIDENT|SVSM_REQUESTED|SVSM_SCHEDULED|SVSM_DIRTY;
+            svsmPages[entry]=page;
+            ++stats.rendered;
+        }
+        for (uint p=0u;p<svsm.limits.y;++p) if (owners[p]!=SVSM_NONE) ++stats.resident;
+    } else if (control.mode==4u) { // One workgroup per virtual page, only scheduled pages clear.
+        uint entry=gl_WorkGroupID.x+gl_WorkGroupID.y*n*n;
+        SvsmPage page=svsmPages[entry];
+        if ((page.flags & SVSM_SCHEDULED)==0u) return;
+        for (uint p=gl_LocalInvocationID.x;p<svsm.config.y*svsm.config.y;p+=64u)
+            imageStore(svsmPool,svsmPhysicalTexel(page.physical,ivec2(p%svsm.config.y,p/svsm.config.y)),uvec4(floatBitsToUint(1.0)));
+    } else if (control.mode==5u) { // OR hierarchy in UNWRAPPED clipmap-local page coordinates.
+        uint level=gl_GlobalInvocationID.y, width=control.c;
+        if (i>=width*width) return;
+        uint value=0u;
+        if (control.a==0u) {
+            uint entry=svsmPageIndex(level,svsm.origin[level].xy+ivec2(i%width,i/width));
+            value=(svsmPages[entry].flags & SVSM_SCHEDULED)!=0u ? 1u:0u;
+        } else {
+            uint source=level*svsm.limits.z+control.b+(i/width)*2u*(width*2u)+(i%width)*2u;
+            value=hierarchy[source]|hierarchy[source+1u]|hierarchy[source+width*2u]|hierarchy[source+width*2u+1u];
+        }
+        hierarchy[level*svsm.limits.z+control.a+i]=value;
+    } else if (control.mode==6u) { // Object-independent culling and optional draw adapter.
+        uint level=gl_GlobalInvocationID.y;
+        if (i>=svsm.work.x) return;
+        ivec2 lo,hi;
+        bool accepted=boundsRect(casters[i],level,lo,hi) && overlapsScheduled(level,lo,hi);
+        uint outputIndex=level*svsm.work.x+i;
+        svsmVisibility[outputIndex]=accepted ? 1u:0u;
+        if (accepted) atomicAdd(stats.visible,1u);
+        if (svsm.options.w!=0u) {
+            Draw command=templates[i];
+            if (!accepted) command.instanceCount=0u;
+            commands[outputIndex]=command;
+        }
+    } else if (control.mode==7u) { // Called only after all caster draws are recorded.
+        if (i>=total) return;
+        if ((svsmPages[i].flags & SVSM_SCHEDULED)!=0u)
+            svsmPages[i].flags=(svsmPages[i].flags & ~(SVSM_DIRTY|SVSM_SCHEDULED))|SVSM_VALID|SVSM_RENDERED;
+    }
+}

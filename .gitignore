@@ -1,4 +1,7 @@
 #resource files
+# Local large integration assets copied from the user's Bistro/Vista sources.
+/test/resources/bistro/
+/test/resources/svsm_skybox/
 **/*.dat
 **/*.vol
 

@@ -18,6 +18,7 @@ The library currently provides:
 - Descriptor-pool creation, allocation, freeing, resetting, and explicit cleanup
 - Descriptor, primitive, transform, CSM, and Dear ImGui utilities
 - Portable temporal anti-aliasing with camera motion, history rejection and configurable reconstruction filters
+- Software-paged sparse virtual shadow maps with GPU bounds culling, integer depth atomics, caching, and indirect draw integration
 
 ## Requirements
 
@@ -224,3 +225,11 @@ inputs or `destroy` to release the instance. Moving objects and animated cloud
 motion currently use camera-only reprojection; object motion vectors are not
 part of this API. `motion_vectors` returns a borrowed diagnostic texture in
 GENERAL layout (XY UV displacement, Z previous depth, W validity).
+
+## Sparse virtual shadow maps
+
+Include `<vulkanizer/svsm.hpp>`. See [the SVSM integration guide](docs/svsm.md)
+for the bounds ABI, shader integration, cache invalidation, synchronization, and
+the tinyobjloader Bistro viewer. Build `vulkanizer_svsm_test` for GPU regression
+coverage or `vulkanizer_svsm_bistro` for the interactive scene. Large Bistro and
+Vista skybox assets are local test resources and are not included in Git.
