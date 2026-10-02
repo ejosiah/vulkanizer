@@ -9,8 +9,10 @@ The library currently provides:
 - A reusable GLFW-based `vulkan_app`
 - Spectator, first-person, and orbit camera controllers
 - A standalone GLFW input adaptor with combined keyboard, mouse, and gamepad input
-- Graphics and compute pipeline builders
+- Graphics, compute, and ray-tracing pipeline builders
+- Owning ray-tracing pipelines with named shader binding tables and per-record payloads
 - In-process inline GLSL compilation through glslang
+- Core glTF graphics and single-hit ray tracing reference pipelines via `vulkanizer/reference.hpp`, with shared shading, optional IBL and cmrc-embedded shaders
 - Dynamic rendering and synchronization helpers
 - Command pools, scoped command buffers, ring fences, and batched queue submission
 - Vulkan Memory Allocator-backed buffers and images with explicit cleanup and non-owning allocator support
@@ -19,6 +21,20 @@ The library currently provides:
 - Descriptor, primitive, transform, CSM, and Dear ImGui utilities
 - Portable temporal anti-aliasing with camera motion, history rejection and configurable reconstruction filters
 - Software-paged sparse virtual shadow maps with GPU bounds culling, integer depth atomics, caching, and indirect draw integration
+
+See [ray-tracing pipelines and the Stanford Bunny SBT demo](docs/ray_tracing.md) for the builder DSL and test executable. The [mesh reference integration guide](docs/reference_ray_tracing.md) covers the glTF pipelines, IOR/transmission with up to eight secondary bounces, and optional environment lighting. `vulkanizer/ibl.hpp` generates environment, irradiance and specular cubemaps from HDR images; IORTestGrid enables it by default (`--no-ibl` disables it).
+
+## Mesh file layout
+
+The `.vkmesh` v4 cache stores geometry, instances, placed lights, and embedded
+KTX2 images in the order shown below. The diagram uses TCP/IP-style field rows;
+the file itself uses native byte order, not network byte order. Variable-length
+blocks are collapsed, and record sizes reflect the current native ABI.
+
+![TCP/IP-style diagram of the .vkmesh v4 binary layout](docs/images/vkmesh-layout.svg)
+
+See [mesh format documentation](docs/mesh.md#storage) for details and the
+`.vkmat` and `.vkbounds` companion files.
 
 ## Requirements
 
@@ -61,6 +77,23 @@ conan create . --build=missing
 ```
 
 This repository currently produces `vulkanizer/0.0.19`.
+
+### CLion Debug and Release build directories
+
+Each build directory needs its own Conan dependencies. Run both installs after
+changing `conanfile.py` (for example, when adding TinyGLTF), then configure and
+build both configurations:
+
+```powershell
+conan install . --output-folder=cmake-build-debug --build=missing -s build_type=Debug
+conan install . --output-folder=cmake-build-release --build=missing -s build_type=Release
+cmake -S . -B cmake-build-debug -G "Visual Studio 17 2022" -DVULKANIZER_BUILD_TESTS=ON
+cmake -S . -B cmake-build-release -G "Visual Studio 17 2022" -DVULKANIZER_BUILD_TESTS=ON
+cmake --build cmake-build-debug --config Debug --parallel 4
+cmake --build cmake-build-release --config Release --parallel 4
+```
+
+CMake discovers the generated packages under each directory's `build/generators`.
 
 ## Use from CMake
 
@@ -233,3 +266,10 @@ for the bounds ABI, shader integration, cache invalidation, synchronization, and
 the tinyobjloader Bistro viewer. Build `vulkanizer_svsm_test` for GPU regression
 coverage or `vulkanizer_svsm_bistro` for the interactive scene. Large Bistro and
 Vista skybox assets are local test resources and are not included in Git.
+
+`vulkanizer_glass_vase_flowers_test` exercises volume refraction with the orbit camera and shared IBL. Use `--ray-traced` to select ray tracing; the default uses graphics with ray queries. Both support Beer absorption and retain the eight-secondary-bounce limit.
+
+
+The reference pipelines support texture transforms, punctual lights, specular, emissive strength, unlit, clearcoat, sheen, anisotropy, iridescence and dispersion. Run `vulkanizer_material_extensions_test --scene ClearCoatTest` or add `--ray-traced` to compare the paths. See [extension integration and sample scenes](docs/reference_ray_tracing.md#material-extensions) for the material/light ABI and available scenes.
+
+Use the [sample model scripts](test/mesh/scripts/README.md) to convert missing Khronos sample assets and render any converted model with the reference test.

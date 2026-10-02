@@ -4,8 +4,16 @@
 
 #include <filesystem>
 #include <vector>
+#include <span>
+
+namespace vkz::mesh { struct sampler; }
 
 namespace vkz {
+
+    // Load an embedded KTX payload and apply the sampler description saved in .vkmat.
+    [[nodiscard]] texture texture_from_ktx(std::span<const uint8_t> bytes, vma_memory_allocator& allocator,
+                                          VkQueue upload_queue, uint32_t upload_queue_family,
+                                          const mesh::sampler& settings, bool enable_anisotropy = false);
 
     [[nodiscard]] texture texture_from_ktx(const std::filesystem::path& path, vma_memory_allocator& allocator,
                                            VkQueue upload_queue, uint32_t upload_queue_family, VkSamplerAddressMode address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,

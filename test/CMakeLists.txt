@@ -125,3 +125,5 @@ foreach(shader IN ITEMS bistro.vert bistro.frag bistro_depth.frag bistro_shadow.
 endforeach()
 add_custom_target(vulkanizer_bistro_shaders DEPENDS ${BISTRO_SHADER_OUTPUTS})
 add_dependencies(vulkanizer_svsm_bistro vulkanizer_bistro_shaders)
+
+add_subdirectory(mesh)

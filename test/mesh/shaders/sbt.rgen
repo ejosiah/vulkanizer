@@ -1,0 +1,31 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+layout(set = 0, binding = 0) uniform accelerationStructureEXT scene;
+layout(set = 0, binding = 1, rgba32f) uniform writeonly image2D output_image;
+layout(set = 0, binding = 2) uniform camera_data {
+    mat4 view_inverse;
+    mat4 projection_inverse;
+} camera;
+layout(push_constant) uniform parameters {
+    uint cull_mask;
+    uint ray_offset;
+    uint ray_stride;
+    uint miss_index;
+    uint vertex_stride;
+    uint normal_offset;
+    uint vertex_offset;
+    uint index_offset;
+    uint flat_color;
+};
+layout(constant_id = 0) const float exposure = 1.0;
+layout(location = 0) rayPayloadEXT vec3 hit_value;
+void main() {
+    vec2 uv = (vec2(gl_LaunchIDEXT.xy) + 0.5) / vec2(gl_LaunchSizeEXT.xy);
+    vec2 ndc = uv * 2.0 - 1.0;
+    vec3 origin = (camera.view_inverse * vec4(0, 0, 0, 1)).xyz;
+    vec3 target = (camera.projection_inverse * vec4(ndc, 1, 1)).xyz;
+    vec3 direction = normalize((camera.view_inverse * vec4(normalize(target), 0)).xyz);
+    hit_value = vec3(0);
+    traceRayEXT(scene, gl_RayFlagsOpaqueEXT, cull_mask, ray_offset, ray_stride, miss_index, origin, 0.001, direction, 1000.0, 0);
+    imageStore(output_image, ivec2(gl_LaunchIDEXT.xy), vec4(hit_value * exposure, 1));
+}

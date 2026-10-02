@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.24)
+project(vulkanizer_reference_client LANGUAGES CXX)
+find_package(vulkanizer CONFIG REQUIRED)
+add_executable(reference_client main.cpp)
+target_compile_features(reference_client PRIVATE cxx_std_20)
+target_link_libraries(reference_client PRIVATE vulkanizer::vulkanizer)
+enable_testing()
+add_test(NAME reference_client COMMAND reference_client)

@@ -2,7 +2,9 @@
 
 #include "context.hpp"
 #include "memory.hpp"
+#include "profiler.hpp"
 #include "texture.hpp"
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <glm/glm.hpp>
@@ -15,6 +17,10 @@
  * Returned Vulkan resources are borrowed and remain owned by the instance.
  */
 namespace vkz::svsm {
+    /** @brief Register these queries on an optional frame profiler before recording any GPU work. */
+    inline constexpr std::array<const char *, 9> profiling_queries{"SVSM reset",      "SVSM requests", "SVSM invalidation",
+                                                                   "SVSM allocation", "SVSM clear",    "SVSM hierarchy",
+                                                                   "SVSM culling",    "SVSM publish",  "SVSM capture"};
     /** @brief Shadow-map instance handle. */
     using id = uint32_t;
     /** @brief Maximum supported number of clipmap levels. */
@@ -111,6 +117,12 @@ namespace vkz::svsm {
         bool request_all_pages{false};
         /** @brief Invalidate the cache for camera cuts, world rebasing, or unreported scene changes. */
         bool reset_cache{false};
+        /**
+         * @brief Optional borrowed GPU profiler with profiling_queries already registered.
+         * Use a separate profiler per in-flight slot, and commit only after its submission
+         * completes. Keep it alive through end(). A null pointer disables instrumentation.
+         */
+        vkz::profiler *gpu_profiler{};
     };
 
     /** @brief Default opaque pipeline push constants; custom pipelines may use their own layout. */

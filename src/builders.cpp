@@ -11,3 +11,7 @@ vkz::compute_pipeline_builder vkz::make_compute_pipeline_builder(vkz::device dev
 vkz::descriptor_set_layout_builder vkz::make_descriptor_set_layout_builder(vkz::device device) {
     return vkz::descriptor_set_layout_builder(device);
 }
+
+vkz::ray_tracing_pipeline_builder vkz::make_ray_tracing_pipeline_builder(vma_memory_allocator& allocator) {
+    return ray_tracing_pipeline_builder{allocator};
+}

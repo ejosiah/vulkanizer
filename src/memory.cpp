@@ -86,12 +86,13 @@ namespace vkz {
         }
     }
 
-    vma_memory_allocator vma_memory_allocator::create(const context& context) {
+    vma_memory_allocator vma_memory_allocator::create(const context& context, VmaAllocatorCreateFlags flags) {
         vma_memory_allocator result{};
         result.instance = context.instance;
         result.device = context.device;
 
         VmaAllocatorCreateInfo create_info{};
+        create_info.flags = flags;
         create_info.vulkanApiVersion = context.api_version;
         create_info.instance = result.instance;
         create_info.physicalDevice = result.device;

@@ -2,10 +2,12 @@
 
 #include <volk.h>
 
+#include <glm/glm.hpp>
+
 #include <cinttypes>
 #include <concepts>
 #include <vector>
-#include <glm/glm.hpp>
+#include <filesystem>
 
 namespace vkz {
     using real = float;
@@ -27,6 +29,8 @@ namespace vkz {
     using color = glm::vec4;
     using icolor = glm::ivec4;
     using ucolor = glm::uvec4;
+
+    using path = std::filesystem::path;
 
     template <typename T>
     concept vulkan_structure =

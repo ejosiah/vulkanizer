@@ -44,7 +44,7 @@ namespace vkz {
         }
     };
 
-    struct mesh {
+    struct mesh_buffers {
         buffer vertex_buffer;
         std::optional<buffer> index_buffer;
         VkIndexType index_type{VK_INDEX_TYPE_UINT32};
@@ -143,7 +143,7 @@ namespace vkz {
         device device;
         VmaAllocator allocator{VK_NULL_HANDLE};
 
-        static vma_memory_allocator create(const context& context);
+        static vma_memory_allocator create(const context& context, VmaAllocatorCreateFlags flags = 0);
 
         static vma_memory_allocator create_not_owned(VmaAllocator allocator);
 

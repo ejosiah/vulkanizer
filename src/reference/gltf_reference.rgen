@@ -1,0 +1,45 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_GOOGLE_include_directive : require
+#include "gltf_ray_scene.glsl"
+layout(set = 0, binding = 5) uniform accelerationStructureEXT scene_bvh;
+layout(set = 0, binding = 6, rgba32f) uniform image2D output_image;
+layout(location = 0) rayPayloadEXT gltf_ray_payload payload;
+void main() {
+    uint sample_count = clamp(reference.sampling.z, 1u, 32u);
+    uint seed = gltf_hash(gl_LaunchIDEXT.x + gl_LaunchSizeEXT.x * gl_LaunchIDEXT.y) ^ gltf_hash(reference.sampling.x);
+    vec2 shift = vec2(gltf_hash(seed), gltf_hash(seed ^ 0x9e3779b9u)) * (1.0 / 4294967296.0);
+    vec4 sum = vec4(0);
+    for (uint i = 0; i < sample_count; ++i) {
+        vec2 jitter = sample_count == 1 ? vec2(0.5) : fract(vec2(float(i) / float(sample_count), float(bitfieldReverse(i)) * (1.0 / 4294967296.0)) + shift);
+        vec2 ndc = (vec2(gl_LaunchIDEXT.xy) + jitter) / vec2(gl_LaunchSizeEXT.xy) * 2.0 - 1.0;
+        vec4 near_point = reference.inverse_view_projection * vec4(ndc, 0, 1);
+        vec4 far_point = reference.inverse_view_projection * vec4(ndc, 1, 1);
+        uint channel_count = reference.scene.vertex_layout.z != 0 ? 3u : 1u;
+        for (uint channel = 0u; channel < channel_count; ++channel) {
+        vec3 origin = near_point.xyz / near_point.w;
+        vec3 direction = normalize(far_point.xyz / far_point.w - origin);
+        payload.sample_index = i;
+        payload.volume.count = 0;
+        payload.volume.channel = channel_count == 3u ? int(channel) : 1;
+        vec3 radiance = vec3(0), weight = vec3(1);
+        float alpha = 1.0;
+        for (uint bounce = 0; bounce <= min(reference.sampling.w, 8u); ++bounce) {
+            payload.bounce = bounce;
+            traceRayEXT(scene_bvh, gl_RayFlagsCullBackFacingTrianglesEXT, reference.sampling.y, 0, 0, 0,
+                        origin, reference.ray_parameters.x, direction, reference.ray_parameters.y, 0);
+            if (bounce == 0u) alpha = payload.radiance.a;
+            radiance += weight * payload.radiance.rgb;
+            weight *= payload.weight;
+            if (max(weight.r, max(weight.g, weight.b)) < 1e-5) break;
+            origin = payload.origin;
+            direction = payload.direction;
+        }
+        if (channel_count == 3u) {
+            sum[channel] += radiance[channel];
+            sum.a += alpha / 3.0;
+        } else sum += vec4(radiance, alpha);
+        }
+    }
+    imageStore(output_image, ivec2(gl_LaunchIDEXT.xy), sum / float(sample_count));
+}

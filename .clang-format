@@ -1,0 +1,19 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 200
+NamespaceIndentation: All
+FixNamespaceComments: true
+SeparateDefinitionBlocks: Always
+SortIncludes: Never
+AllowShortBlocksOnASingleLine: Never
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortLambdasOnASingleLine: None
+AllowShortLoopsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: WithoutElse
+# Project rule: if and if/else bodies always use braces, except a single continue or break may remain on the same line.
+# Project rule: content within braces always starts on the following line.
+# Project rule: DSL builder chains are vertically formatted, with every nested expression and chained call indented on its own line.
+# Project rule: place all class/struct data members at the end of the definition, after methods; group related members together and separate groups with blank lines.
+# Project rule: declare each class/struct data member in its own declaration, even when types match. Comma-separated variable declarations are only acceptable inside function bodies.
+# These member organization rules require manual enforcement; clang-format does not move or split data member declarations.

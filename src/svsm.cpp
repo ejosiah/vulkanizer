@@ -285,9 +285,8 @@ namespace vkz::svsm {
                 const auto &depth = f.depth.image.create_info;
                 if (!f.depth.image.handle || !f.depth.image_view.handle || !depth.extent.width || !depth.extent.height ||
                     !receiver_format(f.depth.image_view.create_info.format) ||
-                    f.depth.image_view.create_info.viewType != VK_IMAGE_VIEW_TYPE_2D ||
-                    depth.imageType != VK_IMAGE_TYPE_2D || depth.samples != VK_SAMPLE_COUNT_1_BIT ||
-                    !(depth.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ||
+                    f.depth.image_view.create_info.viewType != VK_IMAGE_VIEW_TYPE_2D || depth.imageType != VK_IMAGE_TYPE_2D ||
+                    depth.samples != VK_SAMPLE_COUNT_1_BIT || !(depth.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ||
                     (f.depth.image.layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL &&
                      f.depth.image.layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL &&
                      f.depth.image.layout != VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL && f.depth.image.layout != VK_IMAGE_LAYOUT_GENERAL) ||
@@ -372,18 +371,18 @@ namespace vkz::svsm {
                 vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_.layout, 0, 1, &s.set.handle, 0, nullptr);
                 dispatch(cmd, 0, (total_ + 63) / 64);
                 dispatch(cmd, 1, (depth.extent.width + 63) / 64, depth.extent.height);
-                if (f.invalidation_count)
-                    dispatch(cmd, 2, (f.invalidation_count + 63) / 64, p_.clipmap_count);
+                dispatch(cmd, 2, (f.invalidation_count + 63) / 64, p_.clipmap_count);
                 dispatch(cmd, 3, 1);
                 dispatch(cmd, 4, n_ * n_, p_.clipmap_count);
-                uint32_t offset = 0, previous = 0;
-                for (uint32_t width = n_; width; width /= 2) {
-                    dispatch(cmd, 5, (width * width + 63) / 64, p_.clipmap_count, {offset, previous, width});
-                    previous = offset;
-                    offset += width * width;
-                }
-                if (f.caster_count)
-                    dispatch(cmd, 6, (f.caster_count + 63) / 64, p_.clipmap_count);
+                timed(cmd, 5, [&] {
+                    uint32_t offset = 0, previous = 0;
+                    for (uint32_t width = n_; width; width /= 2) {
+                        dispatch(cmd, 5, (width * width + 63) / 64, p_.clipmap_count, {offset, previous, width});
+                        previous = offset;
+                        offset += width * width;
+                    }
+                });
+                dispatch(cmd, 6, (f.caster_count + 63) / 64, p_.clipmap_count);
                 synchronize(cmd, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
                             VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT,
                             VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
@@ -395,40 +394,57 @@ namespace vkz::svsm {
                 last_min_ = f.light_depth_min;
                 last_max_ = f.light_depth_max;
             }
+            template <typename Body> void timed(VkCommandBuffer cmd, uint32_t stage, Body &&body) {
+                if (input_.gpu_profiler)
+                    input_.gpu_profiler->profile(profiling_queries[stage], cmd, std::forward<Body>(body),
+                                                 VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+                else
+                    body();
+            }
             void dispatch(VkCommandBuffer cmd, uint32_t mode, uint32_t x, uint32_t y = 1, glm::uvec3 args = {}) {
-                glm::uvec4 push{mode, args.x, args.y, args.z};
-                vkCmdPushConstants(cmd, compute_.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, 16, &push);
-                vkCmdDispatch(cmd, x, y, 1);
-                compute_barrier(cmd);
+                auto body = [&] {
+                    if (!x || !y)
+                        return;
+                    glm::uvec4 push{mode, args.x, args.y, args.z};
+                    vkCmdPushConstants(cmd, compute_.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, 16, &push);
+                    vkCmdDispatch(cmd, x, y, 1);
+                    compute_barrier(cmd);
+                };
+                if (mode == 5)
+                    body();
+                else
+                    timed(cmd, mode, body);
             }
             void capture(VkCommandBuffer cmd, const std::function<void(const render_context &)> &draw) {
                 if (state_ != 1 || cmd != command_ || !draw)
                     throw std::logic_error("SVSM capture must follow begin on the same command buffer");
-                auto &s = slots_[slot_];
-                for (uint32_t level = 0; level < p_.clipmap_count; ++level) {
-                    VkRenderingInfo rendering{VK_STRUCTURE_TYPE_RENDERING_INFO};
-                    rendering.renderArea.extent = {p_.virtual_resolution, p_.virtual_resolution};
-                    rendering.layerCount = 1;
-                    vkCmdBeginRendering(cmd, &rendering);
-                    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_);
-                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_layout_, 0, 1, &s.set.handle, 0, nullptr);
-                    draw_constants constants{};
-                    constants.clipmap = level;
-                    constants.use_visibility = 0;
-                    vkCmdPushConstants(cmd, graphics_layout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                       sizeof(constants), &constants);
-                    try {
-                        draw({cmd, level, current_.light[level], s.set.handle, graphics_layout_, s.visibility,
-                              input_.indexed_draws._ ? s.draws : buffer{}, VkDeviceSize(level) * input_.caster_count * 20,
-                              input_.caster_count});
-                    } catch (...) {
+                timed(cmd, 8, [&] {
+                    auto &s = slots_[slot_];
+                    for (uint32_t level = 0; level < p_.clipmap_count; ++level) {
+                        VkRenderingInfo rendering{VK_STRUCTURE_TYPE_RENDERING_INFO};
+                        rendering.renderArea.extent = {p_.virtual_resolution, p_.virtual_resolution};
+                        rendering.layerCount = 1;
+                        vkCmdBeginRendering(cmd, &rendering);
+                        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_);
+                        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_layout_, 0, 1, &s.set.handle, 0, nullptr);
+                        draw_constants constants{};
+                        constants.clipmap = level;
+                        constants.use_visibility = 0;
+                        vkCmdPushConstants(cmd, graphics_layout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                           sizeof(constants), &constants);
+                        try {
+                            draw({cmd, level, current_.light[level], s.set.handle, graphics_layout_, s.visibility,
+                                  input_.indexed_draws._ ? s.draws : buffer{}, VkDeviceSize(level) * input_.caster_count * 20,
+                                  input_.caster_count});
+                        } catch (...) {
+                            vkCmdEndRendering(cmd);
+                            state_ = 0;
+                            reset_ = true;
+                            throw;
+                        }
                         vkCmdEndRendering(cmd);
-                        state_ = 0;
-                        reset_ = true;
-                        throw;
                     }
-                    vkCmdEndRendering(cmd);
-                }
+                });
                 state_ = 2;
             }
             void end(VkCommandBuffer cmd) {

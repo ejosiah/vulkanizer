@@ -2,6 +2,7 @@
 
 #include "../memory.hpp"
 #include "../pipeline.hpp"
+#include "../ray_tracing_pipeline.hpp"
 #include "../status.hpp"
 #include "../texture.hpp"
 #include "../barrier.hpp"
@@ -13,6 +14,7 @@
 #include <initializer_list>
 #include <limits>
 #include <span>
+#include <string_view>
 #include <type_traits>
 
 namespace vkz {
@@ -86,7 +88,7 @@ namespace vkz {
         vkCmdBindIndexBuffer(command_buffer, buffer._, 0, vk_index_type);
     }
 
-    inline void bind_mesh(VkCommandBuffer command_buffer, const mesh& mesh) {
+    inline void bind_mesh(VkCommandBuffer command_buffer, const mesh_buffers& mesh) {
         bind_vertex_buffer(command_buffer, mesh.vertex_buffer);
         if (mesh.index_buffer.has_value()) {
             vkCmdBindIndexBuffer(command_buffer, mesh.index_buffer->_, 0, mesh.index_type);
@@ -125,6 +127,11 @@ namespace vkz {
         vkCmdDrawIndexedIndirectCount(command_buffer, indirect_buffer._, offset, count_buffer._, count_offset, max_draw_count, stride);
     }
 
+    inline void trace_ray(VkCommandBuffer command_buffer, const ray_tracing_pipeline &pipeline, uint32_t width, uint32_t height, std::string_view ray_gen_name = "primary") {
+        const auto &ray_generation = pipeline.sbt.ray_generation(ray_gen_name);
+        vkCmdTraceRaysKHR(command_buffer, &ray_generation, &pipeline.sbt.miss, &pipeline.sbt.hit, &pipeline.sbt.callable, width, height, 1);
+    }
+
     inline void dispatch(VkCommandBuffer command_buffer, uint32_t group_count_x, uint32_t group_count_y = 1, uint32_t group_count_z = 1) {
         vkCmdDispatch(command_buffer, group_count_x, group_count_y, group_count_z);
     }
@@ -153,7 +160,7 @@ namespace vkz {
     }
 #endif
 
-    inline void bind_and_draw(VkCommandBuffer command_buffer, const mesh& mesh, uint instance_count = 1) {
+    inline void bind_and_draw(VkCommandBuffer command_buffer, const mesh_buffers& mesh, uint instance_count = 1) {
         bind_mesh(command_buffer, mesh);
         if (mesh.index_buffer.has_value()) {
             VkDeviceSize index_size{};

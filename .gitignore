@@ -131,3 +131,8 @@ doc
 **/*.mp4
 **/*.mov
 **/*.h264
+**/__pycache__/
+/test/mesh/resources/models/
+/test/mesh/resources/**/*.vkmesh
+/test/mesh/resources/**/*.vkmat
+/test/mesh/resources/**/*.vkbounds

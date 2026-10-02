@@ -3,6 +3,7 @@
 #include "vulkanizer/barrier.hpp"
 #include "vulkanizer/commands.hpp"
 #include "vulkanizer/status.hpp"
+#include "vulkanizer/mesh.hpp"
 
 #include <ktxvulkan.h>
 
@@ -10,6 +11,7 @@
 #include <cstring>
 #include <filesystem>
 #include <format>
+#include <fstream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -161,15 +163,10 @@ namespace {
 }
 
 namespace vkz {
-    texture texture_from_ktx(const std::filesystem::path& path,vma_memory_allocator& allocator,VkQueue upload_queue,
-                             uint32_t upload_queue_family,VkSamplerAddressMode address_mode,bool enable_anisotropy) {
-        const std::string file_path = path.string();
-        ktxTexture* raw_texture{};
-        check_ktx(
-            ktxTexture_CreateFromNamedFile(
-                file_path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &raw_texture),
-            std::format("loading KTX texture {}", file_path));
-        ktx_texture_ptr source{raw_texture};
+    static texture upload_ktx(ktx_texture_ptr source, vma_memory_allocator& allocator, VkQueue upload_queue,
+                             uint32_t upload_queue_family, VkSamplerAddressMode address_mode, bool enable_anisotropy,
+                             const mesh::sampler* settings) {
+        const std::string file_path = "KTX payload";
 
         if (ktxTexture_NeedsTranscoding(source.get())) {
             if (source->classId != ktxTexture2_c) {
@@ -240,7 +237,7 @@ namespace vkz {
                 VKZ_COUNT(regions), regions.data());
 
             barrier::push_and_flush(command_buffer, result.image, range, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                    VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                    VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                                     VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_READ_BIT,
                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             commands.submit_and_wait(command_buffer);
@@ -261,13 +258,15 @@ namespace vkz {
                 max_anisotropy = properties.limits.maxSamplerAnisotropy;
             }
             result.sampler = sampler::builder(device)
-                .mag_filter(integral ? VK_FILTER_NEAREST : VK_FILTER_LINEAR)
-                .min_filter(integral ? VK_FILTER_NEAREST : VK_FILTER_LINEAR)
-                .mipmap_mode(integral ? VK_SAMPLER_MIPMAP_MODE_NEAREST : VK_SAMPLER_MIPMAP_MODE_LINEAR)
-                .address_mode(address_mode)
+                .mag_filter(integral ? VK_FILTER_NEAREST : settings ? settings->mag_filter : VK_FILTER_LINEAR)
+                .min_filter(integral ? VK_FILTER_NEAREST : settings ? settings->min_filter : VK_FILTER_LINEAR)
+                .mipmap_mode(integral ? VK_SAMPLER_MIPMAP_MODE_NEAREST : settings ? settings->mipmap_mode : VK_SAMPLER_MIPMAP_MODE_LINEAR)
+                .address_mode_u(settings ? settings->wrap_s : address_mode)
+                .address_mode_v(settings ? settings->wrap_t : address_mode)
+                .address_mode_w(settings ? VK_SAMPLER_ADDRESS_MODE_REPEAT : address_mode)
                 .anisotropy(enable_anisotropy, max_anisotropy)
                 .min_lod(0.0f)
-                .max_lod(static_cast<float>(levels - 1))
+                .max_lod(settings && !settings->use_mipmaps ? 0.0f : static_cast<float>(levels - 1))
                 .border_color(VK_BORDER_COLOR_INT_OPAQUE_BLACK)
                 .build();
         } catch (...) {
@@ -278,6 +277,27 @@ namespace vkz {
 
         staging.destroy();
         return result;
+    }
+
+    texture texture_from_ktx(std::span<const uint8_t> bytes, vma_memory_allocator& allocator, VkQueue upload_queue,
+                             uint32_t upload_queue_family, const mesh::sampler& settings, bool enable_anisotropy) {
+        ktxTexture* raw{};
+        check_ktx(ktxTexture_CreateFromMemory(bytes.data(), bytes.size(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &raw), "loading embedded KTX");
+        return upload_ktx(ktx_texture_ptr{raw}, allocator, upload_queue, upload_queue_family,
+                          VK_SAMPLER_ADDRESS_MODE_REPEAT, enable_anisotropy, &settings);
+    }
+
+    texture texture_from_ktx(const std::filesystem::path& path, vma_memory_allocator& allocator, VkQueue upload_queue,
+                             uint32_t upload_queue_family, VkSamplerAddressMode address_mode, bool enable_anisotropy) {
+        std::ifstream file(path, std::ios::binary | std::ios::ate);
+        const auto length = file.tellg();
+        if (!file || length <= 0) throw std::runtime_error("Cannot open KTX texture");
+        std::vector<uint8_t> bytes(static_cast<size_t>(length));
+        file.seekg(0); file.read(reinterpret_cast<char*>(bytes.data()), length);
+        if (!file) throw std::runtime_error("Cannot read KTX texture");
+        ktxTexture* raw{};
+        check_ktx(ktxTexture_CreateFromMemory(bytes.data(), bytes.size(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &raw), "loading KTX texture");
+        return upload_ktx(ktx_texture_ptr{raw}, allocator, upload_queue, upload_queue_family, address_mode, enable_anisotropy, nullptr);
     }
 
     namespace ktx {

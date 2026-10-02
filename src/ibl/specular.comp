@@ -1,0 +1,43 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "common.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform samplerCube environment_map;
+layout(set = 0, binding = 1, rgba32f) writeonly uniform imageCube specular_map;
+layout(push_constant) uniform Constants { float roughness; } constants;
+
+const uint sample_count = 256u;
+
+vec3 importance_sample_ggx(vec2 xi, vec3 normal, float roughness) {
+    float alpha = roughness * roughness;
+    float phi = 2.0 * pi * xi.x;
+    float cos_theta = sqrt((1.0 - xi.y) / (1.0 + (alpha * alpha - 1.0) * xi.y));
+    float sin_theta = sqrt(max(0.0, 1.0 - cos_theta * cos_theta));
+    vec3 tangent;
+    vec3 bitangent;
+    tangent_basis(normal, tangent, bitangent);
+    return normalize(tangent * (cos(phi) * sin_theta)
+        + bitangent * (sin(phi) * sin_theta) + normal * cos_theta);
+}
+
+void main() {
+    ivec3 texel = ivec3(gl_GlobalInvocationID);
+    ivec2 size = imageSize(specular_map);
+    if (any(greaterThanEqual(texel.xy, size)) || texel.z >= 6) return;
+
+    vec3 normal = cube_direction(texel, size);
+    vec3 result = vec3(0.0);
+    float weight = 0.0;
+    for (uint i = 0; i < sample_count; ++i) {
+        vec3 half_vector = importance_sample_ggx(hammersley(i, sample_count), normal, constants.roughness);
+        vec3 light = normalize(2.0 * dot(normal, half_vector) * half_vector - normal);
+        float n_dot_l = max(dot(normal, light), 0.0);
+        if (n_dot_l > 0.0) {
+            result += textureLod(environment_map, light, 0.0).rgb * n_dot_l;
+            weight += n_dot_l;
+        }
+    }
+    imageStore(specular_map, texel, vec4(result / max(weight, 0.0001), 1.0));
+}

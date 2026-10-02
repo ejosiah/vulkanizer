@@ -261,8 +261,7 @@ int main(int argc, char **argv) try {
         else if (arg == "--physical-depth") {
             show_pages = true;
             page_view = 1;
-        }
-        else if (arg == "--screenshot" && i + 1 < argc)
+        } else if (arg == "--screenshot" && i + 1 < argc)
             screenshot = argv[++i];
     }
     if (!std::filesystem::exists(obj))
@@ -318,7 +317,22 @@ int main(int argc, char **argv) try {
     }
     auto caster_buffer = upload(bounds.data(), bounds.size() * sizeof(bounds[0]), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     auto draw_buffer = upload(templates.data(), templates.size() * sizeof(templates[0]), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    auto swapchain = app.create_swapchain(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (screenshot.empty() ? 0 : VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
+    uint32_t mode_count = 0;
+    VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical, context.surface, &mode_count, nullptr));
+    std::vector<VkPresentModeKHR> present_modes(mode_count);
+    VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical, context.surface, &mode_count, present_modes.data()));
+    auto present_mode = VK_PRESENT_MODE_FIFO_KHR;
+    for (auto candidate : {VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_MAILBOX_KHR}) {
+        if (std::find(present_modes.begin(), present_modes.end(), candidate) != present_modes.end()) {
+            present_mode = candidate;
+            break;
+        }
+    }
+    auto swapchain = std::make_unique<vkz::swapchain>(
+        vkz::swapchain::builder(context)
+            .set_image_usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (screenshot.empty() ? 0 : VK_IMAGE_USAGE_TRANSFER_SRC_BIT))
+            .set_present_mode(present_mode)
+            .build());
     auto views = vkz::create_swapchain_image_views(device, *swapchain);
     vkz::buffer screenshot_buffer;
     if (!screenshot.empty())
@@ -425,8 +439,8 @@ int main(int argc, char **argv) try {
                                 "bistro_shadow.frag", true);
     auto sky_pipeline = make_pipeline(device, swapchain->format(), depth_format, shadow_layout, material_layout, "bistro_sky.vert",
                                       "bistro_sky.frag", false, true);
-    auto pages_pipeline = make_pipeline(device, swapchain->format(), VK_FORMAT_UNDEFINED, shadow_layout, material_layout,
-                                        "bistro_sky.vert", "bistro_pages.frag", false, true);
+    auto pages_pipeline = make_pipeline(device, swapchain->format(), VK_FORMAT_UNDEFINED, shadow_layout, material_layout, "bistro_sky.vert",
+                                        "bistro_pages.frag", false, true);
     vkz::glfw_input_adaptor input(app.window(), false);
     input.bind();
     vkz::camera::camera camera;
@@ -456,6 +470,19 @@ int main(int argc, char **argv) try {
     for (auto &s : finished)
         s = vkz::create_semaphore(device);
     vkz::fenced_command_pools commands{device, queue, family, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, 1};
+    vkz::profiler gpu_profiler{device, 16};
+    std::vector<std::string> profile_names{"Receiver depth", "SVSM total"};
+    for (auto name : vkz::svsm::profiling_queries)
+        profile_names.emplace_back(name);
+    for (const auto &name : profile_names)
+        gpu_profiler.add_query(name);
+    auto collect_profile = [&] {
+        // This viewer has one in-flight slot. Its fence must complete before reading or reusing queries.
+        gpu_profiler.commit(profile_names);
+        for (auto &[name, query] : gpu_profiler.queries)
+            if (query.runtimes.size() > 240)
+                query.runtimes.erase(query.runtimes.begin());
+    };
     const test_timeout timeout{argc, argv}; // Timeout starts AFTER loading large assets.
     uint32_t frame = 0;
     int debug = 0;
@@ -473,6 +500,7 @@ int main(int argc, char **argv) try {
         controller.update(std::min(dt, 0.1f));
         commands.set_cycle_and_wait(frame);
         if (frame) {
+            collect_profile();
             vmaInvalidateAllocation(stats_readback.allocator, stats_readback.allocation, 0, VK_WHOLE_SIZE);
             auto m = stats_readback.map();
             stats = *m.as<vkz::svsm::statistics>();
@@ -506,6 +534,36 @@ int main(int argc, char **argv) try {
         if (ImGui::Button("Reset cache"))
             vkz::svsm::reset(shadows);
         ImGui::Text("Camera %.2f %.2f %.2f", camera.position.x, camera.position.y, camera.position.z);
+        ImGui::End();
+        ImGui::SetNextWindowPos({float(width) - 650, 24}, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize({620, 360}, ImGuiCond_FirstUseEver);
+        ImGui::Begin("GPU shadow profiling");
+        ImGui::Text("Present: %s", present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR ? "Immediate (VSync off)"
+                                   : present_mode == VK_PRESENT_MODE_MAILBOX_KHR ? "Mailbox (nonblocking)"
+                                                                                 : "FIFO (driver fallback)");
+        ImGui::Text("Last %zu completed frames | milliseconds", gpu_profiler.queries.at("SVSM total").runtimes.size());
+        if (validate)
+            ImGui::TextUnformatted("Validation enabled: timings include validation overhead.");
+        if (ImGui::Button("Reset timing history"))
+            gpu_profiler.clear_runtimes();
+        if (ImGui::BeginTable("GPU timings", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            ImGui::TableSetupColumn("Component", ImGuiTableColumnFlags_WidthFixed, 170.0f);
+            for (auto label : {"Average", "Min", "Max", "Std dev"})
+                ImGui::TableSetupColumn(label, ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+            auto timings = gpu_profiler.query_stats();
+            for (const auto &name : profile_names) {
+                const auto &timing = timings.at(name);
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(name.c_str());
+                for (float value : {timing.mean, timing.minimum, timing.maximum, timing.standard_deviation}) {
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%.3f", value);
+                }
+            }
+            ImGui::EndTable();
+        }
         ImGui::End();
         auto cmd = commands.create_command_buffer();
         vkz::barrier::push_and_flush(cmd, depth.image, {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
@@ -544,29 +602,37 @@ int main(int argc, char **argv) try {
         vkz::render_info render{};
         render.render_area = {width, height};
         render.depth_attachment = vkz::depth_stencil_attachment{depth.image_view, depth_format, {1, 0}, true};
-        vkz::render(cmd, render, [&] { draw_scene(prepass, false, 0); });
+        gpu_profiler.profile(
+            "Receiver depth", cmd, [&] { vkz::render(cmd, render, [&] { draw_scene(prepass, false, 0); }); },
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
         vkz::barrier::push_and_flush(cmd, depth.image, {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1},
                                      VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
                                      VK_ACCESS_2_SHADER_READ_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
         const float depth_extent = glm::length(glm::max(glm::abs(model.minimum), glm::abs(model.maximum))) + 10;
-        vkz::svsm::begin(shadows, cmd,
-                         {.depth = depth,
-                                 .inverse_view_projection = glm::inverse(constants.matrix),
-                                 .camera_position = camera.position,
-                                 .light_direction = sun,
-                                 .light_depth_min = -depth_extent,
-                                 .light_depth_max = depth_extent,
-                                 .casters = caster_buffer,
-                                 .caster_count = uint32_t(bounds.size()),
-                                 .indexed_draws = draw_buffer,
-                                 .reset_cache = force_uncached});
         auto shadow_set = vkz::svsm::descriptor_set(shadows, 0);
-        vkz::svsm::capture(shadows, cmd, [&](const vkz::svsm::render_context &pass) {
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadow.layout, 0, 1, &shadow_set, 0, nullptr);
-            draw_scene(shadow, true, pass.clipmap);
-        });
-        vkz::svsm::end(shadows, cmd);
+        gpu_profiler.profile(
+            "SVSM total", cmd,
+            [&] {
+                vkz::svsm::begin(shadows, cmd,
+                                 {.depth = depth,
+                                  .inverse_view_projection = glm::inverse(constants.matrix),
+                                  .camera_position = camera.position,
+                                  .light_direction = sun,
+                                  .light_depth_min = -depth_extent,
+                                  .light_depth_max = depth_extent,
+                                  .casters = caster_buffer,
+                                  .caster_count = uint32_t(bounds.size()),
+                                  .indexed_draws = draw_buffer,
+                                  .reset_cache = force_uncached,
+                                  .gpu_profiler = &gpu_profiler});
+                vkz::svsm::capture(shadows, cmd, [&](const vkz::svsm::render_context &pass) {
+                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadow.layout, 0, 1, &shadow_set, 0, nullptr);
+                    draw_scene(shadow, true, pass.clipmap);
+                });
+                vkz::svsm::end(shadows, cmd);
+            },
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
         vkz::barrier::push_and_flush(cmd, depth.image, {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
                                      VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                                      VK_ACCESS_2_SHADER_READ_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
@@ -647,6 +713,12 @@ int main(int argc, char **argv) try {
         ++frame;
     }
     vkDeviceWaitIdle(device);
+    if (frame)
+        collect_profile();
+    for (const auto &[name, timing] : gpu_profiler.query_stats())
+        std::cout << name << " GPU ms: average=" << timing.mean << " min=" << timing.minimum << " max=" << timing.maximum
+                  << " stddev=" << timing.standard_deviation << '\n';
+    gpu_profiler.deinit();
     std::cout << "Bistro rendered " << frame << " frames; last pages rendered=" << stats.rendered << ", cached=" << stats.cached
               << ", missing=" << stats.missing << '\n';
     if (screenshot_buffer._ && frame) {

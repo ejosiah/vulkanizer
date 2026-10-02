@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(vulkanizer VERSION 0.0.41)
+project(vulkanizer VERSION 0.0.42)
 set(CMAKE_CXX_STANDARD 20)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -32,6 +32,7 @@ find_package(VulkanMemoryAllocator)
 find_package(glslang REQUIRED)
 find_package(Ktx REQUIRED)
 find_package(stb REQUIRED)
+find_package(TinyGLTF REQUIRED)
 
 set(IMGUI_BINDINGS_DIR "")
 foreach(CONFIG_TYPE DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
@@ -105,6 +106,89 @@ foreach(shader IN ITEMS manage.comp shadow.vert shadow.frag)
 endforeach()
 target_include_directories(vulkanizer PRIVATE "${SVSM_GENERATED_DIR}")
 
+# Core glTF reference shaders are library resources, including tests-disabled builds.
+# CMakeRC 2.0.1; vendored license is cmake/CMakeRC.LICENSE.txt.
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeRC.cmake")
+set(REFERENCE_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/reference")
+set(REFERENCE_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/reference")
+file(MAKE_DIRECTORY "${REFERENCE_GENERATED_DIR}")
+set(REFERENCE_SPV_FILES)
+foreach(shader IN ITEMS gltf_reference.vert gltf_reference.frag gltf_reference.rgen gltf_reference.rmiss gltf_reference.rchit gltf_reference.rahit gltf_background.vert gltf_background.frag tone_mapping.frag)
+    set(output "${REFERENCE_GENERATED_DIR}/${shader}.spv")
+    set(reference_target_env vulkan1.0)
+    if(NOT shader MATCHES "[.](vert|frag)$")
+        set(reference_target_env vulkan1.3)
+    endif()
+    add_custom_command(OUTPUT "${output}"
+        COMMAND "${VULKANIZER_GLSLC}" --target-env=${reference_target_env} "${REFERENCE_SHADER_DIR}/${shader}" -o "${output}"
+        DEPENDS "${REFERENCE_SHADER_DIR}/${shader}"
+            "${REFERENCE_SHADER_DIR}/gltf_reference_uniforms.glsl" "${REFERENCE_SHADER_DIR}/gltf_core.glsl"
+            "${REFERENCE_SHADER_DIR}/gltf_types.glsl" "${REFERENCE_SHADER_DIR}/gltf_material.glsl" "${REFERENCE_SHADER_DIR}/gltf_iridescence.glsl" "${REFERENCE_SHADER_DIR}/gltf_layers.glsl" "${REFERENCE_SHADER_DIR}/gltf_ibl.glsl"
+            "${REFERENCE_SHADER_DIR}/gltf_ray_scene.glsl" "${REFERENCE_SHADER_DIR}/gltf_ray_surface.glsl"
+            "${REFERENCE_SHADER_DIR}/gltf_surface.glsl" "${REFERENCE_SHADER_DIR}/gltf_transport.glsl"
+        VERBATIM)
+    list(APPEND REFERENCE_SPV_FILES "${output}")
+endforeach()
+foreach(shader IN ITEMS gltf_reference.frag gltf_reference.rmiss gltf_reference.rchit)
+    set(output "${REFERENCE_GENERATED_DIR}/${shader}.spv.ibl")
+    add_custom_command(OUTPUT "${output}"
+        COMMAND "${VULKANIZER_GLSLC}" --target-env=vulkan1.3 -DVKZ_REFERENCE_IBL "${REFERENCE_SHADER_DIR}/${shader}" -o "${output}"
+        DEPENDS "${REFERENCE_SHADER_DIR}/${shader}" "${REFERENCE_SHADER_DIR}/gltf_ibl.glsl"
+            "${REFERENCE_SHADER_DIR}/gltf_reference_uniforms.glsl" "${REFERENCE_SHADER_DIR}/gltf_core.glsl"
+            "${REFERENCE_SHADER_DIR}/gltf_types.glsl" "${REFERENCE_SHADER_DIR}/gltf_material.glsl" "${REFERENCE_SHADER_DIR}/gltf_iridescence.glsl" "${REFERENCE_SHADER_DIR}/gltf_layers.glsl"
+            "${REFERENCE_SHADER_DIR}/gltf_ray_scene.glsl" "${REFERENCE_SHADER_DIR}/gltf_ray_surface.glsl"
+            "${REFERENCE_SHADER_DIR}/gltf_surface.glsl" "${REFERENCE_SHADER_DIR}/gltf_transport.glsl"
+        VERBATIM)
+    list(APPEND REFERENCE_SPV_FILES "${output}")
+endforeach()
+foreach(ibl IN ITEMS OFF ON)
+    set(output "${REFERENCE_GENERATED_DIR}/gltf_reference.frag.spv")
+    set(query_defines -DVKZ_REFERENCE_RAY_QUERY)
+    if(ibl)
+        string(APPEND output ".ibl")
+        list(APPEND query_defines -DVKZ_REFERENCE_IBL)
+    endif()
+    string(APPEND output ".query")
+    add_custom_command(OUTPUT "${output}"
+        COMMAND "${VULKANIZER_GLSLC}" --target-env=vulkan1.3 ${query_defines} "${REFERENCE_SHADER_DIR}/gltf_reference.frag" -o "${output}"
+        DEPENDS "${REFERENCE_SHADER_DIR}/gltf_reference.frag" "${REFERENCE_SHADER_DIR}/gltf_ray_query.glsl"
+            "${REFERENCE_SHADER_DIR}/gltf_reference_uniforms.glsl" "${REFERENCE_SHADER_DIR}/gltf_core.glsl"
+            "${REFERENCE_SHADER_DIR}/gltf_types.glsl" "${REFERENCE_SHADER_DIR}/gltf_material.glsl" "${REFERENCE_SHADER_DIR}/gltf_iridescence.glsl" "${REFERENCE_SHADER_DIR}/gltf_layers.glsl" "${REFERENCE_SHADER_DIR}/gltf_ibl.glsl"
+            "${REFERENCE_SHADER_DIR}/gltf_surface.glsl" "${REFERENCE_SHADER_DIR}/gltf_transport.glsl"
+        VERBATIM)
+    list(APPEND REFERENCE_SPV_FILES "${output}")
+endforeach()
+cmrc_add_resource_library(vulkanizer_reference_resources NAMESPACE vkz_reference_shaders
+    WHENCE "${REFERENCE_GENERATED_DIR}" ${REFERENCE_SPV_FILES})
+# Compile cmrc's generated source into our archive, avoiding another library for
+# CMake/Conan consumers to link or package. Its helper target is generation-only.
+get_target_property(REFERENCE_RESOURCE_SOURCES vulkanizer_reference_resources SOURCES)
+set_target_properties(vulkanizer_reference_resources PROPERTIES EXCLUDE_FROM_ALL TRUE)
+target_sources(vulkanizer PRIVATE ${REFERENCE_RESOURCE_SOURCES})
+set(IBL_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/ibl")
+file(MAKE_DIRECTORY "${IBL_GENERATED_DIR}")
+set(IBL_RESOURCE_FILES)
+foreach(shader IN ITEMS equirectangular irradiance specular)
+    set(source "${CMAKE_CURRENT_SOURCE_DIR}/src/ibl/${shader}.comp")
+    set(output "${IBL_GENERATED_DIR}/${shader}.comp.spv")
+    add_custom_command(OUTPUT "${output}"
+        COMMAND "${VULKANIZER_GLSLC}" --target-env=vulkan1.3 "${source}" -o "${output}"
+        DEPENDS "${source}" "${CMAKE_CURRENT_SOURCE_DIR}/src/ibl/common.glsl"
+        VERBATIM)
+    list(APPEND IBL_RESOURCE_FILES "${output}")
+endforeach()
+configure_file("src/ibl/brdf_lut.ktx" "${IBL_GENERATED_DIR}/brdf_lut.ktx" COPYONLY)
+list(APPEND IBL_RESOURCE_FILES "${IBL_GENERATED_DIR}/brdf_lut.ktx")
+cmrc_add_resource_library(vulkanizer_ibl_resources NAMESPACE vkz_ibl
+    WHENCE "${IBL_GENERATED_DIR}" ${IBL_RESOURCE_FILES})
+get_target_property(IBL_RESOURCE_SOURCES vulkanizer_ibl_resources SOURCES)
+set_target_properties(vulkanizer_ibl_resources PROPERTIES EXCLUDE_FROM_ALL TRUE)
+target_sources(vulkanizer PRIVATE ${IBL_RESOURCE_SOURCES})
+
+target_link_libraries(vulkanizer PRIVATE $<BUILD_INTERFACE:cmrc::base>)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeRC.LICENSE.txt"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/vulkanizer")
+
 target_link_libraries(vulkanizer PUBLIC
         volk::volk
         glfw
@@ -117,6 +201,7 @@ target_link_libraries(vulkanizer PUBLIC
         glslang::SPIRV)
 
 target_include_directories(vulkanizer PUBLIC ${INCLUDE_DIRS} ${INSTALL_INCLUDE_DIRS})
+target_link_libraries(vulkanizer PRIVATE TinyGLTF::TinyGLTF)
 target_include_directories(vulkanizer PRIVATE "${IMGUI_BINDINGS_DIR}")
 target_compile_definitions(vulkanizer PRIVATE GLFW_INCLUDE_NONE IMGUI_IMPL_VULKAN_USE_VOLK)
 
@@ -176,3 +261,5 @@ if(VULKANIZER_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
 endif()
+
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSES/glTF-Sample-Renderer.txt" DESTINATION "${CMAKE_INSTALL_DATADIR}/vulkanizer/licenses")

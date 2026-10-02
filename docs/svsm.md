@@ -244,6 +244,29 @@ Custom debug shaders can define `SVSM_DEBUG` before including `svsm.glsl` to rea
 or `SVSM_NONE` for a free slot. `SVSM_RENDERED` identifies pages completed by the
 current `end()` and is cleared by the next `begin()`.
 
+The Bistro **GPU shadow profiling** window uses `vkz::profiler` timestamp queries
+to display average, minimum, maximum, and population standard deviation in
+milliseconds over the last 240 completed frames. Reset the history after camera
+or lighting changes to separate warm-cache measurements from allocation work.
+Rows cover receiver depth, total SVSM, reset, requests, invalidation, allocation,
+page clearing, hierarchy construction, caster culling, capture, and publication.
+Empty invalidation/culling stages still record timestamp overhead. Total SVSM
+also includes setup and synchronization, so stage sums need not equal the total.
+Timestamps bracket GPU execution at bottom-of-pipe; they include intervening
+barriers but exclude CPU recording and presentation. Validation affects measured
+performance; use runs without `--validation` for performance comparisons.
+
+For application integration, register every name in `svsm::profiling_queries`
+on a `vkz::profiler` before recording, then pass its address in
+`frame_inputs::gpu_profiler`. Leave it null to disable instrumentation. Use a
+timestamp-capable queue, and a separate profiler per in-flight slot; wait for
+submission completion before committing results or reusing that slot's queries.
+No timestamp pool or readback is created by SVSM itself.
+
+The viewer prefers Immediate presentation (VSync off), falls back to Mailbox,
+and uses FIFO only when neither is supported. The actual mode appears in the
+profiling window.
+
 Current boundaries: one directional light per instance; fixed-size software
 pool; no light-space Hi-Z, draw compaction, cropped raster viewport, hardware
 sparse binding, or static/dynamic cache separation. Geometry is rasterized once

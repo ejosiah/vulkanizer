@@ -6,7 +6,7 @@ from pathlib import Path
 
 class VulkanizerConan(ConanFile):
     name = "vulkanizer"
-    version = "0.0.41"
+    version = "0.0.42"
     package_type = "static-library"
 
     license = "MIT"
@@ -17,7 +17,7 @@ class VulkanizerConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     options = {"with_nsight_aftermath": [True, False]}
     default_options = {"with_nsight_aftermath": False}
-    exports_sources = "CMakeLists.txt", "cmake/*", "include/*", "src/*"
+    exports_sources = "CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSES/*"
 
     def requirements(self):
         self.requires("volk/1.3.296.0", transitive_headers=True, force=True)
@@ -28,6 +28,7 @@ class VulkanizerConan(ConanFile):
         self.requires("glslang/11.7.0", transitive_headers=True, force=True)
         self.requires("ktx/4.4.2", transitive_headers=True, force=True)
         self.requires("stb/cci.20240531", transitive_headers=True, force=True)
+        self.requires("tinygltf/2.8.19")
 
     def layout(self):
         cmake_layout(self)

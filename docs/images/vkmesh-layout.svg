@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1570" viewBox="0 0 1400 1570" role="img" aria-labelledby="title desc">
+<title id="title">Vulkanizer .vkmesh version 4 binary file layout</title>
+<desc id="desc">A protocol-style 32-bit field diagram. Fixed header fields are followed by vertex layout, meshes, bounds, indices, vertices, instances, lights, and embedded images. Scalars use native byte order, not network byte order. Variable blocks are collapsed.</desc>
+<rect width="1400" height="1570" fill="#f8fafc"/>
+<text x="64" y="68.8" font-family="Consolas, monospace" font-size="36" font-weight="700" text-anchor="start" fill="#0f172a">.vkmesh / binary layout</text>
+<text x="64" y="108.8" font-family="Consolas, monospace" font-size="21" font-weight="400" text-anchor="start" fill="#475569">VERSION 4  |  serialized order  |  32-bit scalar fields</text>
+<text x="64" y="143.4" font-family="Consolas, monospace" font-size="18" font-weight="400" text-anchor="start" fill="#475569">Native-endian cache (little-endian on current Windows builds), not network byte order.</text>
+<text x="192" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="end" fill="#475569">BYTE OFFSET</text>
+<text x="231.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">0</text>
+<line x1="214.0" y1="204" x2="214.0" y2="217" stroke="#94a3b8"/>
+<text x="266.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">1</text>
+<line x1="249.0" y1="204" x2="249.0" y2="217" stroke="#94a3b8"/>
+<text x="301.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">2</text>
+<line x1="284.0" y1="204" x2="284.0" y2="217" stroke="#94a3b8"/>
+<text x="336.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">3</text>
+<line x1="319.0" y1="204" x2="319.0" y2="217" stroke="#94a3b8"/>
+<text x="371.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">4</text>
+<line x1="354.0" y1="204" x2="354.0" y2="217" stroke="#94a3b8"/>
+<text x="406.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">5</text>
+<line x1="389.0" y1="204" x2="389.0" y2="217" stroke="#94a3b8"/>
+<text x="441.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">6</text>
+<line x1="424.0" y1="204" x2="424.0" y2="217" stroke="#94a3b8"/>
+<text x="476.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">7</text>
+<line x1="459.0" y1="204" x2="459.0" y2="217" stroke="#94a3b8"/>
+<text x="511.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">8</text>
+<line x1="494.0" y1="204" x2="494.0" y2="217" stroke="#94a3b8"/>
+<text x="546.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">9</text>
+<line x1="529.0" y1="204" x2="529.0" y2="217" stroke="#94a3b8"/>
+<text x="581.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">10</text>
+<line x1="564.0" y1="204" x2="564.0" y2="217" stroke="#94a3b8"/>
+<text x="616.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">11</text>
+<line x1="599.0" y1="204" x2="599.0" y2="217" stroke="#94a3b8"/>
+<text x="651.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">12</text>
+<line x1="634.0" y1="204" x2="634.0" y2="217" stroke="#94a3b8"/>
+<text x="686.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">13</text>
+<line x1="669.0" y1="204" x2="669.0" y2="217" stroke="#94a3b8"/>
+<text x="721.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">14</text>
+<line x1="704.0" y1="204" x2="704.0" y2="217" stroke="#94a3b8"/>
+<text x="756.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">15</text>
+<line x1="739.0" y1="204" x2="739.0" y2="217" stroke="#94a3b8"/>
+<text x="791.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">16</text>
+<line x1="774.0" y1="204" x2="774.0" y2="217" stroke="#94a3b8"/>
+<text x="826.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">17</text>
+<line x1="809.0" y1="204" x2="809.0" y2="217" stroke="#94a3b8"/>
+<text x="861.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">18</text>
+<line x1="844.0" y1="204" x2="844.0" y2="217" stroke="#94a3b8"/>
+<text x="896.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">19</text>
+<line x1="879.0" y1="204" x2="879.0" y2="217" stroke="#94a3b8"/>
+<text x="931.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">20</text>
+<line x1="914.0" y1="204" x2="914.0" y2="217" stroke="#94a3b8"/>
+<text x="966.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">21</text>
+<line x1="949.0" y1="204" x2="949.0" y2="217" stroke="#94a3b8"/>
+<text x="1001.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">22</text>
+<line x1="984.0" y1="204" x2="984.0" y2="217" stroke="#94a3b8"/>
+<text x="1036.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">23</text>
+<line x1="1019.0" y1="204" x2="1019.0" y2="217" stroke="#94a3b8"/>
+<text x="1071.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">24</text>
+<line x1="1054.0" y1="204" x2="1054.0" y2="217" stroke="#94a3b8"/>
+<text x="1106.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">25</text>
+<line x1="1089.0" y1="204" x2="1089.0" y2="217" stroke="#94a3b8"/>
+<text x="1141.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">26</text>
+<line x1="1124.0" y1="204" x2="1124.0" y2="217" stroke="#94a3b8"/>
+<text x="1176.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">27</text>
+<line x1="1159.0" y1="204" x2="1159.0" y2="217" stroke="#94a3b8"/>
+<text x="1211.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">28</text>
+<line x1="1194.0" y1="204" x2="1194.0" y2="217" stroke="#94a3b8"/>
+<text x="1246.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">29</text>
+<line x1="1229.0" y1="204" x2="1229.0" y2="217" stroke="#94a3b8"/>
+<text x="1281.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">30</text>
+<line x1="1264.0" y1="204" x2="1264.0" y2="217" stroke="#94a3b8"/>
+<text x="1316.5" y="190.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="middle" fill="#475569">31</text>
+<line x1="1299.0" y1="204" x2="1299.0" y2="217" stroke="#94a3b8"/>
+<line x1="1334" y1="204" x2="1334" y2="217" stroke="#94a3b8"/>
+<text x="64" y="164.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start" fill="#64748b">Ruler positions show field width; they do not specify integer bit significance.</text>
+<rect x="214" y="219" width="1120" height="46" fill="#dbeafe" stroke="#94a3b8"/>
+<text x="272" y="248.0" font-family="Consolas, monospace" font-size="20" font-weight="700" text-anchor="start" fill="#0f172a">magic_value = 0x475A4B56 / VKZG</text>
+<text x="1316" y="246.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">uint32</text>
+<text x="192" y="247.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">0</text>
+<rect x="214" y="265" width="1120" height="46" fill="#dbeafe" stroke="#94a3b8"/>
+<text x="272" y="294.0" font-family="Consolas, monospace" font-size="20" font-weight="700" text-anchor="start" fill="#0f172a">mesh_count (M)</text>
+<text x="1316" y="292.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">uint32</text>
+<text x="192" y="293.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">4</text>
+<rect x="214" y="311" width="1120" height="46" fill="#dbeafe" stroke="#94a3b8"/>
+<text x="272" y="340.0" font-family="Consolas, monospace" font-size="20" font-weight="700" text-anchor="start" fill="#0f172a">index_data_size (bytes)</text>
+<text x="1316" y="338.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">uint32</text>
+<text x="192" y="339.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">8</text>
+<rect x="214" y="357" width="1120" height="46" fill="#dbeafe" stroke="#94a3b8"/>
+<text x="272" y="386.0" font-family="Consolas, monospace" font-size="20" font-weight="700" text-anchor="start" fill="#0f172a">vertex_data_size (bytes)</text>
+<text x="1316" y="384.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">uint32</text>
+<text x="192" y="385.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">12</text>
+<rect x="214" y="403" width="1120" height="46" fill="#e0f2fe" stroke="#94a3b8"/>
+<text x="272" y="432.0" font-family="Consolas, monospace" font-size="20" font-weight="700" text-anchor="start" fill="#0f172a">stream_version = 0x565A0004</text>
+<text x="1316" y="430.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">uint32</text>
+<text x="192" y="431.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">16</text>
+<rect x="214" y="449" width="1120" height="46" fill="#e0f2fe" stroke="#94a3b8"/>
+<text x="272" y="478.0" font-family="Consolas, monospace" font-size="20" font-weight="700" text-anchor="start" fill="#0f172a">binding_count (B)</text>
+<text x="1316" y="476.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">uint32</text>
+<text x="192" y="477.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">20</text>
+<rect x="214" y="495" width="1120" height="46" fill="#ffffff" stroke="#94a3b8"/>
+<text x="232" y="523.2" font-family="Consolas, monospace" font-size="19" font-weight="400" text-anchor="start" fill="#64748b">//</text>
+<text x="272" y="524.0" font-family="Consolas, monospace" font-size="20" font-weight="400" text-anchor="start" fill="#0f172a">vertex bindings [B]</text>
+<text x="1316" y="522.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">B x 12 bytes</text>
+<text x="192" y="523.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">24</text>
+<rect x="214" y="541" width="1120" height="46" fill="#e0f2fe" stroke="#94a3b8"/>
+<text x="272" y="570.0" font-family="Consolas, monospace" font-size="20" font-weight="700" text-anchor="start" fill="#0f172a">attribute_count (A)</text>
+<text x="1316" y="568.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">uint32</text>
+<text x="192" y="569.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">variable</text>
+<rect x="214" y="587" width="1120" height="46" fill="#ffffff" stroke="#94a3b8"/>
+<text x="232" y="615.2" font-family="Consolas, monospace" font-size="19" font-weight="400" text-anchor="start" fill="#64748b">//</text>
+<text x="272" y="616.0" font-family="Consolas, monospace" font-size="20" font-weight="400" text-anchor="start" fill="#0f172a">vertex attributes [A]</text>
+<text x="1316" y="614.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">A x 16 bytes</text>
+<rect x="214" y="633" width="1120" height="46" fill="#ffffff" stroke="#94a3b8"/>
+<text x="232" y="661.2" font-family="Consolas, monospace" font-size="19" font-weight="400" text-anchor="start" fill="#64748b">//</text>
+<text x="272" y="662.0" font-family="Consolas, monospace" font-size="20" font-weight="400" text-anchor="start" fill="#0f172a">base meshes [M]</text>
+<text x="1316" y="660.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">M x 52 bytes</text>
+<rect x="214" y="679" width="1120" height="46" fill="#ffffff" stroke="#94a3b8"/>
+<text x="232" y="707.2" font-family="Consolas, monospace" font-size="19" font-weight="400" text-anchor="start" fill="#64748b">//</text>
+<text x="272" y="708.0" font-family="Consolas, monospace" font-size="20" font-weight="400" text-anchor="start" fill="#0f172a">local bounding boxes [M]</text>
+<text x="1316" y="706.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">M x 24 bytes</text>
+<rect x="214" y="725" width="1120" height="46" fill="#ffffff" stroke="#94a3b8"/>
+<text x="232" y="753.2" font-family="Consolas, monospace" font-size="19" font-weight="400" text-anchor="start" fill="#64748b">//</text>
+<text x="272" y="754.0" font-family="Consolas, monospace" font-size="20" font-weight="400" text-anchor="start" fill="#0f172a">index data / uint32 indices</text>
+<text x="1316" y="752.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">index_data_size bytes</text>
+<rect x="214" y="771" width="1120" height="46" fill="#ffffff" stroke="#94a3b8"/>
+<text x="232" y="799.2" font-family="Consolas, monospace" font-size="19" font-weight="400" text-anchor="start" fill="#64748b">//</text>
+<text x="272" y="800.0" font-family="Consolas, monospace" font-size="20" font-weight="400" text-anchor="start" fill="#0f172a">interleaved vertex data</text>
+<text x="1316" y="798.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">vertex_data_size bytes</text>
+<rect x="214" y="817" width="1120" height="46" fill="#d1fae5" stroke="#94a3b8"/>
+<text x="272" y="846.0" font-family="Consolas, monospace" font-size="20" font-weight="700" text-anchor="start" fill="#0f172a">instance_count (I)</text>
+<text x="1316" y="844.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">uint32</text>
+<rect x="214" y="863" width="1120" height="46" fill="#ffffff" stroke="#94a3b8"/>
+<text x="232" y="891.2" font-family="Consolas, monospace" font-size="19" font-weight="400" text-anchor="start" fill="#64748b">//</text>
+<text x="272" y="892.0" font-family="Consolas, monospace" font-size="20" font-weight="400" text-anchor="start" fill="#0f172a">mesh instances [I]</text>
+<text x="1316" y="890.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">I x 136 bytes</text>
+<rect x="214" y="909" width="1120" height="46" fill="#d1fae5" stroke="#94a3b8"/>
+<text x="272" y="938.0" font-family="Consolas, monospace" font-size="20" font-weight="700" text-anchor="start" fill="#0f172a">light_count (L)</text>
+<text x="1316" y="936.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">uint32</text>
+<rect x="214" y="955" width="1120" height="46" fill="#ffffff" stroke="#94a3b8"/>
+<text x="232" y="983.2" font-family="Consolas, monospace" font-size="19" font-weight="400" text-anchor="start" fill="#64748b">//</text>
+<text x="272" y="984.0" font-family="Consolas, monospace" font-size="20" font-weight="400" text-anchor="start" fill="#0f172a">placed lights [L]</text>
+<text x="1316" y="982.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">L x 56 bytes</text>
+<rect x="214" y="1001" width="1120" height="46" fill="#d1fae5" stroke="#94a3b8"/>
+<text x="272" y="1030.0" font-family="Consolas, monospace" font-size="20" font-weight="700" text-anchor="start" fill="#0f172a">image_count (T)</text>
+<text x="1316" y="1028.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">uint32</text>
+<rect x="214" y="1047" width="1120" height="46" fill="#ffffff" stroke="#94a3b8"/>
+<text x="232" y="1075.2" font-family="Consolas, monospace" font-size="19" font-weight="400" text-anchor="start" fill="#64748b">//</text>
+<text x="272" y="1076.0" font-family="Consolas, monospace" font-size="20" font-weight="400" text-anchor="start" fill="#0f172a">image records [T] / embedded KTX2</text>
+<text x="1316" y="1074.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end" fill="#475569">variable length</text>
+<text x="214" y="1122.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#475569">// = multiword block, collapsed vertically; no padding is added between sections.</text>
+<text x="214" y="1149.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#475569">Offsets after the binding array depend on preceding counts and byte lengths.</text>
+<text x="64" y="1205.6" font-family="Consolas, monospace" font-size="22" font-weight="700" text-anchor="start" fill="#0f172a">INSTANCE RECORD / 136 bytes</text>
+<text x="734" y="1205.6" font-family="Consolas, monospace" font-size="22" font-weight="700" text-anchor="start" fill="#0f172a">IMAGE RECORD / repeated T times</text>
+<rect x="64" y="1228" width="600" height="38" fill="#ffffff" stroke="#94a3b8"/>
+<text x="76" y="1252.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#0f172a">model / column-major mat4</text>
+<text x="651" y="1251.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="end" fill="#475569">64 bytes</text>
+<rect x="64" y="1266" width="600" height="38" fill="#ffffff" stroke="#94a3b8"/>
+<text x="76" y="1290.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#0f172a">model_inverse / mat4</text>
+<text x="651" y="1289.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="end" fill="#475569">64 bytes</text>
+<rect x="64" y="1304" width="600" height="38" fill="#ffffff" stroke="#94a3b8"/>
+<text x="76" y="1328.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#0f172a">mesh_id / uint32</text>
+<text x="651" y="1327.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="end" fill="#475569">4 bytes</text>
+<rect x="64" y="1342" width="600" height="38" fill="#ffffff" stroke="#94a3b8"/>
+<text x="76" y="1366.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#0f172a">material_id / uint32</text>
+<text x="651" y="1365.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="end" fill="#475569">4 bytes</text>
+<rect x="734" y="1228" width="600" height="38" fill="#ffffff" stroke="#94a3b8"/>
+<text x="746" y="1252.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#0f172a">uri_byte_count / uint32</text>
+<text x="1321" y="1251.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="end" fill="#475569">4 bytes</text>
+<rect x="734" y="1266" width="600" height="38" fill="#ffffff" stroke="#94a3b8"/>
+<text x="746" y="1290.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#0f172a">URI bytes / no terminator</text>
+<text x="1321" y="1289.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="end" fill="#475569">variable</text>
+<rect x="734" y="1304" width="600" height="38" fill="#ffffff" stroke="#94a3b8"/>
+<text x="746" y="1328.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#0f172a">mime_byte_count + MIME bytes</text>
+<text x="1321" y="1327.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="end" fill="#475569">4 + variable</text>
+<rect x="734" y="1342" width="600" height="38" fill="#ffffff" stroke="#94a3b8"/>
+<text x="746" y="1366.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#0f172a">payload_byte_count / uint32</text>
+<text x="1321" y="1365.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="end" fill="#475569">4 bytes</text>
+<rect x="734" y="1380" width="600" height="38" fill="#ffffff" stroke="#94a3b8"/>
+<text x="746" y="1404.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#0f172a">encoded payload / complete KTX2</text>
+<text x="1321" y="1403.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="end" fill="#475569">variable</text>
+<text x="64" y="1406.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start" fill="#475569">material_id = 0xffffffff inherits the base material.</text>
+<text x="64" y="1493.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#475569">Record sizes shown for the current unaligned GLM/native ABI. Geometry arrays are raw records.</text>
+<text x="64" y="1522.6" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start" fill="#475569">Companion files: .vkmat = materials + samplers + texture references; .vkbounds = bounds copy.</text>
+<text x="64" y="1550.8" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start" fill="#64748b">Source of truth: src/mesh.cpp :: save_mesh_data() / include/vulkanizer/mesh.hpp</text>
+</svg>

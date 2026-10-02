@@ -192,8 +192,8 @@ namespace {
         return buffer;
     }
 
-    vkz::mesh create_mesh(vkz::vma_memory_allocator& allocator, const vkz::prim::primitive& primitive) {
-        vkz::mesh result{};
+    vkz::mesh_buffers create_mesh(vkz::vma_memory_allocator& allocator, const vkz::prim::primitive& primitive) {
+        vkz::mesh_buffers result{};
         result.vertex_buffer = create_buffer(
             allocator,
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -207,7 +207,7 @@ namespace {
         return result;
     }
 
-    void destroy_mesh(vkz::mesh& mesh) {
+    void destroy_mesh(vkz::mesh_buffers& mesh) {
         if (mesh.vertex_buffer._) {
             mesh.vertex_buffer.destroy();
         }

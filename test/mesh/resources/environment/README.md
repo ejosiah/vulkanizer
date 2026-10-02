@@ -1,0 +1,1 @@
+Frozen-creek panorama copied from vglib_examples/data/textures/environment/HdrOutdoorFrozenCreekWinterDayClear001_JPG_3K.jpg, the first active environment in gltf_viewer/include/GltfViewer.hpp (default index 0). This is a shared environment asset, separate from the glTF model licenses.
