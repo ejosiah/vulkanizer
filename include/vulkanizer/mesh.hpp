@@ -67,7 +67,6 @@ namespace vkz::mesh {
         spot
     };
 
-    // One placed KHR_lights_punctual light; properties and placement stay together.
     struct light {
         light_type type{light_type::point};
         glm::vec3 color{1.0f};                  // Linear RGB.
@@ -77,6 +76,8 @@ namespace vkz::mesh {
         glm::vec3 direction{0.0f, 0.0f, -1.0f}; // Unit emission direction; ignored for point lights.
         float inner_cone_angle{};               // Spot half-angles, in radians.
         float outer_cone_angle{std::numbers::pi_v<float> / 4.0f};
+        uint32 mesh_id{std::numeric_limits<uint32>::max()};
+        glm::mat4 model{1.0f};
     };
 
     enum class material_flags : uint32 {

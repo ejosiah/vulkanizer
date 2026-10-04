@@ -32,7 +32,7 @@
 namespace vkz::mesh {
     namespace {
         // Follows header; distinguishes our vector-based layout from lvk::VertexInput.
-        constexpr uint32 stream_version = 0x565A0004;
+        constexpr uint32 stream_version = 0x565A0005;
 
         void require(bool condition, const char *message) {
             if (!condition) throw std::runtime_error(message);
@@ -234,7 +234,7 @@ namespace vkz::mesh {
             field(archive, value.sampler_id);
         }
 
-        template <typename Archive> void fields(Archive &archive, light &value) {
+        template <typename Archive> void fields(Archive &archive, light &value, uint32 version = stream_version) {
             field(archive, value.type);
             field(archive, value.color);
             field(archive, value.intensity);
@@ -243,6 +243,10 @@ namespace vkz::mesh {
             field(archive, value.direction);
             field(archive, value.inner_cone_angle);
             field(archive, value.outer_cone_angle);
+            if (version >= 0x565A0005) {
+                field(archive, value.mesh_id);
+                for (int column = 0; column < 4; ++column) field(archive, value.model[column]);
+            }
         }
 
         std::string readString(reader &in) {
@@ -338,8 +342,15 @@ namespace vkz::mesh {
 
         void validate(const data &meshes) {
             validate_images(meshes);
-            for (const auto &value : meshes.lights)
+            for (const auto &value : meshes.lights) {
                 detail::validate_light(value);
+                if (value.mesh_id != std::numeric_limits<uint32>::max()) {
+                    require(value.mesh_id < meshes.meshes.size(), "Light mesh ID is out of range");
+                }
+                for (int column = 0; column < 4; ++column) {
+                    for (int row = 0; row < 4; ++row) require(std::isfinite(value.model[column][row]), "Invalid mesh light transform");
+                }
+            }
             require(meshes.boxes.size() == meshes.meshes.size(), "Each mesh must have a bounding box");
             for (const auto &placement : meshes.instances) {
                 require(placement.mesh_id < meshes.meshes.size(), "Instance mesh ID is out of range");
@@ -367,7 +378,12 @@ namespace vkz::mesh {
         loaded.index_data = in.array<uint32>(info.index_data_size / sizeof(uint32));
         loaded.vertex_data = in.array<uint8_t>(info.vertex_data_size);
         if (version >= 0x565A0002) loaded.instances = in.array<instance>(in.value<uint32>());
-        if (version >= 0x565A0003) loaded.lights = readRecords<light>(in, 56);
+        if (version >= 0x565A0003) {
+            const auto count = in.value<uint32>();
+            require(count <= in.remaining / (version >= 0x565A0005 ? 124 : 56), "Invalid light record count");
+            loaded.lights.resize(count);
+            for (auto &value : loaded.lights) fields(in, value, version);
+        }
         if (version >= 0x565A0004) {
             const auto count = in.value<uint32>();
             require(count <= in.remaining / 12, "Invalid image count");
@@ -611,7 +627,10 @@ namespace vkz::mesh {
             merged.samplers.insert(merged.samplers.end(), source->samplers.begin(), source->samplers.end());
             merged.vertex_data.insert(merged.vertex_data.end(), source->vertex_data.begin(), source->vertex_data.end());
             merged.boxes.insert(merged.boxes.end(), source->boxes.begin(), source->boxes.end());
-            merged.lights.insert(merged.lights.end(), source->lights.begin(), source->lights.end());
+            for (auto value : source->lights) {
+                if (value.mesh_id != std::numeric_limits<uint32>::max()) value.mesh_id = size32(uint64(value.mesh_id) + meshOffset);
+                merged.lights.push_back(value);
+            }
         }
         size32(merged.meshes.size());
         size32(merged.index_data.size() * sizeof(uint32));

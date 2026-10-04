@@ -72,15 +72,20 @@ Use `.vkmesh` for geometry, mesh instances, placed lights and embedded KTX2 imag
 for separately stored local bounding boxes. Geometry
 files also contain those boxes. File APIs accept `const vkz::path&`.
 
-Geometry format version 4 includes a count and field-wise light records after
+Geometry format version 5 includes a count and field-wise light records after
 the mesh instances. Each light record stores its type, color, intensity, range,
-world position, world direction and spot cone angles (56 bytes). Light placement
+world position, world direction, spot cone angles, `mesh_id`, and a column-major
+`model` matrix (124 bytes). `mesh_id == UINT32_MAX` selects punctual lighting.
+Otherwise it references `data::meshes`, and `model` places the emitting geometry
+in world space independently of mesh instances. Keep the material emissive factor
+for ordinary surface hits. Light placement
 and properties are stored together; there is no separate light-instance table
 or lighting file. Image records follow the lights and store URI, MIME type and
 length-prefixed encoded bytes. Versions 1–3 remain readable; versions 1–2 have
-no lights. Loading version 4 replaces images and lights; material version 2
+no lights. Loading versions 4-5 replaces images and lights; material version 2
 preserves them. A legacy material version 1 file still loads its own images.
-Merging data appends placed lights without changing their world positions.
+Older light records default to no mesh reference and an identity model matrix.
+Merging remaps mesh-light IDs and preserves light transforms.
 Light-only data can be saved, loaded and merged with geometry.
 
 Geometry magic is `0x475A4B56` (`VKZG`, Vulkanizer geometry, in little-endian

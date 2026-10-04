@@ -271,6 +271,20 @@ int main() {
         save_mesh_data(geometry, lights_only);
         load_mesh_data(geometry, loaded);
         check(loaded.meshes.empty() && loaded.lights.size() == 1);
+        {
+            std::ifstream file(geometry, std::ios::binary);
+            std::vector<char> bytes((std::istreambuf_iterator<char>(file)), {});
+            file.close();
+            bytes.erase(bytes.end() - 72, bytes.end() - 4);
+            const uint32_t version = 0x565A0004;
+            std::memcpy(bytes.data() + sizeof(header), &version, sizeof(version));
+            std::ofstream legacy_file(geometry, std::ios::binary);
+            legacy_file.write(bytes.data(), bytes.size());
+        }
+        load_mesh_data(geometry, loaded);
+        check(loaded.lights.size() == 1 && loaded.lights[0].mesh_id == std::numeric_limits<uint32_t>::max());
+        check(loaded.lights[0].model == glm::mat4(1));
+        save_mesh_data(geometry, lights_only);
         auto bad_light = lights_only;
         bad_light.lights[0].intensity = -1;
         rejects([&] {
@@ -307,7 +321,7 @@ int main() {
         // Corrupt serialized type and truncated light payloads fail transactionally.
         {
             std::fstream file(geometry, std::ios::binary | std::ios::in | std::ios::out);
-            file.seekp(std::filesystem::file_size(geometry) - 60);
+            file.seekp(std::filesystem::file_size(geometry) - 128);
             const uint32_t invalid_type = 99;
             file.write(reinterpret_cast<const char *>(&invalid_type), sizeof(invalid_type));
         }
@@ -394,6 +408,26 @@ int main() {
         }
         load_mesh_data_materials(materials, loaded);
         check(loaded.images.size() == 1 && loaded.images[0].mime_type == "image/png" && loaded.images[0].encoded_data == std::vector<uint8_t>({137, 80, 78, 71}));
+        auto emitter = triangle(0);
+        light mesh_light{
+            .intensity = 15,
+            .mesh_id = 0
+        };
+        mesh_light.model[0][0] = 3;
+        mesh_light.model[1][1] = 2;
+        mesh_light.model[3] = glm::vec4(4, 5, 6, 1);
+        emitter.lights.push_back(mesh_light);
+        save_mesh_data(geometry, emitter);
+        load_mesh_data(geometry, loaded);
+        check(loaded.lights.size() == 1 && loaded.lights[0].mesh_id == 0 && loaded.lights[0].model == mesh_light.model);
+        auto other_emitter = emitter;
+        data combined_emitters;
+        merge_mesh_data(combined_emitters, {&emitter, &other_emitter});
+        check(combined_emitters.lights.size() == 2 && combined_emitters.lights[1].mesh_id == 1);
+        check(combined_emitters.lights[1].model == mesh_light.model);
+        emitter.lights[0].mesh_id = 100;
+        rejects([&] { save_mesh_data(geometry, emitter); });
+
         std::cout << "Mesh/light I/O, validation, bounds and merge checks passed\n";
     } catch (const std::exception &e) {
         std::cerr << e.what() << '\n';
