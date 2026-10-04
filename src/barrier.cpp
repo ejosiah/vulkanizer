@@ -519,6 +519,38 @@ namespace vkz::barrier {
                                         });
     }
 
+    void release(const buffer& buffer, VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask,
+                 uint32_t src_queue_family_index, uint32_t dst_queue_family_index) {
+        buffer_memory_barriers.push_back({
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+            .srcStageMask = src_stage_mask,
+            .srcAccessMask = src_access_mask,
+            .dstStageMask = VK_PIPELINE_STAGE_2_NONE,
+            .dstAccessMask = VK_ACCESS_2_NONE,
+            .srcQueueFamilyIndex = src_queue_family_index,
+            .dstQueueFamilyIndex = dst_queue_family_index,
+            .buffer = buffer,
+            .offset = 0,
+            .size = VK_WHOLE_SIZE
+        });
+    }
+
+    void acquire(const buffer& buffer, VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask,
+                 uint32_t src_queue_family_index, uint32_t dst_queue_family_index) {
+        buffer_memory_barriers.push_back({
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+            .srcAccessMask = VK_ACCESS_2_NONE,
+            .dstStageMask = dst_stage_mask,
+            .dstAccessMask = dst_access_mask,
+            .srcQueueFamilyIndex = src_queue_family_index,
+            .dstQueueFamilyIndex = dst_queue_family_index,
+            .buffer = buffer,
+            .offset = 0,
+            .size = VK_WHOLE_SIZE
+        });
+    }
+
     void flush(VkCommandBuffer command_buffer, VkDependencyFlags dependency_flag) {
         dependency_info.imageMemoryBarrierCount = VKZ_COUNT(image_memory_barriers);
         dependency_info.pImageMemoryBarriers = image_memory_barriers.data();

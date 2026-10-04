@@ -104,6 +104,12 @@ namespace vkz::barrier {
                         VkImageLayout old_layout, VkImageLayout new_layout,
                         uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
 
+    void release(const buffer& buffer, VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask,
+                 uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
+
+    void acquire(const buffer& buffer, VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask,
+                 uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
+
     void flush(VkCommandBuffer command_buffer, VkDependencyFlags dependency_flag = 0);
 
     bool flushed();
