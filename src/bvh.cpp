@@ -90,27 +90,23 @@ namespace vkz::mesh {
         void prepare_geometry(const data &scene, const geometry_buffers &buffers) {
             VKZ_ASSERT(!scene.meshes.empty() && !scene.instances.empty(), "BVH requires meshes and instances");
             const auto usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-            VKZ_ASSERT(buffers.vertices._ && buffers.indices._ && (buffers.vertices.create_info.usage & usage) == usage && (buffers.indices.create_info.usage & usage) == usage,
-                       "BVH buffers require build-input and device-address usage");
-            VKZ_ASSERT(buffers.vertices.create_info.size >= scene.vertex_data.size() && buffers.indices.create_info.size >= scene.index_data.size() * sizeof(uint32_t),
-                       "BVH buffers are smaller than scene data");
-            auto attribute = std::find_if(scene.streams.attributes.begin(), scene.streams.attributes.end(), [](const auto &value) {
-                return value.location == 0;
-            });
+            VKZ_ASSERT(buffers.vertices._ && buffers.indices._ && (buffers.vertices.create_info.usage & usage) == usage && (buffers.indices.create_info.usage & usage) == usage, "BVH buffers require build-input and device-address usage");
+            VKZ_ASSERT(buffers.vertices.create_info.size >= scene.vertex_data.size() && buffers.indices.create_info.size >= scene.index_data.size() * sizeof(uint32_t), "BVH buffers are smaller than scene data");
+            auto attribute = std::find_if(scene.streams.attributes.begin(), scene.streams.attributes.end(), [](const auto &value) { return value.location == 0; });
             VKZ_ASSERT(attribute != scene.streams.attributes.end() && attribute->format == VK_FORMAT_R32G32B32_SFLOAT, "BVH requires float3 positions at location zero");
-            auto binding = std::find_if(scene.streams.bindings.begin(), scene.streams.bindings.end(), [&](const auto &value) {
-                return value.binding == attribute->binding;
-            });
+            auto binding = std::find_if(scene.streams.bindings.begin(), scene.streams.bindings.end(), [&](const auto &value) {return value.binding == attribute->binding; });
             VKZ_ASSERT(scene.streams.bindings.size() == 1 && binding != scene.streams.bindings.end() && binding->inputRate == VK_VERTEX_INPUT_RATE_VERTEX && binding->stride % 4 == 0 &&
                            uint64_t(attribute->offset) + 12 <= binding->stride && attribute->offset % 4 == 0,
                        "BVH requires one interleaved vertex stream with aligned float3 positions");
             VkFormatProperties format{};
             vkGetPhysicalDeviceFormatProperties(allocator.device.physical, attribute->format, &format);
             VKZ_ASSERT(format.bufferFeatures & VK_FORMAT_FEATURE_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR, "Device does not support float3 acceleration structure vertices");
+
             const auto vertices = address(device, buffers.vertices);
             const auto indices = address(device, buffers.indices);
             VKZ_ASSERT(vertices && indices && vertices % 4 == 0 && indices % 4 == 0, "Invalid geometry device addresses");
             bottom.resize(scene.meshes.size());
+
             for (size_t i = 0; i < bottom.size(); ++i) {
                 const auto &mesh = scene.meshes[i];
                 VKZ_ASSERT(mesh.lod_count <= max_lods && options.lod < mesh.lod_count && mesh.vertex_count, "Invalid mesh LOD or vertex count");
@@ -118,12 +114,17 @@ namespace vkz::mesh {
                 const uint64_t end = uint64_t(mesh.index_offset) + mesh.lod_offset[options.lod + 1];
                 VKZ_ASSERT(end > begin && end <= scene.index_data.size() && (end - begin) % 3 == 0, "BVH mesh must contain indexed triangles");
                 VKZ_ASSERT((uint64_t(mesh.vertex_offset) + mesh.vertex_count) * binding->stride <= scene.vertex_data.size(), "Mesh vertices exceed the vertex stream");
-                for (uint64_t j = begin; j < end; ++j)
+
+                for (uint64_t j = begin; j < end; ++j) {
                     VKZ_ASSERT(scene.index_data[j] < mesh.vertex_count, "Mesh index exceeds its vertex count");
+                }
+
                 VKZ_ASSERT((end - begin) / 3 <= properties.maxPrimitiveCount && (end - begin) / 3 <= std::numeric_limits<uint32_t>::max(), "Mesh exceeds primitive count limit");
+
                 auto &value = bottom[i];
                 value.count = static_cast<uint32_t>((end - begin) / 3);
                 value.geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+
                 auto &triangles = value.geometry.geometry.triangles;
                 triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
                 triangles.vertexFormat = attribute->format;
