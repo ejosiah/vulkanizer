@@ -1,14 +1,20 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
+
 #include "gltf_reference_uniforms.glsl"
+
 layout(set = 0, binding = 1, std430) readonly buffer Vertices { float data[]; } vertices;
+
+
 layout(location = 21) flat out uint instance_id;
 layout(location = 0) out vec3 world_position;
 layout(location = 1) out vec3 world_normal;
 layout(location = 2) out vec4 world_tangent;
 layout(location = 3) out vec4 vertex_color;
 layout(location = 4) out vec2 uv[17];
+
 vec3 read3(int i) { return vec3(vertices.data[i], vertices.data[i+1], vertices.data[i+2]); }
+
 void main() {
     instance_id = gl_InstanceIndex;
     int start = gl_VertexIndex * scene.vertex_layout.x;

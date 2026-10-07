@@ -61,7 +61,7 @@ vkCmdBindDescriptorSets(command_buffer, pipeline.bind_point, pipeline.layout,
 vkz::trace_ray(command_buffer, pipeline, width, height);
 ```
 
-No push constants are needed. Output is linear HDR: clients perform tone mapping and display encoding. Synchronize uploads/BVH builds before tracing and ray shader writes before consuming the output. The pipeline owns its pipeline/layout and SBT; clients own other resources. Finish outstanding GPU work before destruction.
+No push constants_ are needed. Output is linear HDR: clients perform tone mapping and display encoding. Synchronize uploads/BVH builds before tracing and ray shader writes before consuming the output. The pipeline owns its pipeline/layout and SBT; clients own other resources. Finish outstanding GPU work before destruction.
 
 `vulkanizer_reference_ray_tracing_test` performs GPU readback checks. The installed `test/mesh/reference_client` checks both pipeline families and their embedded resources through the installed library.
 

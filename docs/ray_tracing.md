@@ -19,7 +19,7 @@ auto pipeline =
                 .record_data(surface_record)
         .layout()
             .add_descriptor_set_layouts(descriptor_layouts)
-            .add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(constants))
+            .add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(constants_))
         .max_recursion_depth(1)
         .name("reference_ray_tracing")
         .build();
@@ -38,7 +38,7 @@ vkz::bind_pipeline(command_buffer, pipeline);
 vkz::trace_ray(command_buffer, pipeline, width, height);
 ```
 
-Include `<vulkanizer/commands.hpp>` for `trace_ray`. It dispatches with depth 1 and defaults to the `"primary"` ray-generation record; pass another record name as the final argument to select it. The pipeline is passed by const reference. Clients still bind the pipeline, descriptors and push constants. A BVH instance's `shader_binding_table_offset` can be set to `pipeline.sbt.hit_index("surface")`. The full hit-record index is `instance_offset + geometry_index * ray_stride + ray_offset`.
+Include `<vulkanizer/commands.hpp>` for `trace_ray`. It dispatches with depth 1 and defaults to the `"primary"` ray-generation record; pass another record name as the final argument to select it. The pipeline is passed by const reference. Clients still bind the pipeline, descriptors and push constants_. A BVH instance's `shader_binding_table_offset` can be set to `pipeline.sbt.hit_index("surface")`. The full hit-record index is `instance_offset + geometry_index * ray_stride + ray_offset`.
 
 ## Shader-binding-table demo
 
