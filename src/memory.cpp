@@ -38,6 +38,11 @@ namespace vkz {
         }
     }
 
+    void buffer::flush(size_t offset, size_t size) {
+        size = size == VK_WHOLE_SIZE ? create_info.size : size;
+        vmaFlushAllocation(allocator, allocation, offset, size);
+    }
+
     image_builder image::builder(vma_memory_allocator& allocator) {
         return image_builder{allocator};
     }
@@ -352,6 +357,15 @@ namespace vkz {
         memory.size_ = 0;
     }
 
+    void staging_buffer::reset() {
+        std::scoped_lock lock{mutex_};
+        for(auto [_, range] : borrowed_ranges_) {
+            free_ranges_.push_back(range);
+        }
+        borrowed_ranges_.clear();
+        merge_free_ranges();
+    }
+
     void staging_buffer::destroy() {
         std::scoped_lock lock{mutex_};
         if (!borrowed_ranges_.empty()) {
@@ -437,6 +451,7 @@ namespace vkz {
         free_ranges_ = std::move(merged);
     }
 
+
     buffer_builder::buffer_builder(vma_memory_allocator& allocator)
             : allocator_{&allocator} {
         create_info_.size = 1;
@@ -480,13 +495,23 @@ namespace vkz {
         return *this;
     }
 
+    buffer_builder &buffer_builder::name(const std::string &name) {
+        name_ = name;
+        return *this;
+    }
+
     const VkBufferCreateInfo& buffer_builder::create_info() const {
         return create_info_;
     }
 
     buffer buffer_builder::build() const {
         assert(allocator_ != nullptr);
-        return allocator_->allocate(create_info_, memory_usage_);
+        auto buffer = allocator_->allocate(create_info_, memory_usage_);
+
+        if(!name_.empty()) {
+            set_name<VK_OBJECT_TYPE_BUFFER>(allocator_->device, name_, buffer._);
+        }
+        return buffer;
     }
 
     image_builder::image_builder(vma_memory_allocator& allocator)

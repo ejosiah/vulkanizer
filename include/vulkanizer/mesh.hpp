@@ -261,7 +261,7 @@ namespace vkz::mesh {
     struct data {
         vertex_input streams{};
         std::vector<uint32> index_data;
-        std::vector<uint8_t> vertex_data;
+        std::vector<uint8> vertex_data;
         std::vector<base> meshes;
         std::vector<instance> instances;
         std::vector<light> lights;

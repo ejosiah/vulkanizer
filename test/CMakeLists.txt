@@ -18,11 +18,30 @@ vulkanizer_add_test_executable(vulkanizer_commands_test commands.cpp)
 vulkanizer_add_test_executable(vulkanizer_profiler_test profiler.cpp)
 vulkanizer_add_test_executable(vulkanizer_mip_map_test mip_map.cpp)
 vulkanizer_add_test_executable(vulkanizer_texture_test texture.cpp "${CMAKE_CURRENT_LIST_DIR}/resources/skybox/front.jpg" --timeout 2)
+vulkanizer_add_test_executable(vulkanizer_psm_test psm/main.cpp)
+
 
 find_program(GLSLC_EXECUTABLE glslc)
 if(NOT GLSLC_EXECUTABLE)
     message(FATAL_ERROR "glslc is required to build the CSM test shaders")
 endif()
+
+set(PSM_TEST_SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/psm_shaders")
+file(MAKE_DIRECTORY "${PSM_TEST_SHADER_BINARY_DIR}")
+set(PSM_TEST_SPV_FILES)
+foreach(shader IN ITEMS render.vert render.frag)
+    set(source "${CMAKE_CURRENT_LIST_DIR}/psm/shaders/${shader}")
+    set(output "${PSM_TEST_SHADER_BINARY_DIR}/${shader}.spv")
+    add_custom_command(
+            OUTPUT "${output}"
+            COMMAND "${GLSLC_EXECUTABLE}" "${source}" -o "${output}"
+            DEPENDS "${source}"
+            VERBATIM)
+    list(APPEND PSM_TEST_SPV_FILES "${output}")
+endforeach()
+add_custom_target(vulkanizer_psm_test_shaders DEPENDS ${PSM_TEST_SPV_FILES})
+add_dependencies(vulkanizer_psm_test vulkanizer_psm_test_shaders)
+target_compile_definitions(vulkanizer_psm_test PRIVATE VKZ_PSM_TEST_SHADER_DIR="${PSM_TEST_SHADER_BINARY_DIR}")
 
 set(CSM_TEST_SHADER_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/shaders")
 set(CSM_TEST_SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")

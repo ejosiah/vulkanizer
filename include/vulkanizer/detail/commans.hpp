@@ -388,6 +388,12 @@ namespace vkz {
         vkCmdUpdateBuffer(command_buffer, buffer._, 0, sizeof(T), &value);
     }
 
+    inline void update(VkCommandBuffer command_buffer, const buffer &buffer, const VkDeviceSize size, void* data) {
+        VKZ_ASSERT(data != nullptr, "data should not be a nullptr");
+        VKZ_ASSERT(size <= 65536, "buffer updates cannot exceed 65536 bytes");
+        vkCmdUpdateBuffer(command_buffer, buffer._, 0, size, data);
+    }
+
     template <typename T> inline void fill(VkCommandBuffer command_buffer, const buffer& buffer, const T& value) {
         static_assert(std::is_trivially_copyable_v<T> && sizeof(T) == sizeof(uint32_t),
                       "buffer fill values must be four-byte trivially copyable types");
@@ -460,5 +466,13 @@ namespace vkz {
         set_scissors(command_buffer, std::span<const rect2d>{scissors.begin(), scissors.size()});
     }
 
+    inline void set_cull_mode(VkCommandBuffer command_buffer, VkCullModeFlags cullMode) {
+        vkCmdSetCullMode(command_buffer, cullMode);
+    }
+
+    inline void set_primitive_topology(VkCommandBuffer command_buffer, VkPrimitiveTopology topology) {
+        vkCmdSetPrimitiveTopology(command_buffer, topology);
+    }
 
 } // namespace vkz
+

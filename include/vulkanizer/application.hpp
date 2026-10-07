@@ -47,6 +47,10 @@ public:
 
     virtual void end_frame() {}
 
+    VkFormat color_format() const;
+
+    VkFormat depth_format() const;
+
 private:
     void recreate_swapchain();
 
@@ -60,6 +64,7 @@ protected:
     std::unique_ptr<swapchain> swapchain_;
     std::vector<image_view> image_views_;
     std::unique_ptr<fenced_command_pools> commands_pool_;
+    std::optional<texture> depth_buffer_;
     render_info render_info_;
 };
 
