@@ -65,6 +65,8 @@ void main() {
     uint i=gl_GlobalInvocationID.x, n=svsmPageCount(), total=n*n*svsm.config.z;
     if (control.mode==0u) { // Reset transient state, retag entering clipmap strips.
         if (i>=total) return;
+        // Reuse hierarchy scratch for the allocation bitmap before building the hierarchy.
+        if (i<(total+31u)/32u) hierarchy[i]=0u;
         uint level=i/(n*n), p=i%(n*n);
         ivec2 wrapped=ivec2(p%n,p/n);
         ivec2 local=(wrapped-(svsm.origin[level].xy & int(n-1u))) & int(n-1u);
@@ -110,38 +112,60 @@ void main() {
             atomicOr(svsmPages[entry].flags,SVSM_DIRTY);
             atomicAnd(svsmPages[entry].flags,~SVSM_VALID);
         }
+    } else if (control.mode==8u) { // Parallel request classification and dirty-page compaction.
+        if (i<svsm.limits.y && owners[i]!=SVSM_NONE) atomicAdd(stats.resident,1u);
+        if (i>=total) return;
+        uint flags=svsmPages[i].flags;
+        if ((flags & SVSM_REQUESTED)==0u) return;
+        atomicAdd(stats.requested,1u);
+        if ((flags & SVSM_VALID)!=0u) atomicAdd(stats.cached,1u);
+        else atomicOr(hierarchy[i/32u],1u<<(i%32u));
     } else if (control.mode==3u) { // Deterministic GPU allocator, coarse first, no readback.
         if (i!=0u) return;
+        if (stats.requested==stats.cached) return;
         uint cursor=0u; bool exhausted=false;
-        for (uint reverse=0u;reverse<total;++reverse) {
-            uint entry=total-1u-reverse;
+        // Keep serial bookkeeping in registers, not repeated storage-buffer read/modify/writes.
+        uint cached=stats.cached, missing=0u, rendered=0u, evicted=0u, resident=stats.resident;
+        uint words=(total+31u)/32u;
+        for (uint reverse=0u;reverse<words;++reverse) {
+          uint word=words-1u-reverse;
+          while (hierarchy[word]!=0u) {
+            uint bit=uint(findMSB(hierarchy[word]));
+            uint entry=word*32u+bit;
+            hierarchy[word] &= ~(1u<<bit);
             SvsmPage page=svsmPages[entry];
-            if ((page.flags & SVSM_REQUESTED)==0u) continue;
-            ++stats.requested;
-            if ((page.flags & SVSM_VALID)!=0u) { ++stats.cached; continue; }
-            if (stats.rendered>=svsm.limits.x) { ++stats.missing; continue; }
+            if (rendered>=svsm.limits.x) { ++missing; continue; }
             if ((page.flags & SVSM_RESIDENT)==0u) {
-                if (exhausted) { ++stats.missing; continue; }
+                if (exhausted) { ++missing; continue; }
                 uint physical=SVSM_NONE;
                 for (uint attempt=0u;attempt<svsm.limits.y;++attempt) {
                     uint candidate=cursor; cursor=(cursor+1u)%svsm.limits.y;
                     uint owner=owners[candidate];
                     if (owner==SVSM_NONE || (svsmPages[owner].flags & SVSM_REQUESTED)==0u || owner/(n*n)<entry/(n*n)) {
                         if (owner!=SVSM_NONE) {
+                            // A requested finer cache hit may be evicted for coarse coverage.
+                            // Revisit it later in descending order, including within this word.
+                            uint oldFlags=svsmPages[owner].flags;
+                            if ((oldFlags & (SVSM_REQUESTED|SVSM_VALID))==(SVSM_REQUESTED|SVSM_VALID)) {
+                                --cached;
+                                hierarchy[owner/32u] |= 1u<<(owner%32u);
+                            }
                             svsmPages[owner].flags=(svsmPages[owner].flags & SVSM_REQUESTED)|SVSM_DIRTY;
-                            svsmPages[owner].physical=SVSM_NONE; ++stats.evicted;
-                        }
+                            svsmPages[owner].physical=SVSM_NONE; ++evicted;
+                        } else ++resident;
                         physical=candidate; owners[candidate]=entry; break;
                     }
                 }
-                if (physical==SVSM_NONE) { exhausted=true; ++stats.missing; continue; }
+                if (physical==SVSM_NONE) { exhausted=true; ++missing; continue; }
                 page.physical=physical;
             }
             page.flags=SVSM_RESIDENT|SVSM_REQUESTED|SVSM_SCHEDULED|SVSM_DIRTY;
             svsmPages[entry]=page;
-            ++stats.rendered;
+            ++rendered;
+          }
         }
-        for (uint p=0u;p<svsm.limits.y;++p) if (owners[p]!=SVSM_NONE) ++stats.resident;
+        stats.cached=cached; stats.missing=missing;
+        stats.rendered=rendered; stats.evicted=evicted; stats.resident=resident;
     } else if (control.mode==4u) { // One workgroup per virtual page, only scheduled pages clear.
         uint entry=gl_WorkGroupID.x+gl_WorkGroupID.y*n*n;
         SvsmPage page=svsmPages[entry];

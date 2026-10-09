@@ -171,6 +171,8 @@ int main() try {
         const auto stats = *reinterpret_cast<const vkz::svsm::statistics *>(mapped.as<const char>() + 256);
         require(stats.requested > 0 && (stats.missing > 0) == expect_missing, "Unexpected missing shadow coverage");
         require((stats.rendered > 0) == should_render, "Cache render count incorrect");
+        require(stats.requested == stats.rendered + stats.cached + stats.missing, "Page accounting lost a request");
+        require(stats.resident <= config.physical_pages, "Resident page count exceeds pool capacity");
         if (inputs.caster_count && should_render && !expect_missing) {
             const auto *visible = reinterpret_cast<const uint32_t *>(mapped.as<const char>() + 288);
             const auto *indirect = reinterpret_cast<const VkDrawIndexedIndirectCommand *>(mapped.as<const char>() + 304);
@@ -181,6 +183,7 @@ int main() try {
         mapped.unmap();
         std::cout << "Frame " << frame << ": requested=" << stats.requested << " rendered=" << stats.rendered << " cached=" << stats.cached
                   << '\n';
+        return stats;
     };
     run(true, true);
     run(true, false); // Integer depth rasterization then cache reuse.
@@ -228,6 +231,18 @@ int main() try {
     inputs.light_depth_max = 1;
     run(true, true, true);
     run(true, false, true);
+    // All 32 virtual entries share one bitmap word. New coarse demand must evict
+    // previously cached fine pages and reinsert their bits into that same word.
+    vkz::svsm::destroy(shadows);
+    config.physical_pages = 16;
+    config.max_pages_per_frame = 32;
+    shadows = vkz::svsm::create(config);
+    run(true, true);
+    inputs.request_all_pages = true;
+    const auto evicted = run(true, true, true);
+    require(evicted.evicted > 0 && evicted.resident == 16, "Coarse demand did not reclaim fine cached pages");
+    run(true, false, true);
+    inputs.request_all_pages = false;
     // A separate budget constraint has the same fallback contract even with ample physical memory.
     vkz::svsm::destroy(shadows);
     config.physical_pages = 32;

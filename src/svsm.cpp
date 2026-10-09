@@ -372,7 +372,10 @@ namespace vkz::svsm {
                 dispatch(cmd, 0, (total_ + 63) / 64);
                 dispatch(cmd, 1, (depth.extent.width + 63) / 64, depth.extent.height);
                 dispatch(cmd, 2, (f.invalidation_count + 63) / 64, p_.clipmap_count);
-                dispatch(cmd, 3, 1);
+                timed(cmd, 3, [&] {
+                    dispatch(cmd, 8, (std::max(total_, p_.physical_pages) + 63) / 64);
+                    dispatch(cmd, 3, 1);
+                });
                 dispatch(cmd, 4, n_ * n_, p_.clipmap_count);
                 timed(cmd, 5, [&] {
                     uint32_t offset = 0, previous = 0;
@@ -410,7 +413,7 @@ namespace vkz::svsm {
                     vkCmdDispatch(cmd, x, y, 1);
                     compute_barrier(cmd);
                 };
-                if (mode == 5)
+                if (mode == 3 || mode == 5 || mode == 8)
                     body();
                 else
                     timed(cmd, mode, body);
