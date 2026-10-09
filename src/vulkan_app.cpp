@@ -273,7 +273,18 @@ namespace vkz {
     std::unique_ptr<vkz::swapchain> vulkan_app::create_swapchain(VkImageUsageFlags image_usage) const {
         auto builder = vkz::swapchain::builder(context_);
         builder.set_image_usage(image_usage);
-        if (!vsync_) builder.set_present_mode(VK_PRESENT_MODE_MAILBOX_KHR);
+        if (!vsync_) {
+            uint32_t count{};
+            VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfacePresentModesKHR(context_.device.physical, context_.surface, &count, nullptr));
+            std::vector<VkPresentModeKHR> modes(count);
+            VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfacePresentModesKHR(context_.device.physical, context_.surface, &count, modes.data()));
+            for (const auto mode : {VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_FIFO_KHR}) {
+                if (std::find(modes.begin(), modes.end(), mode) != modes.end()) {
+                    builder.set_present_mode(mode);
+                    break;
+                }
+            }
+        }
         return std::make_unique<vkz::swapchain>(builder.build());
     }
 
