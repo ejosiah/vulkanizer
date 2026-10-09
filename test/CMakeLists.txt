@@ -140,12 +140,13 @@ target_link_libraries(vulkanizer_svsm_bistro PRIVATE vulkanizer)
 target_compile_definitions(vulkanizer_svsm_bistro PRIVATE
     VKZ_SVSM_SHADER_DIR="${SVSM_TEST_SHADER_DIR}" VKZ_SVSM_RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources")
 set(BISTRO_SHADER_OUTPUTS)
-foreach(shader IN ITEMS bistro.vert bistro.frag bistro_depth.frag bistro_shadow.vert bistro_shadow.frag bistro_sky.vert bistro_sky.frag bistro_pages.frag)
+foreach(shader IN ITEMS bistro.vert bistro.frag bistro_depth.frag bistro_shadow.vert bistro_shadow.frag bistro_sky.vert bistro_sky.frag bistro_pages.frag bistro_present.frag bistro_csm.frag bistro_csm_shadow.vert floor.vert floor_depth.frag floor_svsm.frag floor_csm.frag)
     set(output "${SVSM_TEST_SHADER_DIR}/${shader}.spv")
     add_custom_command(OUTPUT "${output}"
         COMMAND "${GLSLC_EXECUTABLE}" --target-env=vulkan1.3 -I "${PROJECT_SOURCE_DIR}/include"
             "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}" -o "${output}"
         DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}" "${CMAKE_CURRENT_SOURCE_DIR}/shaders/bistro_common.glsl"
+            "${CMAKE_CURRENT_SOURCE_DIR}/shaders/floor_common.glsl" "${CMAKE_CURRENT_SOURCE_DIR}/shaders/bistro_csm_sample.glsl"
             "${PROJECT_SOURCE_DIR}/include/vulkanizer/shaders/svsm.glsl"
         VERBATIM)
     list(APPEND BISTRO_SHADER_OUTPUTS "${output}")

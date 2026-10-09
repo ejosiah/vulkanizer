@@ -158,8 +158,9 @@ scheduled physical pages, builds the page hierarchy, culls, renders, then
 publishes completed pages as valid. Page tags retain logical coordinates, not
 just wrapped indices. Sub-page camera movement preserves cached data.
 
-The allocator is a deterministic single-invocation GPU baseline, with bounded
-pool scans and no CPU readback. It retains unused pages until eviction is needed.
+Request classification runs in parallel; a deterministic single-invocation GPU
+allocator handles only pages needing updates, with bounded pool scans and no CPU
+readback. It retains unused pages until eviction is needed.
 Coarse demand can evict finer cached pages to preserve fallback coverage. Pool
 capacity and render budget are hard limits; undersized configurations may still
 have uncovered receivers. Inspect `statistics::missing` and sampling coverage.
@@ -228,6 +229,68 @@ and `--screenshot output.png` support repeatable smoke runs. WASD/QE and left-dr
 control the camera. The UI exposes light direction, cache reset/forced
 invalidation, visibility/coverage views, and GPU page counters.
 
+The viewer runs through `vkz::application` with one frame in flight. Application
+owns acquisition, command submission, synchronization, ImGui initialization, and
+presentation. The scene renders into a shared offscreen color target (including
+the UI for screenshots), then a fullscreen pass displays it on the swapchain.
+
+The **Scene** selector switches between Bistro and **Infinite floor**. The floor
+is an analytic ray intersection with the unbounded world plane `y = 0`, clipped
+only by the camera's near/far planes, with an antialiased procedural grid. There
+are no objects, skybox, or shadow casters in this scene. It still writes receiver
+depth and runs SVSM/CSM and their normal sampling paths, providing an empty-scene
+baseline. Switching scenes resets the page cache and timing history.
+
+Launch with `--scene floor` for a quick standalone run without OBJ, texture, or
+skybox assets. Launch with `--scene bistro` (the default) to load Bistro and enable
+switching between the scenes in the UI. **Bistro - low sun (5 degrees)** uses the
+same Bistro geometry and sun azimuth, with the sun only five degrees above the
+horizon to exercise long shadows and grazing light angles. Launch it directly
+with `--scene bistro-low-sun`. Selecting a scene restores its preset light direction
+and resets the shadow cache and timing history; the light sliders remain editable.
+`--cycle-scenes --cycle-methods --frames 16` exercises Bistro-to-floor-to-low-sun-to-Bistro
+transitions and all shadow modes.
+
+For reproducible shadow comparisons, use `--camera X Y Z`, `--look-at X Y Z`,
+and optionally `--light-direction X Y Z` (the direction light travels).
+`--view visibility` shows the shadow mask without material/lighting differences;
+`--view coverage` shows valid shadow coverage, and `--view lit` restores lighting.
+Combine these with `--shadow-method`, `--frames`, and `--screenshot` to capture
+the same view for both methods.
+
+Select **Method** to use SVSM only, CSM only, or profile both while displaying
+either result. CLI equivalents are `--shadow-method svsm`, `csm`, `both`, and
+`both-csm`; `--cycle-methods --frames 8` exercises transitions through all modes.
+CSM uses `vkz::csm` with four 4096-square depth cascades and a custom alpha-tested
+multiview pipeline. Both methods share geometry, camera, light, diffuse materials,
+receiver depth prepass, and 3x3 shadow filtering. The CSM map and SVSM physical
+pool each contain 256 MiB of depth texels; SVSM additionally allocates metadata.
+Their coverage and effective resolution differ: CSM splits the camera frustum,
+whereas SVSM uses six clipmaps. CSM submits the full scene through multiview;
+SVSM uses GPU caster culling and page caching. Compare visual quality alongside
+timing, and reset history after changing the camera or cache policy.
+
+For Bistro, the viewer replaces each CSM matrix's depth row with the same
+scene-wide light depth interval used by SVSM, preserving cascade XY fitting,
+texel snapping, and split distances. Camera-frustum depth fitting alone clips
+off-camera buildings toward the sun and produces false lighting at low sun
+angles. At the five-degree preset, those buildings can shadow the entire street
+near the starting camera; a dark visibility mask there is expected.
+
+The custom CSM depth pipeline enables dynamic constant and slope-scaled raster
+depth bias (defaults 1.25 and 2.0). The comparison UI exposes both controls.
+Slope-scaled bias accounts for depth variation across shadow texels on oblique
+surfaces; the receiver's small comparison bias alone cannot prevent that acne.
+
+**CSM total** times depth capture, clearing, and transitions. **SVSM total**
+retains its existing stage breakdown. Separate lighting rows include forward
+shading and the sky; only the displayed method records a lighting sample.
+Receiver depth is timed separately for both methods. The shared display copy,
+UI, and CPU cascade matrix update are excluded from these GPU shadow timings.
+Both mode executes both shadow generators in sequence, so use the single-method
+modes for isolated comparisons. Inactive rows retain their previous samples;
+rows with no samples show `--`. Each history retains its last 240 measurements.
+
 Enable **Physical page atlas** (or launch with `--physical-pages`) to overlay the
 physical address texture in slot order. Orange tiles were rendered this frame
 (new allocations or refreshes), green tiles are requested cache hits, blue tiles
@@ -263,9 +326,17 @@ timestamp-capable queue, and a separate profiler per in-flight slot; wait for
 submission completion before committing results or reusing that slot's queries.
 No timestamp pool or readback is created by SVSM itself.
 
-The viewer prefers Immediate presentation (VSync off), falls back to Mailbox,
-and uses FIFO only when neither is supported. The actual mode appears in the
-profiling window.
+The viewer requests VSync off through `vkz::application` (`vsync = false`).
+The application prefers Immediate presentation, with supported Mailbox and FIFO
+fallbacks.
+
+Allocation first classifies requests and counts resident pages in parallel.
+Requested pages needing updates are marked in a compact bitmap using temporary
+hierarchy storage. The serial allocator traverses only those bits, in the same
+descending order as before, preserving coarse priority and deterministic reuse.
+Evicted finer cache hits are inserted back into the bitmap for proper accounting.
+Fully cached frames skip the serial allocator; the hierarchy is rebuilt after
+allocation, so the scratch reuse does not change caster culling.
 
 Current boundaries: one directional light per instance; fixed-size software
 pool; no light-space Hi-Z, draw compaction, cropped raster viewport, hardware

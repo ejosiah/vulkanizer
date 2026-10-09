@@ -1,7 +1,6 @@
 #define VKZ_IOSTREAM_ADAPTER
+#include "../src/third_party/tinyobjloader/tiny_obj_loader.h"
 #include "svsm_validation.hpp"
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "third_party/tinyobjloader/tiny_obj_loader.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "timeout.hpp"
 #include <algorithm>
@@ -14,9 +13,11 @@
 #include <limits>
 #include <stb_image_write.h>
 #include <unordered_map>
+#include <vulkanizer/application.hpp>
 #include <vulkanizer/barrier.hpp>
 #include <vulkanizer/builders.hpp>
 #include <vulkanizer/commands.hpp>
+#include <vulkanizer/csm.hpp>
 #include <vulkanizer/glfw_input_adaptor.hpp>
 #include <vulkanizer/graphics_pipeline_builder.hpp>
 #include <vulkanizer/imgui.hpp>
@@ -186,7 +187,7 @@ namespace {
     }
     vkz::pipeline make_pipeline(vkz::device device, VkFormat color, VkFormat depth, vkz::descriptor_set_layout shadows,
                                 vkz::descriptor_set_layout materials, const char *vert, const char *frag, bool shadow = false,
-                                bool sky = false) {
+                                bool sky = false, bool csm_shadow = false) {
         auto path = [](const char *name) { return std::string{VKZ_SVSM_SHADER_DIR} + "/" + name + ".spv"; };
         vkz::graphics_pipeline_builder builder{device};
         builder.shader_stage().vertex_shader(path(vert)).fragment_shader(path(frag));
@@ -204,12 +205,22 @@ namespace {
             .viewport_state()
             .viewport()
             .origin(0, 0)
-            .dimension(shadow ? 8192 : width, shadow ? 8192 : height)
+            .dimension(csm_shadow ? 4096
+                       : shadow   ? 8192
+                                  : width,
+                       csm_shadow ? 4096
+                       : shadow   ? 8192
+                                  : height)
             .min_depth(0)
             .max_depth(1)
             .scissor()
             .offset(0, 0)
-            .extent(shadow ? 8192 : width, shadow ? 8192 : height)
+            .extent(csm_shadow ? 4096
+                    : shadow   ? 8192
+                               : width,
+                    csm_shadow ? 4096
+                    : shadow   ? 8192
+                               : height)
             .add()
             .rasterization_state()
             .cull_none()
@@ -217,22 +228,54 @@ namespace {
             .polygon_mode_fill()
             .multisample_state()
             .rasterization_samples(VK_SAMPLE_COUNT_1_BIT);
-        if (!shadow && depth != VK_FORMAT_UNDEFINED) {
+        if ((!shadow || csm_shadow) && depth != VK_FORMAT_UNDEFINED) {
             builder.depth_stencil_state().enable_depth_test().compare_op_less_or_equal();
             if (color == VK_FORMAT_UNDEFINED)
                 builder.depth_stencil_state().enable_depth_write();
         }
         if (color != VK_FORMAT_UNDEFINED)
             builder.color_blend_state().attachment().add();
+        if (csm_shadow) {
+            builder.rasterization_state().enable_depth_bias();
+            builder.dynamic_state().depth_bias();
+        }
         builder.layout().add_descriptor_set_layout(shadows).add_descriptor_set_layout(materials).add_push_constant_range(
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(scene_constants));
         auto &rendering = builder.dynamic_render_pass();
         if (color != VK_FORMAT_UNDEFINED)
             rendering.add_color_attachment(color);
-        if (!shadow)
+        if (!shadow || csm_shadow)
             rendering.depth_attachment(depth);
+        if (csm_shadow)
+            rendering.view_mask(15);
         return rendering.build();
     }
+
+    /** @brief Owns the frame lifecycle; callbacks borrow the comparison scene for main_loop(). */
+    class bistro_application final : public vkz::application {
+      public:
+        explicit bistro_application(bool validation)
+            : application(
+                  vkz::vulkan_app_create_info{.width = width,
+                                              .height = height,
+                                              .title = "Bistro | SVSM / CSM comparison",
+                                              .depth_testing = false,
+                                              .multiview = true,
+                                              .resizable = false,
+                                              .validation = validation,
+                                              .vsync = false,
+                                              .enabled_features = {.sampler_anisotropy = true, .fragment_stores_and_atomics = true}},
+                  1) {}
+        vkz::vulkan_app &window_app() { return app_; }
+        vkz::vma_memory_allocator allocator() { return allocator_; }
+        std::function<void()> next_frame, submitted;
+        std::function<void(VkCommandBuffer)> record_scene, present_scene;
+        void new_frame() override { next_frame(); }
+        void app_logic(VkCommandBuffer cmd) override { record_scene(cmd); }
+        void render_swapchain(VkCommandBuffer cmd) override { present_scene(cmd); }
+        void end_frame() override { submitted(); }
+        VkFormat output_format() const { return color_format(); }
+    };
 } // namespace
 
 int main(int argc, char **argv) try {
@@ -241,6 +284,13 @@ int main(int argc, char **argv) try {
     bool validate = false;
     bool show_pages = false;
     int page_view = 0;
+    int shadow_method = 0;
+    int scene_selection = 0;
+    int debug = 0;
+    glm::vec3 initial_position{0, 2, 8}, initial_target{0, 2, -8}, initial_sun{};
+    bool override_sun = false;
+    bool cycle_methods = false;
+    bool cycle_scenes = false;
     uint32_t frame_limit = 0;
     float scale = 0.01f;
     std::string screenshot;
@@ -254,8 +304,61 @@ int main(int argc, char **argv) try {
             frame_limit = uint32_t(std::stoul(argv[++i]));
         else if (arg == "--scale" && i + 1 < argc)
             scale = std::stof(argv[++i]);
-        else if (arg == "--validation")
+        else if ((arg == "--camera" || arg == "--look-at" || arg == "--light-direction") && i + 3 < argc) {
+            glm::vec3 value;
+            for (int axis = 0; axis < 3; ++axis) {
+                value[axis] = std::stof(argv[++i]);
+                if (!std::isfinite(value[axis]))
+                    throw std::invalid_argument("Camera and light values must be finite");
+            }
+            if (arg == "--camera")
+                initial_position = value;
+            else if (arg == "--look-at")
+                initial_target = value;
+            else {
+                if (glm::dot(value, value) < 0.001f)
+                    throw std::invalid_argument("Light direction must be nonzero");
+                initial_sun = value;
+                override_sun = true;
+            }
+        } else if (arg == "--scene" && i + 1 < argc) {
+            const std::string name = argv[++i];
+            if (name == "bistro")
+                scene_selection = 0;
+            else if (name == "floor")
+                scene_selection = 1;
+            else if (name == "bistro-low-sun")
+                scene_selection = 2;
+            else
+                throw std::invalid_argument("--scene expects bistro, floor, or bistro-low-sun");
+        } else if (arg == "--validation")
             validate = true;
+        else if (arg == "--shadow-method" && i + 1 < argc) {
+            const std::string method = argv[++i];
+            if (method == "svsm")
+                shadow_method = 0;
+            else if (method == "csm")
+                shadow_method = 1;
+            else if (method == "both")
+                shadow_method = 2;
+            else if (method == "both-csm")
+                shadow_method = 3;
+            else
+                throw std::invalid_argument("--shadow-method expects svsm, csm, both, or both-csm");
+        } else if (arg == "--view" && i + 1 < argc) {
+            const std::string view = argv[++i];
+            if (view == "lit")
+                debug = 0;
+            else if (view == "visibility")
+                debug = 1;
+            else if (view == "coverage")
+                debug = 2;
+            else
+                throw std::invalid_argument("--view expects lit, visibility, or coverage");
+        } else if (arg == "--cycle-methods")
+            cycle_methods = true;
+        else if (arg == "--cycle-scenes")
+            cycle_scenes = true;
         else if (arg == "--physical-pages")
             show_pages = true;
         else if (arg == "--physical-depth") {
@@ -264,30 +367,37 @@ int main(int argc, char **argv) try {
         } else if (arg == "--screenshot" && i + 1 < argc)
             screenshot = argv[++i];
     }
-    if (!std::filesystem::exists(obj))
+    if (glm::length(glm::cross(initial_target - initial_position, glm::vec3{0, 1, 0})) < 0.0001f)
+        throw std::invalid_argument("Camera target must differ from its position and not be directly above or below it");
+    const bool bistro_loaded = scene_selection != 1;
+    if (bistro_loaded && !std::filesystem::exists(obj))
         throw std::runtime_error("Bistro missing: copy it to test/resources/bistro or use --obj <path>");
-    auto model = load_model(obj, scale);
+    auto model = bistro_loaded ? load_model(obj, scale) : ::model{};
+    if (!bistro_loaded) {
+        model.minimum = {-1, 0, -1};
+        model.maximum = {1, 0, 1};
+    }
     svsm_test::install_logger();
-    vkz::vulkan_app app{{.width = width,
-                         .height = height,
-                         .title = "Bistro | Sparse virtual shadow maps",
-                         .resizable = false,
-                         .validation = validate,
-                         .enabled_features = {.fragment_stores_and_atomics = true}}};
+    bistro_application host{validate};
+    auto &app = host.window_app();
     auto &context = app.context();
     const auto device = context.device;
-    auto allocator = vkz::vma_memory_allocator::create(context);
+    auto allocator = host.allocator();
     const auto queue = app.graphics_queue();
     const auto family = app.queue_family_index();
     vkz::command_pool uploads{device, family, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queue};
     auto upload = [&](const void *data, size_t bytes, VkBufferUsageFlags usage) {
+        const size_t input_bytes = bytes;
+        bytes = std::max(bytes, size_t(16));
         auto staging = vkz::buffer::builder(allocator)
                            .size(bytes)
                            .usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
                            .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
                            .build();
         auto map = staging.map();
-        std::memcpy(map.as<void>(), data, bytes);
+        std::memset(map.as<void>(), 0, bytes);
+        if (input_bytes)
+            std::memcpy(map.as<void>(), data, input_bytes);
         vmaFlushAllocation(staging.allocator, staging.allocation, 0, bytes);
         map.unmap();
         auto result = vkz::buffer::builder(allocator).size(bytes).usage(usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT).build();
@@ -317,23 +427,31 @@ int main(int argc, char **argv) try {
     }
     auto caster_buffer = upload(bounds.data(), bounds.size() * sizeof(bounds[0]), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     auto draw_buffer = upload(templates.data(), templates.size() * sizeof(templates[0]), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    uint32_t mode_count = 0;
-    VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical, context.surface, &mode_count, nullptr));
-    std::vector<VkPresentModeKHR> present_modes(mode_count);
-    VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical, context.surface, &mode_count, present_modes.data()));
-    auto present_mode = VK_PRESENT_MODE_FIFO_KHR;
-    for (auto candidate : {VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_MAILBOX_KHR}) {
-        if (std::find(present_modes.begin(), present_modes.end(), candidate) != present_modes.end()) {
-            present_mode = candidate;
-            break;
-        }
-    }
-    auto swapchain = std::make_unique<vkz::swapchain>(
-        vkz::swapchain::builder(context)
-            .set_image_usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (screenshot.empty() ? 0 : VK_IMAGE_USAGE_TRANSFER_SRC_BIT))
-            .set_present_mode(present_mode)
-            .build());
-    auto views = vkz::create_swapchain_image_views(device, *swapchain);
+    const auto output_format = host.output_format();
+    vkz::texture output;
+    output.image = vkz::image::builder(allocator)
+                       .format(output_format)
+                       .extent(width, height)
+                       .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+                       .build();
+    output.image_view = vkz::image_view::builder(device)
+                            .image(output.image)
+                            .format(output_format)
+                            .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
+                            .level_count(1)
+                            .layer_count(1)
+                            .build();
+    output.sampler = vkz::sampler::builder(device).build();
+    auto output_layout = vkz::make_descriptor_set_layout_builder(device)
+                             .binding(0)
+                             .descriptor_count(1)
+                             .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                             .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                             .create_layout();
+    vkz::descriptor_pool output_pool{device, 1, {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}}};
+    auto output_set = output_pool.allocate(output_layout);
+    vkz::update_descriptors(
+        device, {{output_set, {vkz::texture_descriptor{output.image_view, output.sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0}}}});
     vkz::buffer screenshot_buffer;
     if (!screenshot.empty())
         screenshot_buffer = vkz::buffer::builder(allocator)
@@ -358,13 +476,16 @@ int main(int argc, char **argv) try {
     const auto shadows = vkz::svsm::create({.device = device,
                                             .memory_allocator = allocator,
                                             .physical_pages = 4096,
-                                            .max_casters = uint32_t(bounds.size()),
+                                            .max_casters = std::max(1u, uint32_t(bounds.size())),
                                             .in_flight_frames = 1,
                                             .first_clipmap_extent = 8,
                                             .fragment_stores_and_atomics_enabled = true});
-    auto sky = vkz::texture_from_ktx(sky_path / "skybox_diffuse.ktx", allocator, queue, family, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-    auto irradiance =
-        vkz::texture_from_ktx(sky_path / "skybox_irradiance.ktx", allocator, queue, family, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+    vkz::texture sky, irradiance;
+    if (bistro_loaded) {
+        sky = vkz::texture_from_ktx(sky_path / "skybox_diffuse.ktx", allocator, queue, family, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+        irradiance =
+            vkz::texture_from_ktx(sky_path / "skybox_irradiance.ktx", allocator, queue, family, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+    }
     std::vector<vkz::texture> textures(1);
     auto &white = textures.front();
     white.image = vkz::image::builder(allocator)
@@ -408,7 +529,7 @@ int main(int argc, char **argv) try {
         loaded[path.string()] = material_textures[i];
         textures.push_back(load_diffuse(allocator, queue, family, path));
     }
-    std::cout << "Uploaded " << textures.size() << " diffuse textures and Vista skybox" << std::endl;
+    std::cout << (bistro_loaded ? "Bistro assets uploaded" : "Infinite floor: no external assets or shadow casters") << std::endl;
     auto material_layout = vkz::make_descriptor_set_layout_builder(device)
                                .binding(0)
                                .descriptor_count(1)
@@ -426,93 +547,186 @@ int main(int argc, char **argv) try {
     vkz::descriptor_pool material_pool{
         device, uint32_t(material_textures.size()), {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, uint32_t(material_textures.size() * 3)}}};
     auto materials = material_pool.allocate_n(material_layout, material_textures.size());
-    for (uint32_t i = 0; i < materials.size(); ++i)
+    for (uint32_t i = 0; i < materials.size(); ++i) {
+        if (!bistro_loaded) {
+            vkz::update_descriptors(device, {{materials[i], {vkz::descriptor<vkz::texture_descriptor>(textures.front(), 0)}}});
+            continue;
+        }
         vkz::update_descriptors(
             device, {{materials[i],
                       {vkz::descriptor<vkz::texture_descriptor>(textures[material_textures[i]], 0),
                        vkz::descriptor<vkz::texture_descriptor>(sky, 1), vkz::descriptor<vkz::texture_descriptor>(irradiance, 2)}}});
+    }
     vkz::descriptor_set_layout shadow_layout{vkz::svsm::descriptor_set_layout(shadows), device};
+    vkz::descriptor_pool csm_pool{
+        device,
+        2,
+        {{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4}, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2}, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}}};
+    auto csm_initial_transition = uploads.create_command_buffer();
+    const auto cascades =
+        vkz::csm::create({.device = device,
+                          .depth_format = depth_format,
+                          .memory_allocator = allocator,
+                          .vertex_shader_include = "layout(location=0) in vec3 position; mat4 get_model_matrix(){ return mat4(1); }",
+                          .vertex_shader_position_stride = sizeof(vertex),
+                          .vertex_include_descriptorset_layout = material_layout.handle,
+                          .descriptor_pool = csm_pool.handle(),
+                          .initial_transition_command_buffer = csm_initial_transition,
+                          .in_flight_frames = 1,
+                          .num_cascades = 4,
+                          .size = 4096,
+                          .cull_mode = VK_CULL_MODE_NONE});
+    uploads.submit_and_wait(csm_initial_transition);
+    auto csm_camera_buffer = vkz::buffer::builder(allocator)
+                                 .size(80)
+                                 .usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+                                 .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+                                 .build();
+    auto csm_lighting_layout = vkz::make_descriptor_set_layout_builder(device)
+                                   .binding(0)
+                                   .descriptor_count(1)
+                                   .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                                   .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                                   .binding(1)
+                                   .descriptor_count(1)
+                                   .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                                   .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                                   .binding(2)
+                                   .descriptor_count(1)
+                                   .descriptor_type(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                                   .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                                   .create_layout();
+    auto csm_lighting_set = csm_pool.allocate(csm_lighting_layout);
+    const auto csm_texture = vkz::csm::shadow_map(cascades, 0);
+    vkz::update_descriptors(
+        device, {{csm_lighting_set,
+                  {vkz::descriptor<vkz::buffer_descriptor>(vkz::csm::cascade_view_projection(cascades), 0),
+                   vkz::texture_descriptor{csm_texture.image_view, csm_texture.sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1},
+                   vkz::descriptor<vkz::ubo_descriptor>(csm_camera_buffer, 2)}}});
+    auto csm_forward =
+        make_pipeline(device, output_format, depth_format, csm_lighting_layout, material_layout, "bistro.vert", "bistro_csm.frag");
+    auto csm_shadow = make_pipeline(device, VK_FORMAT_UNDEFINED, depth_format, {vkz::csm::descriptor_set_layout(cascades), device},
+                                    material_layout, "bistro_csm_shadow.vert", "bistro_depth.frag", true, false, true);
     auto prepass =
         make_pipeline(device, VK_FORMAT_UNDEFINED, depth_format, shadow_layout, material_layout, "bistro.vert", "bistro_depth.frag");
-    auto forward = make_pipeline(device, swapchain->format(), depth_format, shadow_layout, material_layout, "bistro.vert", "bistro.frag");
+    auto forward = make_pipeline(device, output_format, depth_format, shadow_layout, material_layout, "bistro.vert", "bistro.frag");
     auto shadow = make_pipeline(device, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, shadow_layout, material_layout, "bistro_shadow.vert",
                                 "bistro_shadow.frag", true);
-    auto sky_pipeline = make_pipeline(device, swapchain->format(), depth_format, shadow_layout, material_layout, "bistro_sky.vert",
+    auto sky_pipeline = make_pipeline(device, output_format, depth_format, shadow_layout, material_layout, "bistro_sky.vert",
                                       "bistro_sky.frag", false, true);
-    auto pages_pipeline = make_pipeline(device, swapchain->format(), VK_FORMAT_UNDEFINED, shadow_layout, material_layout, "bistro_sky.vert",
+    auto pages_pipeline = make_pipeline(device, output_format, VK_FORMAT_UNDEFINED, shadow_layout, material_layout, "bistro_sky.vert",
                                         "bistro_pages.frag", false, true);
+    auto floor_prepass = make_pipeline(device, VK_FORMAT_UNDEFINED, depth_format, shadow_layout, material_layout, "floor.vert",
+                                       "floor_depth.frag", false, true);
+    auto floor_svsm =
+        make_pipeline(device, output_format, depth_format, shadow_layout, material_layout, "floor.vert", "floor_svsm.frag", false, true);
+    auto floor_csm = make_pipeline(device, output_format, depth_format, csm_lighting_layout, material_layout, "floor.vert",
+                                   "floor_csm.frag", false, true);
     vkz::glfw_input_adaptor input(app.window(), false);
     input.bind();
     vkz::camera::camera camera;
-    camera.position = {0, 2, 8};
+    camera.position = initial_position;
     camera.velocity = {6, 6, 6};
     camera.acceleration = {12, 12, 12};
     camera.rotationSpeed = 0.15f;
     vkz::camera::spectator initializer(camera);
-    initializer.look_at(camera.position, {0, 2, -8}, {0, 1, 0});
+    initializer.look_at(camera.position, initial_target, {0, 1, 0});
     initializer.perspective(65, float(width) / height, 0.05f, 2000);
     vkz::camera::controller controller{camera, vkz::camera::movement_type::spectator, input.get_device()};
-    vkz::imgui::init({.window = app.window(),
-                      .vulkan_context = &context,
-                      .queue_family = family,
-                      .queue = queue,
-                      .min_image_count = 2,
-                      .image_count = swapchain->image_count(),
-                      .api_version = VK_API_VERSION_1_3,
-                      .color_attachment_format = swapchain->format()});
     auto stats_readback = vkz::buffer::builder(allocator)
                               .size(sizeof(vkz::svsm::statistics))
                               .usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
                               .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
                               .build();
-    auto available = vkz::create_semaphore(device);
-    std::vector<VkSemaphore> finished(views.size());
-    for (auto &s : finished)
-        s = vkz::create_semaphore(device);
-    vkz::fenced_command_pools commands{device, queue, family, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, 1};
     vkz::profiler gpu_profiler{device, 16};
-    std::vector<std::string> profile_names{"Receiver depth", "SVSM total"};
+    std::vector<std::string> profile_names{"Receiver depth", "SVSM total", "CSM total", "SVSM lighting", "CSM lighting"};
+    std::vector<std::string> recorded_queries;
+    bool recorded_svsm = false;
     for (auto name : vkz::svsm::profiling_queries)
         profile_names.emplace_back(name);
     for (const auto &name : profile_names)
         gpu_profiler.add_query(name);
     auto collect_profile = [&] {
         // This viewer has one in-flight slot. Its fence must complete before reading or reusing queries.
-        gpu_profiler.commit(profile_names);
+        gpu_profiler.commit(recorded_queries);
         for (auto &[name, query] : gpu_profiler.queries)
             if (query.runtimes.size() > 240)
                 query.runtimes.erase(query.runtimes.begin());
     };
     const test_timeout timeout{argc, argv}; // Timeout starts AFTER loading large assets.
     uint32_t frame = 0;
-    int debug = 0;
     float page_size_on_screen = float(height) - 48.0f;
     bool force_uncached = false;
-    glm::vec3 sun = glm::normalize(glm::vec3{0.4f, -0.8f, 0.3f});
+    float csm_bias_constant = 1.25f, csm_bias_slope = 2.0f;
+    auto preset_sun = [](int scene) {
+        /** Light travels downwards: a negative Y component places the sun above the horizon. */
+        return scene == 2 ? glm::normalize(glm::vec3{0.8f, -std::tan(glm::radians(5.0f)), 0.6f})
+                          : glm::normalize(glm::vec3{0.4f, -0.8f, 0.3f});
+    };
+    glm::vec3 sun = override_sun ? initial_sun : preset_sun(scene_selection);
     vkz::svsm::statistics stats{};
     auto previous = std::chrono::steady_clock::now();
-    while (!app.should_close() && !timeout.expired() && (!frame_limit || frame < frame_limit)) {
-        app.poll_events();
+    host.next_frame = [&] {
         auto now = std::chrono::steady_clock::now();
         float dt = std::chrono::duration<float>(now - previous).count();
         previous = now;
         controller.process_input();
         controller.update(std::min(dt, 0.1f));
-        commands.set_cycle_and_wait(frame);
         if (frame) {
             collect_profile();
-            vmaInvalidateAllocation(stats_readback.allocator, stats_readback.allocation, 0, VK_WHOLE_SIZE);
-            auto m = stats_readback.map();
-            stats = *m.as<vkz::svsm::statistics>();
-            m.unmap();
+            if (recorded_svsm) {
+                vmaInvalidateAllocation(stats_readback.allocator, stats_readback.allocation, 0, VK_WHOLE_SIZE);
+                auto m = stats_readback.map();
+                stats = *m.as<vkz::svsm::statistics>();
+                m.unmap();
+            }
         }
-        uint32_t index;
-        VKZ_CHECK_VULKAN(vkAcquireNextImageKHR(device, *swapchain, UINT64_MAX, available, VK_NULL_HANDLE, &index));
-        vkz::imgui::new_frame();
+        if (cycle_methods)
+            shadow_method = int(frame % 4);
         ImGui::SetNextWindowSizeConstraints({390, show_pages ? 420.0f : 220.0f}, {float(width), float(height)});
-        ImGui::Begin("Sparse virtual shadows");
-        ImGui::Text("Bistro / tinyobjloader | WASD, Q/E, left-drag to look");
-        ImGui::Text("%.1f ms | %zu caster batches", dt * 1000, model.batches.size());
+        ImGui::Begin("Shadow comparison");
+        bool scene_changed = false;
+        if (cycle_scenes && bistro_loaded) {
+            const int next_scene = int((frame / 4) % 3);
+            scene_changed = next_scene != scene_selection;
+            scene_selection = next_scene;
+        }
+        const char *scene_names[]{"Bistro", "Infinite floor", "Bistro - low sun (5 degrees)"};
+        if (ImGui::BeginCombo("Scene", scene_names[scene_selection])) {
+            ImGui::BeginDisabled(!bistro_loaded);
+            if (ImGui::Selectable("Bistro", scene_selection == 0) && scene_selection != 0) {
+                scene_selection = 0;
+                scene_changed = true;
+            }
+            if (ImGui::Selectable(scene_names[2], scene_selection == 2) && scene_selection != 2) {
+                scene_selection = 2;
+                scene_changed = true;
+            }
+            ImGui::EndDisabled();
+            if (ImGui::Selectable("Infinite floor", scene_selection == 1) && scene_selection != 1) {
+                scene_selection = 1;
+                scene_changed = true;
+            }
+            ImGui::EndCombo();
+        }
+        if (scene_changed) {
+            sun = preset_sun(scene_selection);
+            vkz::svsm::reset(shadows);
+            gpu_profiler.clear_runtimes();
+            stats = {};
+        }
+        if (!bistro_loaded)
+            ImGui::TextUnformatted("Launch with --scene bistro to also load Bistro.");
+        ImGui::Combo("Method", &shadow_method, "SVSM only\0CSM only\0Profile both / show SVSM\0Profile both / show CSM\0");
+        ImGui::TextUnformatted("CSM: 4 x 4096 | SVSM: 6 x 8192 virtual, 4096 pages");
+        ImGui::TextUnformatted("Both: same camera and alpha test; 3x3 PCF.");
+        ImGui::TextUnformatted("Different coverage/resolution; compare quality as well as time.");
+        if (shadow_method != 0) {
+            ImGui::SliderFloat("CSM constant bias", &csm_bias_constant, 0.0f, 4.0f, "%.2f");
+            ImGui::SliderFloat("CSM slope bias", &csm_bias_slope, 0.0f, 4.0f, "%.2f");
+        }
+        ImGui::TextUnformatted("WASD, Q/E, left-drag to look");
+        ImGui::Text("%.1f ms | %zu caster batches", dt * 1000, scene_selection != 1 ? model.batches.size() : size_t(0));
         ImGui::Text("Pages: %u requested / %u rendered / %u cached / %u missing", stats.requested, stats.rendered, stats.cached,
                     stats.missing);
         ImGui::Text("Pool: %u resident / %u evicted | %u caster-level draws", stats.resident, stats.evicted, stats.visible_casters);
@@ -534,14 +748,14 @@ int main(int argc, char **argv) try {
         if (ImGui::Button("Reset cache"))
             vkz::svsm::reset(shadows);
         ImGui::Text("Camera %.2f %.2f %.2f", camera.position.x, camera.position.y, camera.position.z);
+        ImGui::Text("View direction %.3f %.3f %.3f", camera.viewDir.x, camera.viewDir.y, camera.viewDir.z);
         ImGui::End();
         ImGui::SetNextWindowPos({float(width) - 650, 24}, ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize({620, 360}, ImGuiCond_FirstUseEver);
         ImGui::Begin("GPU shadow profiling");
-        ImGui::Text("Present: %s", present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR ? "Immediate (VSync off)"
-                                   : present_mode == VK_PRESENT_MODE_MAILBOX_KHR ? "Mailbox (nonblocking)"
-                                                                                 : "FIFO (driver fallback)");
-        ImGui::Text("Last %zu completed frames | milliseconds", gpu_profiler.queries.at("SVSM total").runtimes.size());
+        ImGui::TextUnformatted("VSync off | application-managed frames");
+        ImGui::Text("Last 240 samples per row | milliseconds | SVSM %zu / CSM %zu", gpu_profiler.queries.at("SVSM total").runtimes.size(),
+                    gpu_profiler.queries.at("CSM total").runtimes.size());
         if (validate)
             ImGui::TextUnformatted("Validation enabled: timings include validation overhead.");
         if (ImGui::Button("Reset timing history"))
@@ -559,13 +773,29 @@ int main(int argc, char **argv) try {
                 ImGui::TextUnformatted(name.c_str());
                 for (float value : {timing.mean, timing.minimum, timing.maximum, timing.standard_deviation}) {
                     ImGui::TableNextColumn();
-                    ImGui::Text("%.3f", value);
+                    if (gpu_profiler.queries.at(name).runtimes.empty())
+                        ImGui::TextUnformatted("--");
+                    else
+                        ImGui::Text("%.3f", value);
                 }
             }
             ImGui::EndTable();
         }
         ImGui::End();
-        auto cmd = commands.create_command_buffer();
+    };
+    host.record_scene = [&](VkCommandBuffer cmd) {
+        const bool floor_scene = scene_selection == 1;
+        const bool run_svsm = shadow_method != 1, run_csm = shadow_method != 0;
+        const bool show_csm = shadow_method == 1 || shadow_method == 3;
+        recorded_svsm = run_svsm;
+        recorded_queries = {"Receiver depth", show_csm ? "CSM lighting" : "SVSM lighting"};
+        if (run_svsm) {
+            recorded_queries.emplace_back("SVSM total");
+            for (auto name : vkz::svsm::profiling_queries)
+                recorded_queries.emplace_back(name);
+        }
+        if (run_csm)
+            recorded_queries.emplace_back("CSM total");
         vkz::barrier::push_and_flush(cmd, depth.image, {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                                      VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                                      VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
@@ -575,7 +805,11 @@ int main(int argc, char **argv) try {
         constants.light_direction = glm::vec4(glm::normalize(sun), 0);
         constants.info.z = uint32_t(debug);
         auto draw_scene = [&](const vkz::pipeline &pipeline, bool indirect, uint32_t clip) {
+            if (floor_scene)
+                return;
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
+            if (pipeline.handle == csm_shadow.handle)
+                vkCmdSetDepthBias(cmd, csm_bias_constant, 0.0f, csm_bias_slope);
             VkDeviceSize zero = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vertices._, &zero);
             vkCmdBindIndexBuffer(cmd, index_buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -602,59 +836,128 @@ int main(int argc, char **argv) try {
         vkz::render_info render{};
         render.render_area = {width, height};
         render.depth_attachment = vkz::depth_stencil_attachment{depth.image_view, depth_format, {1, 0}, true};
+        auto draw_floor = [&](const vkz::pipeline &pipeline) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
+            vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
+                               &constants);
+            vkCmdDraw(cmd, 3, 1, 0, 0);
+        };
         gpu_profiler.profile(
-            "Receiver depth", cmd, [&] { vkz::render(cmd, render, [&] { draw_scene(prepass, false, 0); }); },
+            "Receiver depth", cmd,
+            [&] {
+                vkz::render(cmd, render, [&] {
+                    if (floor_scene)
+                        draw_floor(floor_prepass);
+                    else
+                        draw_scene(prepass, false, 0);
+                });
+            },
             VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
         vkz::barrier::push_and_flush(cmd, depth.image, {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1},
                                      VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
                                      VK_ACCESS_2_SHADER_READ_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-        const float depth_extent = glm::length(glm::max(glm::abs(model.minimum), glm::abs(model.maximum))) + 10;
+        const float depth_extent = floor_scene ? 1000000.0f : glm::length(glm::max(glm::abs(model.minimum), glm::abs(model.maximum))) + 10;
         auto shadow_set = vkz::svsm::descriptor_set(shadows, 0);
-        gpu_profiler.profile(
-            "SVSM total", cmd,
-            [&] {
-                vkz::svsm::begin(shadows, cmd,
-                                 {.depth = depth,
-                                  .inverse_view_projection = glm::inverse(constants.matrix),
-                                  .camera_position = camera.position,
-                                  .light_direction = sun,
-                                  .light_depth_min = -depth_extent,
-                                  .light_depth_max = depth_extent,
-                                  .casters = caster_buffer,
-                                  .caster_count = uint32_t(bounds.size()),
-                                  .indexed_draws = draw_buffer,
-                                  .reset_cache = force_uncached,
-                                  .gpu_profiler = &gpu_profiler});
-                vkz::svsm::capture(shadows, cmd, [&](const vkz::svsm::render_context &pass) {
-                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadow.layout, 0, 1, &shadow_set, 0, nullptr);
-                    draw_scene(shadow, true, pass.clipmap);
-                });
-                vkz::svsm::end(shadows, cmd);
-            },
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+        if (run_svsm)
+            gpu_profiler.profile(
+                "SVSM total", cmd,
+                [&] {
+                    vkz::svsm::begin(shadows, cmd,
+                                     {.depth = depth,
+                                      .inverse_view_projection = glm::inverse(constants.matrix),
+                                      .camera_position = camera.position,
+                                      .light_direction = sun,
+                                      .light_depth_min = -depth_extent,
+                                      .light_depth_max = depth_extent,
+                                      .casters = caster_buffer,
+                                      .caster_count = floor_scene ? 0u : uint32_t(bounds.size()),
+                                      .indexed_draws = draw_buffer,
+                                      .reset_cache = force_uncached,
+                                      .gpu_profiler = &gpu_profiler});
+                    vkz::svsm::capture(shadows, cmd, [&](const vkz::svsm::render_context &pass) {
+                        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadow.layout, 0, 1, &shadow_set, 0, nullptr);
+                        draw_scene(shadow, true, pass.clipmap);
+                    });
+                    vkz::svsm::end(shadows, cmd);
+                },
+                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+        if (run_csm) {
+            struct csm_camera_data {
+                glm::mat4 view;
+                glm::vec4 splits;
+            } data{camera.view, {}};
+            vkz::csm::update(cascades, {constants.matrix, 0.05f, 2000.0f}, -glm::normalize(sun), {&data.splits.x, 4});
+            auto matrices = vkz::csm::cascade_view_projection(cascades);
+            if (!floor_scene) {
+                /** Retain off-camera casters toward the sun, using the same scene depth coverage as SVSM. */
+                auto mapping = matrices.map();
+                auto *transforms = mapping.as<glm::mat4>();
+                const glm::vec3 depth_axis = glm::normalize(sun) / (2.0f * depth_extent);
+                for (uint32_t level = 0; level < 4; ++level) {
+                    for (int axis = 0; axis < 3; ++axis)
+                        transforms[level][axis][2] = depth_axis[axis];
+                    transforms[level][3][2] = 0.5f;
+                }
+                mapping.unmap();
+            }
+            vmaFlushAllocation(matrices.allocator, matrices.allocation, 0, VK_WHOLE_SIZE);
+            auto mapping = csm_camera_buffer.map();
+            std::memcpy(mapping.as<void>(), &data, sizeof(data));
+            vmaFlushAllocation(csm_camera_buffer.allocator, csm_camera_buffer.allocation, 0, VK_WHOLE_SIZE);
+            mapping.unmap();
+            gpu_profiler.profile(
+                "CSM total", cmd,
+                [&] {
+                    vkz::csm::capture(
+                        cascades,
+                        [&](VkPipelineLayout) {
+                            auto set = vkz::csm::descriptor_set(cascades);
+                            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, csm_shadow.layout, 0, 1, &set, 0, nullptr);
+                            draw_scene(csm_shadow, false, 0);
+                        },
+                        cmd, 0);
+                },
+                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+        }
         vkz::barrier::push_and_flush(cmd, depth.image, {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
                                      VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                                      VK_ACCESS_2_SHADER_READ_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
                                      VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-        auto color = swapchain->get_image(index);
-        vkz::barrier::push_and_flush(cmd, color, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_NONE,
-                                     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                                     VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        render.color_attachments.push_back({views[index], swapchain->format(), {0, 0, 0, 1}});
+        auto &color = output.image;
+        vkz::barrier::push_and_flush(cmd, color.handle, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                                     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                     VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                                     color.layout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        render.color_attachments.push_back({output.image_view, output_format, {0.10f, 0.14f, 0.20f, 1}});
         render.depth_attachment->clear = false;
-        vkz::render(cmd, render, [&] {
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, forward.layout, 0, 1, &shadow_set, 0, nullptr);
-            draw_scene(forward, false, 0);
-            scene_constants sky_constants{};
-            sky_constants.matrix = glm::inverse(camera.projection * camera.view);
-            sky_constants.diffuse = glm::vec4(camera.position, 1);
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_pipeline.handle);
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_pipeline.layout, 1, 1, &materials.back().handle, 0, nullptr);
-            vkCmdPushConstants(cmd, sky_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                               sizeof(sky_constants), &sky_constants);
-            vkCmdDraw(cmd, 3, 1, 0, 0);
-        });
+        gpu_profiler.profile(
+            show_csm ? "CSM lighting" : "SVSM lighting", cmd,
+            [&] {
+                vkz::render(cmd, render, [&] {
+                    if (floor_scene) {
+                        auto &floor_pipeline = show_csm ? floor_csm : floor_svsm;
+                        const auto set = show_csm ? csm_lighting_set.handle : shadow_set;
+                        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, floor_pipeline.layout, 0, 1, &set, 0, nullptr);
+                        draw_floor(floor_pipeline);
+                        return;
+                    }
+                    auto &lighting = show_csm ? csm_forward : forward;
+                    auto lighting_set = show_csm ? csm_lighting_set.handle : shadow_set;
+                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, lighting.layout, 0, 1, &lighting_set, 0, nullptr);
+                    draw_scene(lighting, false, 0);
+                    scene_constants sky_constants{};
+                    sky_constants.matrix = glm::inverse(camera.projection * camera.view);
+                    sky_constants.diffuse = glm::vec4(camera.position, 1);
+                    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_pipeline.handle);
+                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_pipeline.layout, 1, 1, &materials.back().handle, 0,
+                                            nullptr);
+                    vkCmdPushConstants(cmd, sky_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                       sizeof(sky_constants), &sky_constants);
+                    vkCmdDraw(cmd, 3, 1, 0, 0);
+                });
+            },
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
         // ImGui's pipeline declares no depth attachment; use a separate color-only rendering scope.
         vkz::barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
                                      VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
@@ -662,7 +965,7 @@ int main(int argc, char **argv) try {
         render.depth_attachment.reset();
         render.color_attachments[0].clear = false;
         vkz::render(cmd, render, [&] {
-            if (show_pages) {
+            if (show_pages && run_svsm) {
                 scene_constants page_constants{};
                 page_constants.diffuse = {float(width) - page_size_on_screen - 24.0f, 24.0f, page_size_on_screen, 0};
                 page_constants.info.z = uint32_t(page_view);
@@ -675,43 +978,45 @@ int main(int argc, char **argv) try {
             vkz::imgui::render(cmd);
         });
         VkBufferCopy copy{0, 0, sizeof(stats)};
-        vkCmdCopyBuffer(cmd, vkz::svsm::counters(shadows, 0), stats_readback, 1, &copy);
+        if (run_svsm)
+            vkCmdCopyBuffer(cmd, vkz::svsm::counters(shadows, 0), stats_readback, 1, &copy);
         vkz::barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
                                      VK_ACCESS_2_HOST_READ_BIT);
         if (screenshot_buffer._) {
-            vkz::barrier::push_and_flush(cmd, color, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+            vkz::barrier::push_and_flush(cmd, color.handle, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
                                          VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
                                          VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             VkBufferImageCopy image_copy{};
             image_copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
             image_copy.imageExtent = {width, height, 1};
-            vkCmdCopyImageToBuffer(cmd, color, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, screenshot_buffer, 1, &image_copy);
+            vkCmdCopyImageToBuffer(cmd, color.handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, screenshot_buffer, 1, &image_copy);
             vkz::barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_HOST_BIT,
                                          VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_HOST_READ_BIT);
-            vkz::barrier::push_and_flush(cmd, color, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                         VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_TRANSFER_READ_BIT, 0, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            vkz::barrier::push_and_flush(cmd, color.handle, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                         VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
+                                         VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         } else
-            vkz::barrier::push_and_flush(cmd, color, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-                                         VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_NONE,
-                                         VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-        VKZ_CHECK_VULKAN(vkEndCommandBuffer(cmd));
-        commands.enqueue(cmd);
-        commands.enqueue_wait(available, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-        commands.enqueue_signal(finished[index]);
-        VKZ_CHECK_VULKAN(commands.execute());
-        auto handle = swapchain->handle();
-        VkPresentInfoKHR present{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
-        present.waitSemaphoreCount = 1;
-        present.pWaitSemaphores = &finished[index];
-        present.swapchainCount = 1;
-        present.pSwapchains = &handle;
-        present.pImageIndices = &index;
-        VKZ_CHECK_VULKAN(vkQueuePresentKHR(queue, &present));
+            vkz::barrier::push_and_flush(cmd, color.handle, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+                                         VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                                         VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        output.image.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    };
+    auto output_pipeline = make_pipeline(device, output_format, VK_FORMAT_UNDEFINED, output_layout, material_layout, "bistro_sky.vert",
+                                         "bistro_present.frag", false, true);
+    host.present_scene = [&](VkCommandBuffer cmd) {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, output_pipeline.handle);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, output_pipeline.layout, 0, 1, &output_set.handle, 0, nullptr);
+        vkCmdDraw(cmd, 3, 1, 0, 0);
+    };
+    host.submitted = [&] {
         ++frame;
-    }
+        if (timeout.expired() || (frame_limit && frame >= frame_limit))
+            glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
+    };
+    host.main_loop();
     vkDeviceWaitIdle(device);
     if (frame)
         collect_profile();
@@ -725,7 +1030,7 @@ int main(int argc, char **argv) try {
         vmaInvalidateAllocation(screenshot_buffer.allocator, screenshot_buffer.allocation, 0, VK_WHOLE_SIZE);
         auto m = screenshot_buffer.map();
         auto *pixels = m.as<uint8_t>();
-        if (swapchain->format() == VK_FORMAT_B8G8R8A8_SRGB || swapchain->format() == VK_FORMAT_B8G8R8A8_UNORM)
+        if (output_format == VK_FORMAT_B8G8R8A8_SRGB || output_format == VK_FORMAT_B8G8R8A8_UNORM)
             for (uint32_t i = 0; i < width * height; ++i)
                 std::swap(pixels[i * 4], pixels[i * 4 + 2]);
         if (!stbi_write_png(screenshot.c_str(), width, height, 4, pixels, width * 4))
@@ -733,18 +1038,32 @@ int main(int argc, char **argv) try {
         m.unmap();
     }
     screenshot_buffer.destroy();
-    vkz::imgui::destroy();
+    output_pipeline.destroy();
+    output_pool.destroy();
+    output_layout.destroy();
+    output.destroy();
     prepass.destroy();
     forward.destroy();
     shadow.destroy();
     sky_pipeline.destroy();
     pages_pipeline.destroy();
+    floor_prepass.destroy();
+    floor_svsm.destroy();
+    floor_csm.destroy();
+    csm_forward.destroy();
+    csm_shadow.destroy();
+    csm_pool.destroy();
+    csm_lighting_layout.destroy();
+    csm_camera_buffer.destroy();
+    vkz::csm::destroy(cascades);
     material_pool.destroy();
     material_layout.destroy();
     for (auto &t : textures)
         t.destroy();
-    sky.destroy();
-    irradiance.destroy();
+    if (bistro_loaded) {
+        sky.destroy();
+        irradiance.destroy();
+    }
     vkz::svsm::destroy(shadows);
     depth.destroy();
     vertices.destroy();
@@ -752,12 +1071,6 @@ int main(int argc, char **argv) try {
     caster_buffer.destroy();
     draw_buffer.destroy();
     stats_readback.destroy();
-    for (auto s : finished)
-        vkDestroySemaphore(device, s, nullptr);
-    vkDestroySemaphore(device, available, nullptr);
-    vkz::destroy_image_views(device, views);
-    swapchain.reset();
-    allocator.destroy();
     svsm_test::check_validation();
     return 0;
 } catch (const std::exception &error) {
