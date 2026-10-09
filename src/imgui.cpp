@@ -128,6 +128,7 @@ namespace vkz::imgui {
             init_info.PipelineInfoMain.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
             init_info.PipelineInfoMain.PipelineRenderingCreateInfo.pColorAttachmentFormats =
                     &params_.color_attachment_format;
+            init_info.PipelineInfoMain.PipelineRenderingCreateInfo.depthAttachmentFormat = params_.depth_attachment_format;
         }
 #endif
 

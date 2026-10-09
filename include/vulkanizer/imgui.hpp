@@ -25,6 +25,7 @@ namespace vkz::imgui {
         VkDescriptorPool descriptor_pool{};
         VkPipelineCache pipeline_cache{};
         const VkAllocationCallbacks* allocator{};
+        VkFormat depth_attachment_format{VK_FORMAT_UNDEFINED};
     };
 
     void init(const params& params);

@@ -3,13 +3,21 @@
 #include <cstddef>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <string>
 
 namespace vkz {
 
-    application::application(vulkan_app_create_info create_info)
-            : name_{create_info.title ? create_info.title : "application"},
-              screen_size_{create_info.width, create_info.height}, app_{create_info}, context_{app_.context()},
+    namespace {
+        vulkan_app_create_info validate_frames(vulkan_app_create_info info, uint32_t count) {
+            if (!count) throw std::invalid_argument("Frames in flight must be greater than zero");
+            return info;
+        }
+    }
+
+    application::application(vulkan_app_create_info create_info, uint32_t frames_in_flight)
+            : frames_in_flight_{frames_in_flight}, depth_testing_{create_info.depth_testing}, name_{create_info.title ? create_info.title : "application"},
+              screen_size_{create_info.width, create_info.height}, app_{validate_frames(create_info, frames_in_flight)}, context_{app_.context()},
               device_{context_.device}, swapchain_{app_.create_swapchain()},
               allocator_(vkz::vma_memory_allocator::create(context_)),
               image_views_{vkz::create_swapchain_image_views(device_, *swapchain_)} {
@@ -27,6 +35,7 @@ namespace vkz {
                                  .image_count = swapchain_->image_count(),
                                  .api_version = VK_API_VERSION_1_3,
                                  .color_attachment_format = swapchain_->format(),
+                                 .depth_attachment_format = create_info.depth_testing ? pick_depth_format(device_) : VK_FORMAT_UNDEFINED,
                          });
 
         commands_pool_ = std::make_unique<vkz::fenced_command_pools>(
@@ -34,7 +43,7 @@ namespace vkz {
                 graphics_queue,
                 queue_family_index,
                 VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-                1
+                frames_in_flight_
         );
 
         render_info_.color_attachments.push_back({
@@ -42,43 +51,22 @@ namespace vkz {
              .clear_value = {0.45f, 0.55f, 0.60f, 1.0f},
          });
 
-        if (create_info.depth_testing) {
-            depth_buffer_ = texture{};
-            const auto depth_format = pick_depth_format(device_);
-            depth_buffer_->image =
-                    image::builder(allocator_)
-                            .format(depth_format)
-                            .type(VK_IMAGE_TYPE_2D)
-                            .extent(screen_size_.x, screen_size_.y)
-                            .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-                            .build();
-
-            depth_buffer_->image_view =
-                    image_view::builder(device_)
-                            .image(depth_buffer_->image)
-                            .format(depth_format)
-                            .view_type(VK_IMAGE_VIEW_TYPE_2D)
-                            .aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT)
-                            .build();
-
-            render_info_.depth_attachment = {
-                    .view = depth_buffer_->image_view,
-                    .format = depth_format
-            };
-        }
+        image_available_.resize(frames_in_flight_);
+        for (auto &semaphore : image_available_) semaphore = vkz::create_semaphore(device_.logical);
+        create_frame_attachments();
 
         render_info_.render_area = {swapchain_->width(), swapchain_->height()};
     }
 
     application::application(const std::string &name, glm::uvec2 screen_size,
-                             const device_extension_chain &extension_chain)
+                             const device_extension_chain &extension_chain, uint32_t frames_in_flight)
             : application(vulkan_app_create_info{
             .width = screen_size.x,
             .height = screen_size.y,
             .title = name.c_str(),
             .validation = true,
             .extension_chain = extension_chain,
-    }) {
+    }, frames_in_flight) {
     }
 
     application::~application() {
@@ -87,10 +75,8 @@ namespace vkz {
         vkz::imgui::destroy();
         vkz::destroy_image_views(device_.logical, image_views_);
         image_views_.clear();
-        if (depth_buffer_) {
-            depth_buffer_->destroy();
-            depth_buffer_.reset();
-        }
+        destroy_frame_attachments();
+        for (auto semaphore : image_available_) vkDestroySemaphore(device_.logical, semaphore, nullptr);
         swapchain_.reset();
         allocator_.destroy();
     }
@@ -108,9 +94,7 @@ namespace vkz {
         auto *window = app.window();
         const auto graphics_queue = app.graphics_queue();
 
-        VkSemaphore image_available = vkz::create_semaphore(device_.logical);
-        VkSemaphore render_finished = vkz::create_semaphore(device_.logical);
-        uint32_t frame{};
+        frame_index_ = 0;
 
         while (!app_.should_close()) {
             app.poll_events();
@@ -128,7 +112,8 @@ namespace vkz {
                 continue;
             }
 
-            commands_pool_->set_cycle_and_wait(frame++);
+            commands_pool_->set_cycle_and_wait(frame_index_);
+            const auto image_available = image_available_[frame_index_];
 
             uint32_t image_index{};
             const auto acquire_result = vkAcquireNextImageKHR(
@@ -143,13 +128,32 @@ namespace vkz {
                 recreate_swapchain();
                 continue;
             }
-            VKZ_CHECK_VULKAN(acquire_result);
+            if (acquire_result != VK_SUBOPTIMAL_KHR) VKZ_CHECK_VULKAN(acquire_result);
+            const auto render_finished = render_finished_[image_index];
+            if (depth_testing_) {
+                depth_buffer_ = depth_buffers_[frame_index_];
+                render_info_.depth_attachment->view = depth_buffer_->image_view;
+            }
 
             vkz::imgui::new_frame();
             new_frame();
 
             auto command_buffer = commands_pool_->create_command_buffer();
 
+            if (depth_testing_) {
+                auto &depth = depth_buffers_[frame_index_];
+                VkImageSubresourceRange depth_range{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
+                const auto stages = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+                vkz::barrier::push_and_flush(command_buffer, depth.image.handle, depth_range,
+                    depth_initialized_[frame_index_] ? stages : VK_PIPELINE_STAGE_2_NONE, stages,
+                    depth_initialized_[frame_index_] ? VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT : VK_ACCESS_2_NONE,
+                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                    depth_initialized_[frame_index_] ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+                depth_initialized_[frame_index_] = true;
+                depth.image.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+                depth_buffer_->image.layout = depth.image.layout;
+            }
             app_logic(command_buffer);
 
             auto image = swapchain->get_image(image_index);
@@ -162,7 +166,8 @@ namespace vkz {
                     command_buffer,
                     image,
                     range,
-                    VK_PIPELINE_STAGE_2_NONE,
+                    // Chain the layout transition after the acquire semaphore's wait stage.
+                    VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
                     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
                     VK_ACCESS_2_NONE,
                     VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
@@ -201,17 +206,17 @@ namespace vkz {
             present_info.pImageIndices = &image_index;
 
             const auto present_result = vkQueuePresentKHR(graphics_queue, &present_info);
-            if (present_result == VK_ERROR_OUT_OF_DATE_KHR || present_result == VK_SUBOPTIMAL_KHR) {
+            end_frame();
+            frame_index_ = (frame_index_ + 1) % frames_in_flight_;
+            if (present_result == VK_ERROR_OUT_OF_DATE_KHR || present_result == VK_SUBOPTIMAL_KHR || acquire_result == VK_SUBOPTIMAL_KHR) {
+                if (present_result != VK_ERROR_OUT_OF_DATE_KHR && present_result != VK_SUBOPTIMAL_KHR) VKZ_CHECK_VULKAN(present_result);
                 recreate_swapchain();
                 continue;
             }
             VKZ_CHECK_VULKAN(present_result);
-            end_frame();
         }
         vkDeviceWaitIdle(device_.logical);
 
-        vkDestroySemaphore(device_.logical, render_finished, nullptr);
-        vkDestroySemaphore(device_.logical, image_available, nullptr);
     }
 
     void application::render_swapchain(VkCommandBuffer command_buffer) {
@@ -226,12 +231,42 @@ namespace vkz {
             return;
         }
 
+        destroy_frame_attachments();
         vkz::destroy_image_views(device_.logical, image_views_);
         swapchain_.reset();
         swapchain_ = app_.create_swapchain();
         image_views_ = vkz::create_swapchain_image_views(device_, *swapchain_);
         render_info_.color_attachments[0].format = swapchain_->format();
         render_info_.render_area = {swapchain_->width(), swapchain_->height()};
+        create_frame_attachments();
+    }
+
+    void application::create_frame_attachments() {
+        render_finished_.resize(swapchain_->image_count());
+        for (auto &semaphore : render_finished_) semaphore = vkz::create_semaphore(device_.logical);
+        if (!depth_testing_) return;
+        const auto format = pick_depth_format(device_);
+        depth_buffers_.resize(frames_in_flight_);
+        depth_initialized_.assign(frames_in_flight_, false);
+        for (auto &depth : depth_buffers_) {
+            depth.image = image::builder(allocator_).format(format).type(VK_IMAGE_TYPE_2D)
+                .extent(swapchain_->width(), swapchain_->height())
+                .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT).build();
+            depth.image_view = image_view::builder(device_).image(depth.image).format(format)
+                .view_type(VK_IMAGE_VIEW_TYPE_2D).aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT).build();
+        }
+        render_info_.depth_attachment = {.view = depth_buffers_[frame_index_].image_view, .format = format};
+        depth_buffer_ = depth_buffers_[frame_index_];
+    }
+
+    void application::destroy_frame_attachments() {
+        for (auto semaphore : render_finished_) vkDestroySemaphore(device_.logical, semaphore, nullptr);
+        render_finished_.clear();
+        depth_buffer_.reset();
+        for (auto &depth : depth_buffers_) depth.destroy();
+        depth_buffers_.clear();
+        depth_initialized_.clear();
+        render_info_.depth_attachment.reset();
     }
 
     void application::enqueue(VkCommandBuffer command_buffer) {
