@@ -176,25 +176,9 @@ void main() {
 
             const auto i = frame_index;
             vkz::update(command_buffer, uniforms_[i], sizeof(glm::mat4) * 7, light_matrix.data());
-            VkMemoryBarrier2 uniform_barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
-            uniform_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-            uniform_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-            uniform_barrier.dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-            uniform_barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
-            VkDependencyInfo dependency{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-            dependency.memoryBarrierCount = 1;
-            dependency.pMemoryBarriers = &uniform_barrier;
-            vkCmdPipelineBarrier2(command_buffer, &dependency);
+
             auto& map = shadow_maps_[i];
-            vkz::barrier::push_and_flush(command_buffer, map.color.image, map.color.image_view.create_info.subresourceRange,
-                VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-            vkz::barrier::push_and_flush(command_buffer, map.depth.image, map.depth.image_view.create_info.subresourceRange,
-                VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
             render(command_buffer, render_info_[i], [&]{
                 vkz::bind_pipeline(command_buffer, pipeline_);
                 vkz::bind_descriptor_sets(command_buffer, pipeline_, {descriptor_sets[i]});
@@ -203,10 +187,7 @@ void main() {
                 vkz::push_constants(command_buffer, pipeline_, constants_);
                 scene(pipeline_);
             });
-            vkz::barrier::push_and_flush(command_buffer, map.color.image, map.color.image_view.create_info.subresourceRange,
-                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
         }
 
         [[nodiscard]]
