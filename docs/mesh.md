@@ -119,7 +119,7 @@ vkz::mesh::load_mesh_data_materials(files.material_file, scene);
 ```
 
 The converter dispatches by a case-insensitive source extension; `.gltf` and
-`.glb` use tinygltf. Additional importers can be added to the dispatch table in
+`.glb` use tinygltf and `.obj` uses bundled tinyobjloader. Additional importers can be added to the dispatch table in
 `src/mesh_convert.cpp` and return the same `data` model. Output parent directories
 are created, and existing output files are overwritten. Conversion throws on
 unsupported or invalid input and on I/O failures. Writes of the three files are
@@ -380,3 +380,50 @@ A material appends thickness factor (float32), attenuation distance (float32, po
 Records are 644 bytes. After the 284-byte version-4 record, append these fields in order: specular factor (float), specular color (float3), emissive strength (float), unlit (uint32 boolean), clearcoat factor/roughness/normal scale (three floats), sheen color (float3), sheen roughness (float), anisotropy strength/rotation (two floats), iridescence factor/IOR/minimum thickness/maximum thickness (four floats), and dispersion (float). Then append ten 28-byte texture-info records: specular, specular color, clearcoat, clearcoat roughness, clearcoat normal, sheen color, sheen roughness, anisotropy, iridescence, iridescence thickness.
 
 Versions 1–4 retain glTF defaults for missing extension fields. Specular and sheen color textures use sRGB KTX variants; the other added slots use linear variants. `texture_slots(material)` exposes all 17 slots in shader order for validation, remapping and descriptor creation. Punctual lights remain serialized with instances in `.vkmesh`; no separate light file is introduced.
+
+
+## Wavefront OBJ and Bistro
+
+`vkz::mesh::convert` accepts `.obj` (case-insensitive) with companion MTL files.
+The optional third convert argument is a positive uniform scale (default 1),
+baked into positions, bounds, instance translations and light positions/ranges.
+Normals and tangent directions are unchanged. The importer triangulates polygons and emits one base mesh and identity instance
+per nonempty shape/material group. Independent OBJ position/normal/UV indices
+are deduplicated together; missing normals are generated using smoothing groups,
+with separate vertices at hard edges. Tangents are zero for derivative frames.
+Vertex colors are retained, or default to white. The stream uses the glTF layout
+above, with TEXCOORD_0 at location 4 when present. OBJ V is flipped to sample
+unflipped PNG/JPEG images correctly. Texture scale, offset and clamp are retained.
+
+MTL Kd/d, Ke, Ks, Ni and Pm become base color/opacity, emission, specular color,
+IOR and metallic factors. HDR Ke values use emissive_strength. Pr sets roughness when positive; otherwise roughness
+is approximated as sqrt(2 / (Ns + 2)). map_Kd, map_Ks, map_Ke and norm are
+embedded and converted to KTX2. Emission maps with a zero emission factor are
+unused and are skipped. Separate map_d masks are composed into base color
+alpha, using the red channel, with alpha masking for fully opaque materials and
+blending for d < 1. Diffuse and opacity maps must share their UV transform;
+diffuse images are resampled to the mask dimensions when needed. Bistro's
+map_bump *_ddna files use RGB tangent-space normals. General scalar bump maps,
+displacement, reflection, ambient maps and separate Pr/Pm/Ns texture maps are not
+mapped to the renderer; MTL-to-PBR conversion is an approximation.
+
+Convert the locally available Bistro exterior (the large source and generated
+assets are intentionally ignored by Git):
+
+```powershell
+python test/mesh/scripts/convert_model.py test/resources/bistro/Exterior/exterior.obj test/mesh/resources/bistro --config Release --scale 0.01
+cmake --build cmake-build-release --config Release --target vulkanizer_bistro_reference_test
+cmake-build-release/test/Release/vulkanizer_bistro_reference_test.exe --validation
+cmake-build-release/test/Release/vulkanizer_bistro_reference_test.exe --ray-traced --validation
+```
+
+The Bistro target uses the shared reference renderer and FPS camera, with starting
+cameras for both scenes. Convert Bistro with --scale 0.01 to bake centimetres
+to metres directly into vertex positions and bounds; no runtime scaling is used. When the
+converted exterior exists at CMake configure time, graphics and ray-traced
+smoke tests are registered. The interior can be converted with the same command
+using `test/resources/bistro/Interior/interior.obj` and `--scale 0.01`, then viewed with:
+
+```powershell
+cmake-build-release/test/Release/vulkanizer_bistro_reference_test.exe --interior --validation
+```

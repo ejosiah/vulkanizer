@@ -1,5 +1,6 @@
 #include <vulkanizer/bvh.hpp>
 #include <vulkanizer/barrier.hpp>
+#include <vulkanizer/commands.hpp>
 #include <vulkanizer/status.hpp>
 #include <algorithm>
 #include <cmath>
@@ -36,6 +37,7 @@ namespace vkz::mesh {
         structure top;
         buffer scratch;
         buffer instance_buffer;
+        buffer instance_staging;
         VkDeviceAddress scratch_address{};
         std::vector<uint32_t> mesh_ids;
         std::vector<VkAccelerationStructureInstanceKHR> instance_data;
@@ -51,6 +53,7 @@ namespace vkz::mesh {
                 release(item);
             scratch.destroy();
             instance_buffer.destroy();
+            instance_staging.destroy();
         }
 
         void release(structure &value) {
@@ -188,21 +191,28 @@ namespace vkz::mesh {
             return result;
         }
 
-        void upload_instances() {
-            void *mapped{};
-            VKZ_CHECK_VULKAN(vmaMapMemory(instance_buffer.allocator, instance_buffer.allocation, &mapped));
-            std::memcpy(mapped, instance_data.data(), VKZ_BYTE_SIZE(instance_data));
-            const auto result = vmaFlushAllocation(instance_buffer.allocator, instance_buffer.allocation, 0, VK_WHOLE_SIZE);
-            vmaUnmapMemory(instance_buffer.allocator, instance_buffer.allocation);
-            VKZ_CHECK_VULKAN(result);
+        void upload_instances(VkCommandBuffer cmd) {
+            auto mapping = instance_staging.map();
+            std::memcpy(mapping.as<void>(), instance_data.data(), VKZ_BYTE_SIZE(instance_data));
+            instance_staging.flush();
+            mapping.unmap();
+            barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+            vkz::copy(cmd, instance_staging, instance_buffer);
+            barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR);
         }
 
         void create_tlas(const data &scene, std::span<const bvh_instance_options> settings) {
             instance_data = prepare_instances(scene, settings);
             for (const auto &value : scene.instances)
                 mesh_ids.push_back(value.mesh_id);
-            instance_buffer = allocate(VKZ_BYTE_SIZE(instance_data), VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VMA_MEMORY_USAGE_CPU_TO_GPU);
-            upload_instances();
+            instance_buffer = allocate(VKZ_BYTE_SIZE(instance_data), VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+            instance_staging = buffer::builder(allocator)
+                .size(VKZ_BYTE_SIZE(instance_data))
+                .usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+                .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
+                .build();
             top.count = VKZ_COUNT(instance_data);
             top.geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
             top.geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
@@ -256,6 +266,7 @@ namespace vkz::mesh {
         auto next = std::make_unique<impl>(*allocator);
         next->options = options;
         next->initialize(scene, geometry, instances);
+        next->upload_instances(cmd);
         for (auto &value : next->bottom)
             next->record_build(cmd, value, false);
         next->record_build(cmd, next->top, true);
@@ -289,7 +300,7 @@ namespace vkz::mesh {
         }
         auto next = state->prepare_instances(scene, instances);
         state->instance_data = std::move(next);
-        state->upload_instances();
+        state->upload_instances(cmd);
         state->record_build(cmd, state->top, true, true);
         state->finish_build(cmd);
     }

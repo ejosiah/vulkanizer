@@ -1,5 +1,6 @@
 #include <vulkanizer/ray_tracing_pipeline.hpp>
 #include <vulkanizer/status.hpp>
+#include <vulkanizer/commands.hpp>
 #include <algorithm>
 #include <cstring>
 #include <utility>
@@ -29,6 +30,8 @@ namespace vkz {
 
     void shader_binding_tables::move_from(shader_binding_tables &&other) {
         storage = std::exchange(other.storage, {});
+        staging = std::exchange(other.staging, {});
+        upload_pending = std::exchange(other.upload_pending, false);
         miss = std::exchange(other.miss, {});
         hit = std::exchange(other.hit, {});
         callable = std::exchange(other.callable, {});
@@ -40,6 +43,8 @@ namespace vkz {
 
     void shader_binding_tables::destroy() {
         storage.destroy();
+        staging.destroy();
+        upload_pending = false;
         miss = {};
         hit = {};
         callable = {};
@@ -47,6 +52,16 @@ namespace vkz {
         hit_names.clear();
         miss_names.clear();
         callable_names.clear();
+    }
+
+    void shader_binding_tables::upload(VkCommandBuffer command_buffer) const {
+        if (!upload_pending) {
+            return;
+        }
+        vkz::copy(command_buffer, staging, storage);
+        barrier::push_and_flush(command_buffer, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
+            VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+        upload_pending = false;
     }
 
     uint32_t shader_binding_tables::index(std::span<const std::string> names, std::string_view name) {
@@ -136,8 +151,8 @@ namespace vkz {
         }
         result.storage = buffer::builder(allocator)
                 .size(size + base_alignment - 1)
-                .usage(VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
-                .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+                .usage(VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+                .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                 .build();
         VkBufferDeviceAddressInfo address_info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
         address_info.buffer = result.storage;
@@ -145,8 +160,13 @@ namespace vkz {
         VKZ_ASSERT(buffer_address, "SBT allocation requires buffer device address support");
         const auto base = aligned(buffer_address, base_alignment);
         const auto padding = base - buffer_address;
-        void *mapped{};
-        VKZ_CHECK_VULKAN(vmaMapMemory(result.storage.allocator, result.storage.allocation, &mapped));
+        result.staging = buffer::builder(allocator)
+            .size(result.storage.create_info.size)
+            .usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+            .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
+            .build();
+        auto mapping = result.staging.map();
+        auto *mapped = mapping.as<void>();
         std::memset(mapped, 0, static_cast<size_t>(result.storage.create_info.size));
         for (size_t i = 0; i < plans.size(); ++i) {
             const auto &plan = plans[i];
@@ -167,9 +187,9 @@ namespace vkz {
                 destination += plan.stride;
             }
         }
-        const auto status = vmaFlushAllocation(result.storage.allocator, result.storage.allocation, 0, VK_WHOLE_SIZE);
-        vmaUnmapMemory(result.storage.allocator, result.storage.allocation);
-        VKZ_CHECK_VULKAN(status);
+        result.staging.flush();
+        mapping.unmap();
+        result.upload_pending = true;
         return result;
     }
 

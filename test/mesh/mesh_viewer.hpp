@@ -17,6 +17,7 @@
 #include <cstring>
 #include <cmath>
 #include <iostream>
+#include <optional>
 #include "gltf_reference.hpp"
 #include "shader_resources.hpp"
 
@@ -26,6 +27,8 @@ namespace reference_test {
         const char *name;
         bool orbit{};
         vkz::path environment;
+        std::optional<glm::vec3> eye;
+        std::optional<glm::vec3> target;
     };
 
     namespace {
@@ -253,8 +256,9 @@ namespace reference_test {
             initializer.look_at(camera.position, center, {0, 1, 0});
             initializer.perspective(65, float(width) / height, radius * 0.01f, distance * 100);
         } else {
+            if (options.eye) camera.position = *options.eye;
             vkz::camera::first_person initializer(camera);
-            initializer.look_at(camera.position, {center.x, camera.position.y, center.z}, {0, 1, 0});
+            initializer.look_at(camera.position, options.target.value_or(glm::vec3{center.x, camera.position.y, center.z}), {0, 1, 0});
             initializer.perspective(65, float(width) / height, 0.05f, 1000);
         }
         vkz::camera::controller controller(camera, options.orbit ? vkz::camera::movement_type::orbit : vkz::camera::movement_type::first_person, input.get_device());

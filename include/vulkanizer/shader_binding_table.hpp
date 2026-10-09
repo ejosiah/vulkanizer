@@ -47,6 +47,8 @@ namespace vkz {
 
         [[nodiscard]] uint32 callable_index(std::string_view name) const;
 
+        void upload(VkCommandBuffer command_buffer) const;
+
         void destroy();
 
         VkStridedDeviceAddressRegionKHR miss{};
@@ -64,6 +66,8 @@ namespace vkz {
         void move_from(shader_binding_tables &&other);
 
         buffer storage;
+        buffer staging;
+        mutable bool upload_pending{};
         std::vector<named_region> ray_generations;
         std::vector<std::string> hit_names;
         std::vector<std::string> miss_names;

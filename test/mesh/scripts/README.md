@@ -7,9 +7,13 @@ Run these commands from the Vulkanizer repository root with Python 3.10 or newer
 ```powershell
 python test/mesh/scripts/convert_model.py "C:/models/Example.gltf" "C:/converted models"
 python test/mesh/scripts/convert_model.py "C:/models/Example.glb" "C:/converted models" --config Debug
+python test/mesh/scripts/convert_model.py test/resources/bistro/Exterior/exterior.obj test/mesh/resources/bistro --scale 0.01
+python test/mesh/scripts/convert_model.py test/resources/bistro/Interior/interior.obj test/mesh/resources/bistro --scale 0.01
 ```
 
 The output argument is a directory, created if needed. The source filename supplies the name: `Example.gltf` produces `Example.vkmesh`, `Example.vkmat`, and `Example.vkbounds` directly in that directory. Textures are embedded as KTX2. Existing files with those names are replaced after successful conversion. Source files and their referenced textures/buffers must already be available locally; this script does not download them.
+
+Use `--scale` to bake a positive uniform unit conversion into the output; Bistro uses `--scale 0.01` to convert centimetres to metres.
 
 It uses the same `--config`, `--build-dir`, `--converter`, and `--ktx` options as the sync script. Conversion errors propagate as a nonzero exit status.
 

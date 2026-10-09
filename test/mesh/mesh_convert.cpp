@@ -3,6 +3,7 @@
 #include <ktx.h>
 #include <memory>
 #include <chrono>
+#include <charconv>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -170,12 +171,83 @@ int main(int argc, char **argv) {
         // base keeps the converted resources; otherwise the test cleans them up.
         if (argc > 1) {
             const auto output_base = argc > 2 ? std::filesystem::u8path(argv[2]) : dir / "asset";
-            const auto files = convert(std::filesystem::u8path(argv[1]), output_base);
+            float scale = 1;
+            if (argc > 3) {
+                const std::string_view value(argv[3]);
+                const auto parsed = std::from_chars(value.data(), value.data() + value.size(), scale);
+                check(parsed.ec == std::errc{} && parsed.ptr == value.data() + value.size(), "Invalid conversion scale");
+            }
+            check(argc <= 4, "Usage: source [output_base] [scale]");
+            const auto files = convert(std::filesystem::u8path(argv[1]), output_base, scale);
             const auto imported = read(files);
             std::cout << imported.meshes.size() << " meshes, " << imported.instances.size() << " instances, " << imported.lights.size() << " lights\n";
             if (argc > 2) std::cout << files.mesh_file << '\n' << files.material_file << '\n' << files.bounds_file << '\n';
             return 0;
         }
+        // OBJ uses independent position/normal/UV indices and material groups.
+        const auto obj = dir / "scene.OBJ";
+        {
+            std::ofstream mtl(dir / "scene.mtl");
+            mtl << "newmtl painted\nKd 0.2 0.4 0.6\nKs 0.1 0.2 0.3\nKe 10 5 0\nNs 30\nd 0.5\n"
+                   "map_Kd pixel.png\nmap_Ks pixel.png\nnorm pixel.png\nnewmtl plain\nKd 1 1 1\n";
+            std::ofstream file(obj);
+            file << "mtllib scene.mtl\nv 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\n"
+                    "vt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n"
+                    "usemtl painted\ns 1\nf -4/-4 -3/-3 -2/-2 -1/-1\n"
+                    "usemtl plain\ns off\nf 1/1 2/2 3/3\n";
+        }
+        write(dir / "pixel.png", png_bytes);
+        const auto wavefront = read(convert(obj, dir / "obj-output"));
+        check(wavefront.meshes.size() == 2 && wavefront.instances.size() == 2 && wavefront.boxes.size() == 2, "OBJ material groups and placements");
+        check(wavefront.index_data.size() == 9 && wavefront.streams.bindings[0].stride == 64, "OBJ triangulation and layout");
+        check(wavefront.meshes[0].vertex_count == 4 && wavefront.meshes[1].vertex_count == 3, "OBJ deduplicated vertices");
+        check(attribute(wavefront, 0, 1, 2) == 1 && attribute(wavefront, 0, 2, 3) == 0, "OBJ generated normal and absent tangent");
+        check(attribute(wavefront, 0, 4, 1) == 1, "OBJ UV orientation");
+        check(wavefront.boxes[0].min == glm::vec3(0) && wavefront.boxes[0].max == glm::vec3(1, 1, 0), "OBJ bounds");
+        check(wavefront.materials[0].base_color_factor == glm::vec4(0.2f, 0.4f, 0.6f, 0.5f) &&
+              wavefront.materials[0].alpha_mode == alpha_mode::blend && wavefront.materials[0].metallic_factor == 0 &&
+              std::abs(wavefront.materials[0].roughness_factor - 0.25f) < 1e-6f, "OBJ MTL factors");
+        check(wavefront.materials[0].emissive_strength == 10 && wavefront.materials[0].emissive_factor == glm::vec3(1, 0.5f, 0), "OBJ HDR emission");
+        check(wavefront.images.size() == 2 && wavefront.images[0].mime_type == "image/ktx2" &&
+              wavefront.textures[wavefront.materials[0].base_color_texture.index].image_id !=
+              wavefront.textures[wavefront.materials[0].normal_texture.index].image_id, "OBJ embedded sRGB and linear texture variants");
+        {
+            std::ofstream mtl(dir / "opacity.mtl");
+            mtl << "newmtl masked\nKd 1 1 1\nKe 0 0 0\nmap_Ke absent.png\nmap_Kd pixel.png\nmap_d pixel.png\n";
+            std::ofstream file(dir / "opacity.obj");
+            file << "mtllib opacity.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nvt 0 0\nvt 1 0\nvt 0 1\n"
+                    "vn 0 0 1\nusemtl masked\nf 1/1/1 2/2/1 3/3/1\n";
+        }
+        const auto masked = read(convert(dir / "opacity.obj"));
+        check(masked.materials[0].alpha_mode == alpha_mode::mask && masked.images.size() == 1 &&
+              masked.materials[0].emissive_texture.index < 0, "OBJ composed opacity mask and inactive emission map");
+        ktxTexture2 *opacity = nullptr;
+        check(ktxTexture2_CreateFromMemory(masked.images[0].encoded_data.data(), masked.images[0].encoded_data.size(),
+                                          KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &opacity) == KTX_SUCCESS, "OBJ composed KTX payload");
+        ktx_size_t opacity_offset = 0;
+        check(ktxTexture_GetImageOffset(ktxTexture(opacity), 0, 0, 0, &opacity_offset) == KTX_SUCCESS, "OBJ opacity mip offset");
+        const auto alpha = ktxTexture_GetData(ktxTexture(opacity))[opacity_offset + 3];
+        ktxTexture_Destroy(ktxTexture(opacity));
+        check(alpha == 128 && attribute(masked, 0, 1, 2) == 1, "OBJ opacity red channel and supplied normals");
+        {
+            std::ofstream file(dir / "flat.obj");
+            file << "v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\ns off\nf 1 2 3\nf 1 4 2\n";
+        }
+        const auto obj_flat = read(convert(dir / "flat.obj"));
+        check(obj_flat.meshes[0].vertex_count == 6 && obj_flat.streams.bindings[0].stride == 56 &&
+              attribute(obj_flat, 0, 1, 2) == 1 && attribute(obj_flat, 3, 1, 1) == 1, "OBJ hard-edge fallback normals");
+        const auto obj_scaled = read(convert(dir / "flat.obj", dir / "scaled", 0.01f));
+        check(obj_scaled.boxes[0].max == glm::vec3(0.01f) && attribute(obj_scaled, 1, 0, 0) == 0.01f &&
+              attribute(obj_scaled, 0, 1, 2) == 1 && obj_scaled.instances[0].model == glm::mat4(1), "OBJ baked unit conversion");
+        rejects([&] { convert(dir / "flat.obj", dir / "bad-scale", 0); });
+        rejects([&] { convert(dir / "flat.obj", dir / "bad-scale", std::numeric_limits<float>::infinity()); });
+        {
+            std::ofstream file(dir / "invalid.obj");
+            file << "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 99\n";
+        }
+        rejects([&] { convert(dir / "invalid.obj", dir / "invalid-output"); });
+        check(!std::filesystem::exists(dir / "invalid-output.vkmesh"), "Invalid OBJ wrote output");
+
         fixture source;
         const auto input = dir / u8"scene-\u03bb.GLTF";
         source.save(input);
@@ -186,6 +258,11 @@ int main(int argc, char **argv) {
         check(mesh.instances[0].mesh_id == mesh.instances[1].mesh_id, "Instances do not share a mesh");
         check(mesh.instances[0].model[3] == glm::vec4(10, 2, 0, 1) && mesh.instances[0].model_inverse[3] == glm::vec4(-10, -2, 0, 1), "World transform/inverse");
         check(mesh.instances[1].model[0].x == -1, "Negative scale lost");
+        const auto scaled_gltf = read(convert(input, dir / "scaled-gltf", 0.5f));
+        check(scaled_gltf.boxes[0].max == glm::vec3(1, 1.5f, 0) &&
+              scaled_gltf.instances[0].model[3] == glm::vec4(5, 1, 0, 1) &&
+              scaled_gltf.instances[0].model_inverse[3] == glm::vec4(-5, -1, 0, 1) &&
+              scaled_gltf.instances[1].model[0].x == -1, "Baked scale preserves instance transforms and inverses");
         check(mesh.boxes[0].max == glm::vec3(2, 3, 0), "Strided/sparse POSITION");
         check(attribute(mesh, 1, 4, 0) == 1 && attribute(mesh, 2, 5, 1) == 1, "Normalized UVs");
         check(std::abs(attribute(mesh, 0, 3, 1) - 128.0f / 255) < 0.00001f && attribute(mesh, 0, 3, 3) == 1, "Normalized RGB color");

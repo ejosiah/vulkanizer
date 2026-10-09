@@ -27,10 +27,11 @@ namespace vkz::mesh {
         vkz::path bounds_file;
     };
 
-    // Dispatch by source extension (.gltf/.glb, case-insensitive). An empty
+    // Dispatch by source extension (.gltf/.glb/.obj, case-insensitive). An empty
     // output_base uses the source path; its extension is replaced for each output.
     // Throws on unsupported input or I/O failure. See docs/mesh.md for the layout.
-    conversion_files convert(const vkz::path &source, const vkz::path &output_base = {});
+    // scale bakes a positive uniform unit conversion into geometry and placements.
+    conversion_files convert(const vkz::path &source, const vkz::path &output_base = {}, float scale = 1);
 
     struct base {
         uint32 lod_count{1};

@@ -1,4 +1,5 @@
 import argparse
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -8,18 +9,21 @@ from model_tools import SUFFIXES, add_build_arguments, complete_mesh, conversion
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Convert a glTF or GLB file into an output directory, keeping the source name.')
-    parser.add_argument('source', type=Path, help='Source .gltf or .glb file')
+    parser = argparse.ArgumentParser(description='Convert a glTF, GLB or Wavefront OBJ file into an output directory, keeping the source name.')
+    parser.add_argument('source', type=Path, help='Source .gltf, .glb or .obj file')
     parser.add_argument('output', type=Path, help='Output directory (not a filename)')
     add_build_arguments(parser)
     parser.add_argument('--converter', type=Path, help='Override the mesh converter executable')
     parser.add_argument('--ktx', type=Path, help='Override the KTX command-line converter')
+    parser.add_argument('--scale', type=float, default=1.0, help='Bake a positive uniform scale into the mesh (Bistro: 0.01)')
     args = parser.parse_args(argv)
     try:
         source = args.source.expanduser().resolve()
+        if not math.isfinite(args.scale) or args.scale <= 0:
+            raise ValueError('Scale must be positive and finite.')
         output = args.output.expanduser().resolve()
-        if source.suffix.lower() not in ('.gltf', '.glb'):
-            raise ValueError('Source must be a .gltf or .glb file.')
+        if source.suffix.lower() not in ('.gltf', '.glb', '.obj'):
+            raise ValueError('Source must be a .gltf, .glb or .obj file.')
         if not source.is_file():
             raise ValueError(f'Source does not exist: {source}')
         if output.exists() and not output.is_dir():
@@ -32,7 +36,7 @@ def main(argv=None):
             if not staging.is_relative_to(output):
                 raise ValueError('Invalid conversion staging directory')
             mesh = staging / (source.stem + '.vkmesh')
-            result = subprocess.run([str(converter), str(source), str(mesh)], env=environment, check=False)
+            result = subprocess.run([str(converter), str(source), str(mesh), str(args.scale)], env=environment, check=False)
             if result.returncode:
                 return result.returncode
             if not complete_mesh(mesh):

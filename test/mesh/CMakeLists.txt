@@ -74,6 +74,24 @@ endif()
 
 vulkanizer_add_test_executable(vulkanizer_ibl_test ibl.cpp)
 
+add_executable(vulkanizer_bistro_reference_test bistro.cpp)
+target_link_libraries(vulkanizer_bistro_reference_test PRIVATE vulkanizer vulkanizer_sponza_resources)
+target_compile_definitions(vulkanizer_bistro_reference_test PRIVATE
+    VKZ_BISTRO_MESH="${CMAKE_CURRENT_SOURCE_DIR}/resources/bistro/exterior.vkmesh"
+    VKZ_BISTRO_INTERIOR_MESH="${CMAKE_CURRENT_SOURCE_DIR}/resources/bistro/interior.vkmesh"
+    VKZ_BISTRO_ENVIRONMENT="${CMAKE_CURRENT_SOURCE_DIR}/resources/ior_test_grid/studio_small_09_2k.hdr")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/resources/bistro/exterior.vkmesh")
+    add_test(NAME vulkanizer_bistro_reference_graphics COMMAND vulkanizer_bistro_reference_test --timeout 3 --validation)
+    add_test(NAME vulkanizer_bistro_reference_ray_traced COMMAND vulkanizer_bistro_reference_test --ray-traced --timeout 3 --validation)
+    set_tests_properties(vulkanizer_bistro_reference_graphics vulkanizer_bistro_reference_ray_traced PROPERTIES TIMEOUT 180)
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/resources/bistro/interior.vkmesh")
+    add_test(NAME vulkanizer_bistro_interior_graphics COMMAND vulkanizer_bistro_reference_test --interior --timeout 3 --validation)
+    add_test(NAME vulkanizer_bistro_interior_ray_traced COMMAND vulkanizer_bistro_reference_test --interior --ray-traced --timeout 3 --validation)
+    set_tests_properties(vulkanizer_bistro_interior_graphics vulkanizer_bistro_interior_ray_traced PROPERTIES TIMEOUT 180)
+endif()
+
 vulkanizer_add_test_executable(vulkanizer_tone_mapping_test tone_mapping.cpp)
 
 add_executable(vulkanizer_glass_vase_flowers_test glass_vase_flowers.cpp)

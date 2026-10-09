@@ -189,3 +189,12 @@ The expanded material and light bindings change the shader ABI. Rebuild clients 
 `vulkanizer_material_extensions_test --scene NAME` selects one of the converted scenes in `test/mesh/resources/extensions`. Add `--ray-traced`, `--samples`, `--blur`, `--no-ibl`, `--exposure`, or `--screenshot` as with the other viewers. The default is `TextureTransformTest`; all scenes use the orbit camera and studio environment.
 
 The scenes follow implementation order: `TextureTransformTest`, `SpecularTest`, `LightsPunctualLamp`, `EmissiveStrengthTest`, `UnlitTest`, `ClearCoatTest`, `SheenTestGrid`, `AnisotropyStrengthTest`, `IridescenceDielectricSpheres`, and `DispersionTest`. Both rendering modes are registered in CTest. Attribution and original license metadata accompany each converted model.
+
+
+SBT storage uses `VMA_MEMORY_USAGE_GPU_ONLY` and `TRANSFER_DST`. `vkz::trace_ray`
+records its staging copy and transfer-to-ray-tracing barrier on first use. That first
+command buffer must be submitted before later traces using the pipeline. Clients
+issuing raw trace commands must call `pipeline.sbt.upload(command_buffer)` first.
+The immutable staging allocation stays alive with the SBT. BVH instance build input
+also uses GPU-only storage; its staging copy is recorded before the build/update.
+Finish previous uses before updating instances or destroying these resources.

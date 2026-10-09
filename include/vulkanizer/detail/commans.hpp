@@ -128,6 +128,7 @@ namespace vkz {
     }
 
     inline void trace_ray(VkCommandBuffer command_buffer, const ray_tracing_pipeline &pipeline, uint32_t width, uint32_t height, std::string_view ray_gen_name = "primary") {
+        pipeline.sbt.upload(command_buffer);
         const auto &ray_generation = pipeline.sbt.ray_generation(ray_gen_name);
         vkCmdTraceRaysKHR(command_buffer, &ray_generation, &pipeline.sbt.miss, &pipeline.sbt.hit, &pipeline.sbt.callable, width, height, 1);
     }

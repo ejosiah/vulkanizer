@@ -47,6 +47,7 @@ The Conan recipe supplies Volk, GLFW, Dear ImGui, GLM, and Vulkan Memory Allocat
 
 ## TODO
 
+- Use indexed indirect drawing in the reference raster renderer instead of one draw per mesh instance. Batch compatible pipeline/material state, preserve transparent draw ordering, and profile CPU submission and GPU time separately.
 - Complete the Nsight Aftermath shader-debug integration: assign stable debug names to shader modules and pipelines, retain/register shader binaries and debug information, and provide the lookup callbacks needed to resolve crash-dump shader hashes to shader names and source lines instead of generic labels such as `fragment_01`.
 
 ## Build
