@@ -1,5 +1,7 @@
 # Vulkanizer
 
+> **Under development:** You are welcome to use this project, but it is not fully documented yet. Expect to explore the source code and examples and work out the integration yourself.
+
 Vulkanizer is a small C++20 helper library for building Vulkan applications. It wraps common setup and rendering tasks while keeping the underlying Vulkan handles and commands accessible.
 
 The library currently provides:
