@@ -44,7 +44,7 @@ int main() try {
     layout_info.pBindings = vkz::reference::material_bindings.data();
     VKZ_CHECK_VULKAN(vkCreateDescriptorSetLayout(context.device, &layout_info, nullptr, &layouts[1].handle));
     vkz::descriptor_set_layout ibl_layout{.device = context.device};
-    const auto ibl_bindings = vkz::reference::ibl_bindings(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR);
+    const auto ibl_bindings = vkz::reference::ibl_bindings(vkz::shader_stage::fragment | vkz::shader_stage::closest_hit | vkz::shader_stage::miss);
     layout_info.bindingCount = VKZ_COUNT(ibl_bindings);
     layout_info.pBindings = ibl_bindings.data();
     VKZ_CHECK_VULKAN(vkCreateDescriptorSetLayout(context.device, &layout_info, nullptr, &ibl_layout.handle));

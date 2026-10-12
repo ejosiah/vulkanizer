@@ -85,32 +85,29 @@ public:
             .range = light_range
         });
 
-        scene_layout =
-            vkz::make_descriptor_set_layout_builder(device_)
-                .binding(0)
-                    .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                    .descriptor_count(1)
-                    .shader_stages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-                .binding(1)
-                    .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                    .descriptor_count(1)
-                    .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
-            .create_layout();
+        scene_layout = vkz::make_descriptor_set_layout_builder(device_)
+                           .binding(0)
+                           .descriptor_type(vkz::descriptor::type::storage_buffer)
+                           .descriptor_count(1)
+                           .shader_stages(vkz::shader_stage::vertex | vkz::shader_stage::fragment)
+                           .binding(1)
+                           .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                           .descriptor_count(1)
+                           .shader_stages(vkz::shader_stage::fragment)
+                           .create_layout();
 
-        scene_buffer =
-                vkz::buffer::builder(allocator_)
-                    .size(sizeof(scene_constants))
-                    .usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-                    .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+        scene_buffer = vkz::buffer::builder(allocator_)
+            .size(sizeof(scene_constants))
+            .usage(vkz::buffer::usage::storage)
+            .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+            .build();
         shadow_sampler = vkz::sampler::builder(device_).mag_filter(VK_FILTER_LINEAR).min_filter(VK_FILTER_LINEAR)
             .address_mode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE).build();
         scene_set = descriptor_pool.allocate(scene_layout);
         const auto shadow = vkz::psm::get_shadow_map(psm_id, 0);
-        vkz::update_descriptors(device_, {{
-            .descriptor_set = scene_set,
-            .bindings = {vkz::descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
-                vkz::texture_descriptor{shadow.image_view, shadow_sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1}}
-        }});
+        vkz::update_descriptors(device_, {{.descriptor_set = scene_set,
+                                           .bindings = {vkz::make_descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
+                                                        vkz::texture_descriptor{shadow.image_view, shadow_sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1}}}});
     }
 
     void setup_camera() {
@@ -126,10 +123,8 @@ public:
     }
 
     void create_descriptor_pool() {
-        descriptor_pool = { context_.device, 100, {
-              { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100},
-              { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100 }
-        }};
+        descriptor_pool = {
+            context_.device, 100, {{static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 100}, {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 100}}};
     }
 
     void load_mesh() {
@@ -149,19 +144,18 @@ public:
         auto index_mem = staging.borrow(byte_size(mesh.index_data));
         index_mem.copy_from(mesh.index_data.data());
 
-        mesh_buffers.vertex_buffer =
-            vkz::buffer::builder(allocator_)
-                .size(byte_size(mesh.vertex_data))
-                .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
-                .usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+        mesh_buffers.vertex_buffer = vkz::buffer::builder(allocator_)
+            .size(byte_size(mesh.vertex_data))
+            .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
+            .usage(vkz::buffer::usage::vertex_upload)
             .build();
 
         mesh_buffers.index_buffer =
             vkz::buffer::builder(allocator_)
                 .size(byte_size(mesh.index_data))
                 .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
-                .usage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-            .build();
+                .usage(vkz::buffer::usage::index | vkz::buffer::usage::transfer_dst)
+                .build();
 
         {
             auto command_buffer = vkz::fenced_command_pools::scoped_cmd{*commands_pool_};
@@ -174,45 +168,44 @@ public:
     }
 
     void create_pipelines() {
-         render_pipeline =
-             vkz::make_graphics_pipeline_builder(device_)
-                .shader_stage()
-                    .vertex_shader(VKZ_PSM_TEST_SHADER_DIR "/render.vert.spv")
-                    .fragment_shader(VKZ_PSM_TEST_SHADER_DIR "/render.frag.spv")
-                        .add_specialization(light_range, 1)
-                .vertex_input_state()
-                    .add_vertex_binding_descriptions(mesh.streams.bindings)
-                    .add_vertex_attribute_descriptions(mesh.streams.attributes)
-                .input_assembly_state()
-                    .triangles()
-                .viewport_state()
-                    .viewport()
-                        .origin(0, 0)
-                        .dimension(window_width, window_width)
-                        .min_depth(0)
-                        .max_depth(1)
-                    .scissor()
-                        .offset(0, 0)
-                        .extent(window_width, window_height)
-                    .add()
-                .rasterization_state()
-                    .cull_back_face()
-                    .polygon_mode_fill()
-                .depth_stencil_state()
-                    .enable_depth_test()
-                    .enable_depth_write()
-                    .compare_op_less()
-                .color_blend_state()
-                    .attachment().add()
-                .dynamic_render_pass()
-                    .add_color_attachment(color_format())
-                    .depth_attachment(depth_format())
-                .layout()
-                    .add_descriptor_set_layout(scene_layout)
-                    .add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(render_constants))
-                .name("psm_render")
-            .build();
-
+        render_pipeline = vkz::make_graphics_pipeline_builder(device_)
+                              .shader_stage()
+                              .vertex_shader(VKZ_PSM_TEST_SHADER_DIR "/render.vert.spv")
+                              .fragment_shader(VKZ_PSM_TEST_SHADER_DIR "/render.frag.spv")
+                              .add_specialization(light_range, 1)
+                              .vertex_input_state()
+                              .add_vertex_binding_descriptions(mesh.streams.bindings)
+                              .add_vertex_attribute_descriptions(mesh.streams.attributes)
+                              .input_assembly_state()
+                              .triangles()
+                              .viewport_state()
+                              .viewport()
+                              .origin(0, 0)
+                              .dimension(window_width, window_width)
+                              .min_depth(0)
+                              .max_depth(1)
+                              .scissor()
+                              .offset(0, 0)
+                              .extent(window_width, window_height)
+                              .add()
+                              .rasterization_state()
+                              .cull_back_face()
+                              .polygon_mode_fill()
+                              .depth_stencil_state()
+                              .enable_depth_test()
+                              .enable_depth_write()
+                              .compare_op_less()
+                              .color_blend_state()
+                              .attachment()
+                              .add()
+                              .dynamic_render_pass()
+                              .add_color_attachment(color_format())
+                              .depth_attachment(depth_format())
+                              .layout()
+                              .add_descriptor_set_layout(scene_layout)
+                              .add_push_constant_range(vkz::shader_stage::vertex, 0, sizeof(render_constants))
+                              .name("psm_render")
+                              .build();
     }
 
     void app_logic(VkCommandBuffer command_buffer) override {

@@ -60,7 +60,7 @@ namespace {
 
     struct cull_mode_option {
         const char* label{};
-        VkCullModeFlags value{};
+        vkz::cull_mode value{};
     };
 
     struct shadow_push_constants {
@@ -77,7 +77,7 @@ namespace {
         return std::string{VKZ_CSM_TEST_SHADER_DIR} + "/" + name + ".spv";
     }
 
-    VkSampleCountFlagBits pick_sample_count(VkPhysicalDevice physical_device) {
+    vkz::sample_count pick_sample_count(VkPhysicalDevice physical_device) {
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(physical_device, &properties);
 
@@ -85,11 +85,11 @@ namespace {
             properties.limits.framebufferColorSampleCounts &
             properties.limits.framebufferDepthSampleCounts;
 
-        if (supported & VK_SAMPLE_COUNT_4_BIT) {
-            return VK_SAMPLE_COUNT_4_BIT;
+        if (supported & static_cast<VkSampleCountFlags>(vkz::sample_count::x4)) {
+            return vkz::sample_count::x4;
         }
-        if (supported & VK_SAMPLE_COUNT_2_BIT) {
-            return VK_SAMPLE_COUNT_2_BIT;
+        if (supported & static_cast<VkSampleCountFlags>(vkz::sample_count::x2)) {
+            return vkz::sample_count::x2;
         }
         VKZ_THROW("The CSM demo requires multisampled color and depth attachments")
     }
@@ -98,17 +98,17 @@ namespace {
             VkDevice device,
             VkFormat color_format,
             VkFormat depth_format,
-            VkSampleCountFlagBits samples) {
+            vkz::sample_count samples) {
         std::array<VkAttachmentDescription, 3> attachments{};
         attachments[0].format = color_format;
-        attachments[0].samples = samples;
+        attachments[0].samples = static_cast<VkSampleCountFlagBits>(samples);
         attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
         attachments[1].format = depth_format;
-        attachments[1].samples = samples;
+        attachments[1].samples = static_cast<VkSampleCountFlagBits>(samples);
         attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -117,7 +117,7 @@ namespace {
         attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         attachments[2].format = color_format;
-        attachments[2].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[2].samples = static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1);
         attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         attachments[2].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -201,12 +201,11 @@ namespace {
     }
 
     vkz::buffer create_vertex_buffer(vkz::vma_memory_allocator& allocator, const std::vector<vertex>& vertices) {
-        auto buffer =
-            vkz::buffer::builder(allocator)
-                .usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
-                .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
-                .size(sizeof(vertex) * vertices.size())
-                .build();
+        auto buffer = vkz::buffer::builder(allocator)
+            .usage(vkz::buffer::usage::vertex)
+            .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+            .size(sizeof(vertex) * vertices.size())
+            .build();
         auto mapping = buffer.map();
         std::memcpy(mapping.as<vertex>(), vertices.data(), sizeof(vertex) * vertices.size());
         mapping.unmap();
@@ -239,40 +238,37 @@ int main(int argc, char **argv) {
         context.device,
         graphics_queue,
         queue_family_index,
-        VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        vkz::command_pool_flags::transient,
         1,
     };
 
-    auto color_image =
-        vkz::image::builder(allocator)
-            .format(swapchain->format())
-            .extent(swapchain->width(), swapchain->height())
-            .samples(sample_count)
-            .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-            .build();
-    auto color_view =
-        vkz::image_view::builder(context.device)
-            .image(color_image)
-            .view_type(VK_IMAGE_VIEW_TYPE_2D)
-            .format(swapchain->format())
-            .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
-            .level_count(1)
-            .layer_count(1)
-            .build();
+    auto color_image = vkz::image::builder(allocator)
+        .format(swapchain->format())
+        .extent(swapchain->width(), swapchain->height())
+        .samples(sample_count)
+        .usage(vkz::image::usage::color)
+        .build();
+    auto color_view = vkz::image_view::builder(context.device)
+        .image(color_image)
+        .view_type(VK_IMAGE_VIEW_TYPE_2D)
+        .format(swapchain->format())
+        .aspect_mask(vkz::image::aspect::color)
+        .level_count(1)
+        .layer_count(1)
+        .build();
 
-    auto depth_image =
-        vkz::image::builder(allocator)
-            .format(depth_format)
-            .extent(swapchain->width(), swapchain->height())
-            .samples(sample_count)
-            .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-            .build();
+    auto depth_image = vkz::image::builder(allocator)
+        .format(depth_format)
+        .extent(swapchain->width(), swapchain->height())
+        .samples(sample_count)
+        .usage(vkz::image::usage::depth_stencil)
+        .build();
     auto depth_view =
         vkz::image_view::builder(context.device)
             .image(depth_image)
             .view_type(VK_IMAGE_VIEW_TYPE_2D)
             .format(depth_format)
-            .aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT)
+            .aspect_mask(vkz::image::aspect::depth)
             .level_count(1)
             .layer_count(1)
             .build();
@@ -288,8 +284,8 @@ int main(int argc, char **argv) {
         swapchain->height());
 
     VkDescriptorPoolSize descriptor_pool_sizes[] = {
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 16},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 32},
+        {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 16},
+        {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 32},
     };
     VkDescriptorPoolCreateInfo descriptor_pool_create_info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
     descriptor_pool_create_info.maxSets = 16;
@@ -374,39 +370,36 @@ mat4 get_model_matrix() {
         });
     }();
 
-    auto scene_descriptor_set_layout =
-        vkz::descriptor_set_layout_builder{context.device}
-            .name("csm_test_scene_descriptor_set_layout")
-            .binding(0)
-                .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                .descriptor_count(1)
-                .shader_stages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-            .binding(1)
-                .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                .descriptor_count(1)
-                .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
-            .binding(2)
-                .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                .descriptor_count(1)
-                .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
-            .create_layout();
+    auto scene_descriptor_set_layout = vkz::descriptor_set_layout_builder{context.device}
+                                           .name("csm_test_scene_descriptor_set_layout")
+                                           .binding(0)
+                                           .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                           .descriptor_count(1)
+                                           .shader_stages(vkz::shader_stage::vertex | vkz::shader_stage::fragment)
+                                           .binding(1)
+                                           .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                           .descriptor_count(1)
+                                           .shader_stages(vkz::shader_stage::fragment)
+                                           .binding(2)
+                                           .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                           .descriptor_count(1)
+                                           .shader_stages(vkz::shader_stage::fragment)
+                                           .create_layout();
 
-    auto scene_buffer =
-        vkz::buffer::builder(allocator)
-            .usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-            .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
-            .size(sizeof(scene_data))
-            .build();
+    auto scene_buffer = vkz::buffer::builder(allocator)
+        .usage(vkz::buffer::usage::storage)
+        .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+        .size(sizeof(scene_data))
+        .build();
     auto scene_mapping = scene_buffer.map();
     auto* scene_cpu = scene_mapping.as<scene_data>();
 
     std::vector<float> split_depth(vkz::csm::cascade_count(csm_id));
-    auto split_buffer =
-        vkz::buffer::builder(allocator)
-            .usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-            .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
-            .size(sizeof(float) * split_depth.size())
-            .build();
+    auto split_buffer = vkz::buffer::builder(allocator)
+        .usage(vkz::buffer::usage::storage)
+        .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+        .size(sizeof(float) * split_depth.size())
+        .build();
     auto split_mapping = split_buffer.map();
     auto* split_cpu = split_mapping.as<float>();
 
@@ -419,54 +412,54 @@ mat4 get_model_matrix() {
     VKZ_CHECK_VULKAN(vkAllocateDescriptorSets(context.device.logical, &scene_descriptor_allocate_info, &scene_descriptor_set));
 
     vkz::update_descriptor(context.device, {
-        .descriptor_set = {scene_descriptor_set},
-        .bindings = {
-                vkz::descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
-            vkz::descriptor<vkz::buffer_descriptor>(vkz::csm::cascade_view_projection(csm_id), 1),
-            vkz::descriptor<vkz::buffer_descriptor>(split_buffer, 2),
-        },
-    });
+                                               .descriptor_set = {scene_descriptor_set},
+                                               .bindings =
+                                                   {
+                                                       vkz::make_descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
+                                                       vkz::make_descriptor<vkz::buffer_descriptor>(vkz::csm::cascade_view_projection(csm_id), 1),
+                                                       vkz::make_descriptor<vkz::buffer_descriptor>(split_buffer, 2),
+                                                   },
+                                           });
 
-    auto scene_pipeline =
-        vkz::graphics_pipeline_builder{context.device}
-            .shader_stage()
-                .vertex_shader(shader_path("csm_scene.vert"))
-                .fragment_shader(shader_path("csm_scene.frag"))
-            .vertex_input_state()
-                .add_vertex_binding_description(0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX)
-                .add_vertex_attribute_description(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, position))
-                .add_vertex_attribute_description(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, normal))
-            .input_assembly_state()
-                .triangles()
-            .viewport_state()
-                .viewport()
-                    .origin(0, 0)
-                    .dimension(swapchain->width(), swapchain->height())
-                    .min_depth(0.0f)
-                    .max_depth(1.0f)
-                .scissor()
-                    .offset(0, 0)
-                    .extent(static_cast<int32_t>(swapchain->width()), static_cast<int32_t>(swapchain->height()))
-            .rasterization_state()
-                .cull_back_face()
-                .front_face_counter_clockwise()
-                .polygon_mode_fill()
-            .multisample_state()
-                .rasterization_samples(sample_count)
-            .depth_stencil_state()
-                .enable_depth_test()
-                .enable_depth_write()
-                .compare_op_less_or_equal()
-            .color_blend_state()
-                .attachment()
-                    .add()
-            .layout()
-                .add_descriptor_set_layout({vkz::csm::descriptor_set_layout(csm_id), context.device})
-                .add_descriptor_set_layout(scene_descriptor_set_layout)
-                .add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(render_push_constants))
-            .render_pass(render_pass)
-            .name("csm_test_scene")
-            .build();
+    auto scene_pipeline = vkz::graphics_pipeline_builder{context.device}
+                              .shader_stage()
+                              .vertex_shader(shader_path("csm_scene.vert"))
+                              .fragment_shader(shader_path("csm_scene.frag"))
+                              .vertex_input_state()
+                              .add_vertex_binding_description(0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX)
+                              .add_vertex_attribute_description(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, position))
+                              .add_vertex_attribute_description(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, normal))
+                              .input_assembly_state()
+                              .triangles()
+                              .viewport_state()
+                              .viewport()
+                              .origin(0, 0)
+                              .dimension(swapchain->width(), swapchain->height())
+                              .min_depth(0.0f)
+                              .max_depth(1.0f)
+                              .scissor()
+                              .offset(0, 0)
+                              .extent(static_cast<int32_t>(swapchain->width()), static_cast<int32_t>(swapchain->height()))
+                              .rasterization_state()
+                              .cull_back_face()
+                              .front_face_counter_clockwise()
+                              .polygon_mode_fill()
+                              .multisample_state()
+                              .rasterization_samples(sample_count)
+                              .depth_stencil_state()
+                              .enable_depth_test()
+                              .enable_depth_write()
+                              .compare_op_less_or_equal()
+                              .color_blend_state()
+                              .attachment()
+                              .add()
+                              .layout()
+                              .add_descriptor_set_layout({vkz::csm::descriptor_set_layout(csm_id), context.device})
+                              .add_descriptor_set_layout(scene_descriptor_set_layout)
+                              .add_push_constant_range(vkz::shader_stage::vertex, 0, sizeof(render_push_constants))
+                              .render_pass(render_pass)
+                              .name("csm_test_scene")
+                              .build();
     scene_pipeline.descriptor_sets = {
         {vkz::csm::descriptor_set(csm_id)},
         {scene_descriptor_set},
@@ -491,10 +484,10 @@ mat4 get_model_matrix() {
     double previous_time = glfwGetTime();
 
     constexpr std::array<cull_mode_option, 4> shadow_cull_modes{{
-        {"None", VK_CULL_MODE_NONE},
-        {"Front", VK_CULL_MODE_FRONT_BIT},
-        {"Back", VK_CULL_MODE_BACK_BIT},
-        {"Front and back", VK_CULL_MODE_FRONT_AND_BACK},
+        {"None", vkz::cull_mode::none},
+        {"Front", vkz::cull_mode::front},
+        {"Back", vkz::cull_mode::back},
+        {"Front and back", vkz::cull_mode::front_and_back},
     }};
 
     while (!app.should_close() && !timeout.expired()) {
@@ -634,7 +627,7 @@ mat4 get_model_matrix() {
 
         VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
         commands.enqueue(command_buffer);
-        commands.enqueue_wait(image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        commands.enqueue_wait(image_available, vkz::pipeline::stage::color_attachment_output);
         commands.enqueue_signal(render_finished);
         VKZ_CHECK_VULKAN(commands.execute());
 

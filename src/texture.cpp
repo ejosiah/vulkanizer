@@ -76,9 +76,9 @@ namespace vkz {
         const VkDeviceSize image_size = pixel_count * bytes_per_pixel;
 
         buffer staging = buffer::builder(allocator)
-                .size(image_size)
-                .usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
-                .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
+            .size(image_size)
+            .usage(vkz::buffer::usage::transfer_src)
+            .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
             .build();
         texture result{};
 
@@ -88,14 +88,14 @@ namespace vkz {
             VKZ_CHECK_VULKAN(vmaFlushAllocation(staging.allocator, staging.allocation, 0, VK_WHOLE_SIZE));
             mapped.unmap();
 
-            const auto image_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+            const auto image_usage = vkz::image::usage::sampled_transfer;
             result.image = image::builder(allocator)
                     .type(VK_IMAGE_TYPE_2D)
                     .format(format)
                     .extent(static_cast<uint32_t>(width), static_cast<uint32_t>(height))
                     .mip_levels(1)
                     .array_layers(1)
-                    .samples(VK_SAMPLE_COUNT_1_BIT)
+                    .samples(vkz::sample_count::x1)
                     .tiling(VK_IMAGE_TILING_OPTIMAL)
                     .usage(image_usage)
                     .sharing_mode(VK_SHARING_MODE_EXCLUSIVE)
@@ -103,21 +103,21 @@ namespace vkz {
                     .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                 .build();
 
-            command_pool commands{allocator.device, upload_queue_family, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, upload_queue};
+            command_pool commands{allocator.device, upload_queue_family, vkz::command_pool_flags::transient, upload_queue};
             const auto command_buffer = commands.create_command_buffer();
-            const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+            const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
 
-            barrier::push_and_flush(command_buffer, result.image, range, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_NONE, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+            barrier::push_and_flush(command_buffer, result.image, range, vkz::pipeline::stage::top_of_pipe, vkz::pipeline::stage::transfer, vkz::access::none, vkz::access::transfer_write,
                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
             const VkBufferImageCopy copy{
-                .imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+                .imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 0, 1},
                 .imageExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
             };
             vkCmdCopyBufferToImage(command_buffer, staging, result.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 
-            barrier::push_and_flush(command_buffer, result.image, range, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                    VK_ACCESS_2_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            barrier::push_and_flush(command_buffer, result.image, range, vkz::pipeline::stage::transfer, vkz::pipeline::stage::all_commands, vkz::access::transfer_write, vkz::access::shader_read,
+                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             commands.submit_and_wait(command_buffer);
 
             result.image_view = image_view::builder(allocator.device)

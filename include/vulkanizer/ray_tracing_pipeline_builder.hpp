@@ -88,14 +88,14 @@ namespace vkz {
         friend class ray_tracing_pipeline_builder;
 
         struct stage {
-            VkShaderStageFlagBits type{};
+            vkz::shader_stage type{};
             shader_source source;
             std::string entry{"main"};
             std::vector<VkSpecializationMapEntry> entries;
             std::vector<uint8_t> constants;
         };
 
-        ray_tracing_shader_group_builder &add_shader(const shader_source &source, VkShaderStageFlagBits type);
+        ray_tracing_shader_group_builder &add_shader(const shader_source &source, vkz::shader_stage type);
 
         ray_tracing_shader_group_builder &specialization(std::span<const uint8_t> bytes, uint32_t constant_id);
 
@@ -119,8 +119,7 @@ namespace vkz {
             return *this;
         }
 
-        ray_tracing_pipeline_layout_builder &
-        add_push_constant_range(VkShaderStageFlags stages, uint32_t offset, uint32_t size);
+        ray_tracing_pipeline_layout_builder &add_push_constant_range(vkz::shader_stage stages, uint32_t offset, uint32_t size);
 
         ray_tracing_pipeline_layout_builder &add_push_constant_range(VkPushConstantRange value);
 

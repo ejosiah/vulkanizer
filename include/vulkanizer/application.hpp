@@ -45,6 +45,9 @@ public:
 
     virtual void new_frame() {}
 
+    // Called immediately after queue submission, before presentation can block.
+    virtual void frame_submitted() {}
+
     virtual void end_frame() {}
 
     VkFormat color_format() const;

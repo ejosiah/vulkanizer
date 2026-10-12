@@ -182,7 +182,7 @@ void main() {
             render(command_buffer, render_info_[i], [&]{
                 vkz::bind_pipeline(command_buffer, pipeline_);
                 vkz::bind_descriptor_sets(command_buffer, pipeline_, {descriptor_sets[i]});
-                vkz::set_cull_mode(command_buffer, VK_CULL_MODE_FRONT_BIT);
+                vkz::set_cull_mode(command_buffer, vkz::cull_mode::front);
                 vkz::set_primitive_topology(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
                 vkz::push_constants(command_buffer, pipeline_, constants_);
                 scene(pipeline_);
@@ -197,41 +197,50 @@ void main() {
 
     private:
         void create_shadow_maps(VkCommandBuffer command_buffer) {
-            const auto usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            const auto usage = vkz::image::usage::depth_stencil_sampled;
             auto img_builder =
                 image::builder(allocator_)
                     .type(VK_IMAGE_TYPE_2D)
-                    .flags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
+                    .flags(vkz::image::flags::cube_compatible)
                     .format(depth_format_)
                     .extent(resolution_.x, resolution_.y, 1)
                     .array_layers(6);
 
-            auto view_builder =
-                image_view::builder(device_)
-                    .view_type(VK_IMAGE_VIEW_TYPE_CUBE)
-                    .format(depth_format_)
-                    .aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT)
-                    .layer_count(6);
+            auto view_builder = image_view::builder(device_)
+                .view_type(VK_IMAGE_VIEW_TYPE_CUBE)
+                .format(depth_format_)
+                .aspect_mask(vkz::image::aspect::depth)
+                .layer_count(6);
 
             for(auto& shadow_map : shadow_maps_) {
-                shadow_map.color.image = img_builder.format(VK_FORMAT_R32_SFLOAT)
-                    .usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).build();
+                shadow_map.color.image = img_builder.format(VK_FORMAT_R32_SFLOAT).usage(vkz::image::usage::color_sampled).build();
                 shadow_map.color.image_view = image_view::builder(device_)
-                    .image(shadow_map.color.image).view_type(VK_IMAGE_VIEW_TYPE_CUBE)
-                    .format(VK_FORMAT_R32_SFLOAT).aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT).layer_count(6).build();
+                    .image(shadow_map.color.image)
+                    .view_type(VK_IMAGE_VIEW_TYPE_CUBE)
+                    .format(VK_FORMAT_R32_SFLOAT)
+                    .aspect_mask(vkz::image::aspect::color)
+                    .layer_count(6)
+                    .build();
                 shadow_map.color_attachment = image_view::builder(device_)
-                    .image(shadow_map.color.image).view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
-                    .format(VK_FORMAT_R32_SFLOAT).aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT).layer_count(6).build();
+                    .image(shadow_map.color.image)
+                    .view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
+                    .format(VK_FORMAT_R32_SFLOAT)
+                    .aspect_mask(vkz::image::aspect::color)
+                    .layer_count(6)
+                    .build();
                 img_builder.format(depth_format_);
                 shadow_map.depth.image = img_builder.usage(usage).build();
                 shadow_map.depth.image_view = view_builder.image(shadow_map.depth.image).build();
                 shadow_map.depth_attachment = image_view::builder(device_)
-                    .image(shadow_map.depth.image).view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
-                    .format(depth_format_).aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT).layer_count(6).build();
+                    .image(shadow_map.depth.image)
+                    .view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
+                    .format(depth_format_)
+                    .aspect_mask(vkz::image::aspect::depth)
+                    .layer_count(6)
+                    .build();
 
-                vkz::barrier::push(shadow_map.color.image, shadow_map.color.image_view.create_info.subresourceRange,
-                                   VK_PIPELINE_STAGE_2_NONE, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_NONE,
-                                   VK_ACCESS_2_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                vkz::barrier::push(shadow_map.color.image, shadow_map.color.image_view.create_info.subresourceRange, vkz::pipeline::stage::none, vkz::pipeline::stage::fragment_shader,
+                                   vkz::access::none, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }
             vkz::barrier::flush(command_buffer);
         }
@@ -260,12 +269,11 @@ void main() {
             }
 
             for(auto i = 0; i < uniforms_.size(); ++i) {
-                uniforms_[i] =
-                    buffer::builder(allocator_)
-                        .name(prefix(std::format("light_matrix_{}", i)))
-                        .usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-                        .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
-                        .size(uniforms_byte_size)
+                uniforms_[i] = buffer::builder(allocator_)
+                    .name(prefix(std::format("light_matrix_{}", i)))
+                    .usage(vkz::buffer::usage::storage_upload)
+                    .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
+                    .size(uniforms_byte_size)
                     .build();
 
                 memory.copy_to(command_buffer, uniforms_[i]);
@@ -280,18 +288,17 @@ void main() {
             cube_.mesh.vertex_buffer =
                 buffer::builder(allocator_)
                     .name(prefix("ube_mesh_vertices"))
-                    .usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+                    .usage(vkz::buffer::usage::vertex_upload)
                     .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                     .size(vertex_byte_size)
-                .build();
+                    .build();
 
             auto index_byte_size = sizeof(indices[0]) * indices.size();
-            cube_.mesh.index_buffer =
-                buffer::builder(allocator_)
-                    .name(prefix("ube_mesh_indexes"))
-                    .usage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-                    .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
-                    .size(sizeof(indices[0]) * indices.size())
+            cube_.mesh.index_buffer = buffer::builder(allocator_)
+                .name(prefix("ube_mesh_indexes"))
+                .usage(vkz::buffer::usage::index | vkz::buffer::usage::transfer_dst)
+                .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
+                .size(sizeof(indices[0]) * indices.size())
                 .build();
 
             auto vertex_mem = staging.borrow(vertex_byte_size);
@@ -305,24 +312,20 @@ void main() {
         }
 
         void create_descriptor_set_layout() {
-            descriptor_set_layout_ =
-                make_descriptor_set_layout_builder(device_)
-                    .name("psm_descriptor_set_layout")
-                    .binding(0)
-                        .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                        .descriptor_count(1)
-                        .shader_stages(VK_SHADER_STAGE_ALL_GRAPHICS)
-                .create_layout();
+            descriptor_set_layout_ = make_descriptor_set_layout_builder(device_)
+                                         .name("psm_descriptor_set_layout")
+                                         .binding(0)
+                                         .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                         .descriptor_count(1)
+                                         .shader_stages(vkz::shader_stage::all_graphics)
+                                         .create_layout();
         }
 
         void update_descriptor_sets() {
             descriptor_sets = descriptor_pool_.allocate_n(descriptor_set_layout_, descriptor_sets.size());
 
             for (size_t i = 0; i < descriptor_sets.size(); ++i) {
-                update_descriptors(device_, {{
-                    .descriptor_set = descriptor_sets[i],
-                    .bindings = {descriptor<buffer_descriptor>(uniforms_[i], 0)}
-                }});
+                update_descriptors(device_, {{.descriptor_set = descriptor_sets[i], .bindings = {make_descriptor<buffer_descriptor>(uniforms_[i], 0)}}});
             }
         }
 
@@ -337,52 +340,52 @@ void main() {
             const auto w = resolution_.x;
             const auto h = resolution_.y;
 
-            pipeline_ =
-                make_graphics_pipeline_builder(device_)
-                    .shader_stage()
-                        .vertex_shader(vertex_shader)
-                        .fragment_shader(psm_fragment_shader)
-                    .vertex_input_state()
-                        .add_vertex_binding_description(0, vertex_shader_position_stride_, VK_VERTEX_INPUT_RATE_VERTEX)
-                        .add_vertex_attribute_description(0, 0, VK_FORMAT_R32G32B32_SFLOAT, vertex_shader_position_offset_)
-                    .input_assembly_state()
-                        .triangles()
-                    .viewport_state()
-                        .viewport()
+            pipeline_ = make_graphics_pipeline_builder(device_)
+                            .shader_stage()
+                            .vertex_shader(vertex_shader)
+                            .fragment_shader(psm_fragment_shader)
+                            .vertex_input_state()
+                            .add_vertex_binding_description(0, vertex_shader_position_stride_, VK_VERTEX_INPUT_RATE_VERTEX)
+                            .add_vertex_attribute_description(0, 0, VK_FORMAT_R32G32B32_SFLOAT, vertex_shader_position_offset_)
+                            .input_assembly_state()
+                            .triangles()
+                            .viewport_state()
+                            .viewport()
                             .origin(0, 0)
                             .dimension(w, h)
                             .min_depth(0)
                             .max_depth(1)
-                        .scissor()
+                            .scissor()
                             .offset(0, 0)
                             .extent(static_cast<int>(w), static_cast<int>(h))
-                        .add()
-                    .rasterization_state()
-                        .cull_front_face()
-                        .front_face_counter_clockwise()
-                        .polygon_mode_fill()
-                    .depth_stencil_state()
-                        .enable_depth_write()
-                        .enable_depth_test()
-                        .compare_op_less_or_equal()
-                        .min_depth_bounds(0)
-                        .max_depth_bounds(1)
-                    .color_blend_state()
-                        .attachment().add()
-                    .dynamic_state()
-                        .cull_mode()
-                        .primitive_topology()
-                    .layout()
-                        .add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_constants))
-                        .add_descriptor_set_layout(descriptor_set_layout_)
-                        .add_descriptor_set_layout(vertex_include_descriptor_set_layout_)
-                    .dynamic_render_pass()
-                        .add_color_attachment(VK_FORMAT_R32_SFLOAT)
-                        .depth_attachment(depth_format_)
-                        .view_mask(0b00111111)
-                    .subpass(0)
-                    .name(prefix("capture_pipeline"))
-                .build();
+                            .add()
+                            .rasterization_state()
+                            .cull_front_face()
+                            .front_face_counter_clockwise()
+                            .polygon_mode_fill()
+                            .depth_stencil_state()
+                            .enable_depth_write()
+                            .enable_depth_test()
+                            .compare_op_less_or_equal()
+                            .min_depth_bounds(0)
+                            .max_depth_bounds(1)
+                            .color_blend_state()
+                            .attachment()
+                            .add()
+                            .dynamic_state()
+                            .cull_mode()
+                            .primitive_topology()
+                            .layout()
+                            .add_push_constant_range(vkz::shader_stage::vertex, 0, sizeof(push_constants))
+                            .add_descriptor_set_layout(descriptor_set_layout_)
+                            .add_descriptor_set_layout(vertex_include_descriptor_set_layout_)
+                            .dynamic_render_pass()
+                            .add_color_attachment(VK_FORMAT_R32_SFLOAT)
+                            .depth_attachment(depth_format_)
+                            .view_mask(0b00111111)
+                            .subpass(0)
+                            .name(prefix("capture_pipeline"))
+                            .build();
         }
 
         std::string prefix(const std::string& label) {

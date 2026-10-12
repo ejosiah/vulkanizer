@@ -1,5 +1,7 @@
 #pragma once
 
+#include "pipeline.hpp"
+
 #include "vkz.hpp"
 
 #include <volk.h>
@@ -101,10 +103,14 @@ namespace vkz {
 
         void add_group(const std::string &name, uint32_t query_count);
 
-        template <typename Body> void profile(const std::string &name, VkCommandBuffer command_buffer, Body &&body, VkPipelineStageFlagBits stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT) {
+        template <typename Body> void profile(const std::string &name, VkCommandBuffer command_buffer, Body &&body, vkz::pipeline::stage stage = vkz::pipeline::stage::compute_shader) {
             if (!is_ready()) {
                 std::invoke(std::forward<Body>(body));
                 return;
+            }
+
+            if (static_cast<VkPipelineStageFlags2>(stage) != static_cast<VkPipelineStageFlags>(stage)) {
+                throw std::invalid_argument{"GPU profiling requires a legacy timestamp stage"};
             }
 
             const auto iterator = queries.find(name);
@@ -117,9 +123,9 @@ namespace vkz {
                 vkCmdResetQueryPool(command_buffer, query_pool_, query.start_id, 2);
             }
 
-            vkCmdWriteTimestamp(command_buffer, stage, query_pool_, query.start_id);
+            vkCmdWriteTimestamp(command_buffer, static_cast<VkPipelineStageFlagBits>(stage), query_pool_, query.start_id);
             std::invoke(std::forward<Body>(body));
-            vkCmdWriteTimestamp(command_buffer, stage, query_pool_, query.end_id);
+            vkCmdWriteTimestamp(command_buffer, static_cast<VkPipelineStageFlagBits>(stage), query_pool_, query.end_id);
         }
 
         void commit();

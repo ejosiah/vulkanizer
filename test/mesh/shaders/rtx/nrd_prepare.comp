@@ -1,0 +1,54 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+#define NRD_DESCRIPTOR_SET 0
+#include "nrd_signals.glsl"
+#include "nrd_input.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+vec4 sanitize(vec4 signal) {
+    if (any(isnan(signal)) || any(isinf(signal)))
+        return vec4(0);
+    return clamp(signal, 0, 65504);
+}
+
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(p, imageSize(nrd_diffuse))))
+        return;
+    ivec2 q = source_pixel(p);
+    float depth = texelFetch(scene_depth, q, 0).r;
+    vec2 uv = (vec2(q) + 0.5) / vec2(textureSize(scene_depth, 0));
+    vec4 world = inverse_view_projection * vec4(uv * 2 - 1, depth, 1);
+    world /= world.w;
+    vec3 normal = oct_decode(texelFetch(scene_normal, q, 0).xy);
+    vec4 surface = texelFetch(scene_surface, q, 0);
+
+    // Match the reference's NRD R10G10B10A2 octahedral normal encoding.
+    normal /= abs(normal.x) + abs(normal.y) + abs(normal.z);
+    float roughness = max(surface.a, 1.5 / 512.0);
+    vec3 packed = vec3(0.5 * (normal.x + normal.y) + 0.5, 0.5 * (normal.y - normal.x) + 0.5,
+        0.5 + 0.5 * (normal.z < 0 ? -roughness : roughness));
+    imageStore(nrd_normal_roughness, p, vec4(packed, 0));
+    float view_z = depth < 1 ? -(view * world).z : 1e10;
+    imageStore(nrd_view_z, p, vec4(view_z));
+    // Static world-space geometry: NRD reprojects camera motion using the matrices.
+    imageStore(nrd_motion, p, vec4(0));
+
+    if (shadow_light >= 0) {
+        float penumbra = texelFetch(penumbra_input, ivec3(p, shadow_light), 0).r;
+        imageStore(nrd_diffuse_factor, p, vec4(penumbra));
+        return;
+    }
+
+    vec4 diffuse = shadow_light == -2 ? vec4(0) : texelFetch(diffuse_input, p, 0);
+    vec4 specular = shadow_light == -3 ? vec4(0) : texelFetch(specular_input, p, 0);
+    vec3 specular_factor = max(surface.rgb, vec3(0.04));
+    imageStore(nrd_specular_factor, p, vec4(specular_factor, 1));
+    diffuse.w = depth < 1 ? max(diffuse.w, 0.01) : 0;
+    specular.rgb /= specular_factor;
+    specular.w = depth < 1 ? max(specular.w, 0.01) : 0;
+    imageStore(nrd_diffuse, p, sanitize(diffuse));
+    imageStore(nrd_specular, p, sanitize(specular));
+}

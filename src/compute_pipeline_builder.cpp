@@ -75,10 +75,10 @@ VkComputePipelineCreateInfo vkz::compute_pipeline_builder::create_info() {
     auto &shader_stage = _shader_stage_builder->build_shader_stage();
 
     auto info = makeStruct<VkComputePipelineCreateInfo>();
-    info.flags = _flags;
+    info.flags = static_cast<VkPipelineCreateFlags>(_flags);
     info.stage = shader_stage;
 
-    if (_flags & VK_PIPELINE_CREATE_DERIVATIVE_BIT) {
+    if (has_flag(_flags, vkz::pipeline::flags::derivative)) {
         assert(_base_pipeline);
         info.basePipelineHandle = _base_pipeline;
         info.basePipelineIndex = -1;

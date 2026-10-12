@@ -12,9 +12,8 @@ namespace vkz {
         return *this;
     }
 
-    compute_pipeline_layout_builder &
-    compute_pipeline_layout_builder::add_push_constant_range(VkShaderStageFlags stage, uint32_t offset, uint32_t size) {
-        _ranges.push_back({stage, offset, size});
+    compute_pipeline_layout_builder &compute_pipeline_layout_builder::add_push_constant_range(vkz::shader_stage stage, uint32_t offset, uint32_t size) {
+        _ranges.push_back({static_cast<VkShaderStageFlags>(stage), offset, size});
         return *this;
     }
 

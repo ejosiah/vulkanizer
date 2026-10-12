@@ -1,0 +1,103 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "shared.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(constant_id = 1) const uint pass_index = 0;
+
+void compute_variance(ivec2 p) {
+    if (!reflective_pixel(p)) {
+        imageStore(raw_color, p, vec4(0));
+        return;
+    }
+
+    vec4 center = imageLoad(integrated_color, p);
+    vec4 moments = imageLoad(integrated_moments, p);
+    vec3 normal = current_normal(p);
+    vec3 world = current_world(p);
+    float total_weight = 0;
+    vec2 filtered_moments = vec2(0);
+    int radius = moments.z < 4 ? 3 : 1;
+
+    for (int y = -radius; y <= radius; ++y) {
+        for (int x = -radius; x <= radius; ++x) {
+            ivec2 q = p + ivec2(x, y);
+
+            if (any(lessThan(q, ivec2(0))) || any(greaterThanEqual(q, ivec2(resolution))))
+                continue;
+
+            float weight = exp(-float(x * x + y * y) * 0.5)
+                * pow(max(dot(normal, current_normal(q)), 0), 32)
+                * exp(-abs(dot(current_world(q) - world, normal)) / 0.05);
+            filtered_moments += imageLoad(integrated_moments, q).xy * weight;
+            total_weight += weight;
+        }
+    }
+
+    filtered_moments /= max(total_weight, 1e-6);
+    float variance = max(filtered_moments.y - filtered_moments.x * filtered_moments.x, 0);
+    imageStore(raw_color, p, vec4(center.rgb, min(variance, 65504)));
+}
+
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+
+    if (any(greaterThanEqual(p, ivec2(resolution))))
+        return;
+
+    if (pass_index == 1u) {
+        compute_variance(p);
+        return;
+    }
+
+    ivec2 source = source_pixel(p);
+    vec3 world = world_at(p);
+    vec3 normal = normal_at(p);
+    uint mesh_id = texelFetch(scene_mesh_id, source, 0).r;
+    vec3 color = imageLoad(raw_color, p).rgb;
+    float light = luminance(color);
+    vec2 moments = vec2(light, light * light);
+    float count = 1;
+    vec4 old_color = vec4(0);
+    vec4 old_moments = vec4(0);
+    bool consistent = false;
+    vec4 projected = previous_view_projection * vec4(world, 1);
+    vec2 uv = projected.xy / projected.w * 0.5 + 0.5;
+
+    if (history_valid != 0u && projected.w > 0 && all(greaterThanEqual(uv, vec2(0))) && all(lessThan(uv, vec2(1))) && mesh_id != 0u && texelFetch(scene_depth, source, 0).r < 1) {
+        ivec2 q = min(ivec2(uv * vec2(resolution)), ivec2(resolution) - 1);
+        vec4 old_world = even_frame() ? imageLoad(history_world_1, q) : imageLoad(history_world_0, q);
+        vec4 old_normal = even_frame() ? imageLoad(history_normal_1, q) : imageLoad(history_normal_0, q);
+        float tolerance = 0.04 + 0.01 * length(world - camera_position);
+        consistent = old_world.w == float(mesh_id) && length(old_world.xyz - world) < tolerance
+            && dot(old_normal.xyz, normal) > 0.95 && abs(old_normal.w - texelFetch(scene_surface, source, 0).a) < 0.05;
+
+        if (consistent) {
+            old_color = even_frame() ? imageLoad(history_color_1, q) : imageLoad(history_color_0, q);
+            old_moments = even_frame() ? imageLoad(history_moments_1, q) : imageLoad(history_moments_0, q);
+            count = min(old_moments.z + 1, 32);
+            float alpha = max(1 / count, 0.05);
+            color = mix(old_color.rgb, color, alpha);
+            moments = mix(old_moments.xy, moments, alpha);
+        }
+    }
+
+    float variance = max(moments.y - moments.x * moments.x, 0);
+    imageStore(integrated_color, p, vec4(color, min(variance, 65504)));
+    imageStore(integrated_moments, p, vec4(moments, count, 0));
+    vec4 world_info = vec4(world, float(mesh_id));
+    vec4 normal_info = vec4(normal, texelFetch(scene_surface, source, 0).a);
+
+    if (even_frame()) {
+        imageStore(history_world_0, p, world_info);
+        imageStore(history_normal_0, p, normal_info);
+        imageStore(history_moments_0, p, vec4(moments, count, 0));
+    } else {
+        imageStore(history_world_1, p, world_info);
+        imageStore(history_normal_1, p, normal_info);
+        imageStore(history_moments_1, p, vec4(moments, count, 0));
+    }
+}

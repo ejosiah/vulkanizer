@@ -1,0 +1,41 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "shared.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+void main() {
+    ivec3 p = ivec3(gl_GlobalInvocationID);
+
+    if (!valid_pixel(p))
+        return;
+
+    const float gaussian[5] = float[5](1, 4, 6, 4, 1);
+    vec3 normal = normal_at(p.xy);
+    float depth = depth_at(p.xy);
+    vec2 motion = imageLoad(motion_vector, p.xy).xy;
+    bool reuse_history = constants.history_count >= 4 && valid_history(p.xy);
+    float value = 0;
+    float total_weight = 0;
+
+    for (int y = -2; y <= 2; ++y) {
+        for (int x = -2; x <= 2; ++x) {
+            ivec3 q = bounded(p + ivec3(x, y, 0));
+
+            if (dot(normal, normal_at(q.xy)) < 0.9 || abs(depth - depth_at(q.xy)) > 0.002)
+                continue;
+
+            vec4 history = current_visibility(q);
+            bool neighbor_history = reuse_history && valid_history(q.xy);
+            float visibility = neighbor_history ? dot(history, vec4(0.25)) : history[constants.frame_index % 4];
+            float weight = gaussian[x + 2] * gaussian[y + 2];
+            value += visibility * weight;
+            total_weight += weight;
+        }
+    }
+
+    float center = current_visibility(p)[constants.frame_index % 4];
+    imageStore(filtered_visibility, p, vec4(total_weight > 0 ? value / total_weight : center));
+}

@@ -15,7 +15,7 @@
 
 namespace vkz::svsm {
     namespace {
-        constexpr VkImageSubresourceRange color_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        constexpr VkImageSubresourceRange color_range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
         struct uniforms {
             glm::mat4 inverse_view_projection{1};
             std::array<glm::mat4, max_clipmaps> light{};
@@ -53,21 +53,20 @@ namespace vkz::svsm {
                 return false;
             }
         }
-        void synchronize(VkCommandBuffer cmd, VkPipelineStageFlags2 source, VkAccessFlags2 source_access, VkPipelineStageFlags2 target,
-                         VkAccessFlags2 target_access) {
+
+        void synchronize(VkCommandBuffer cmd, vkz::pipeline::stage source, vkz::access source_access, vkz::pipeline::stage target, vkz::access target_access) {
             VkMemoryBarrier2 memory{VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
-            memory.srcStageMask = source;
-            memory.srcAccessMask = source_access;
-            memory.dstStageMask = target;
-            memory.dstAccessMask = target_access;
+            memory.srcStageMask = static_cast<VkPipelineStageFlags2>(source);
+            memory.srcAccessMask = static_cast<VkAccessFlags2>(source_access);
+            memory.dstStageMask = static_cast<VkPipelineStageFlags2>(target);
+            memory.dstAccessMask = static_cast<VkAccessFlags2>(target_access);
             VkDependencyInfo dependency{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
             dependency.memoryBarrierCount = 1;
             dependency.pMemoryBarriers = &memory;
             vkCmdPipelineBarrier2(cmd, &dependency);
         }
         void compute_barrier(VkCommandBuffer cmd) {
-            synchronize(cmd, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                        VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+            synchronize(cmd, vkz::pipeline::stage::compute_shader, vkz::access::shader_write, vkz::pipeline::stage::compute_shader, vkz::access::shader_read_write);
         }
         struct frame_slot {
             buffer uniform, hierarchy, visibility, draws, stats;
@@ -94,10 +93,11 @@ namespace vkz::svsm {
                 atlas_.image.destroy();
                 sampler_.destroy();
             }
-            buffer make_buffer(VkDeviceSize size, VkBufferUsageFlags extra = 0) {
+
+            buffer make_buffer(VkDeviceSize size, vkz::buffer::usage extra = vkz::buffer::usage::none) {
                 return buffer::builder(p_.memory_allocator)
                     .size(size)
-                    .usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | extra)
+                    .usage(vkz::buffer::usage::storage_transfer | extra)
                     .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                     .build();
             }
@@ -115,7 +115,7 @@ namespace vkz::svsm {
                 vkGetPhysicalDeviceFeatures(p_.device, &features);
                 VkFormatProperties format{};
                 vkGetPhysicalDeviceFormatProperties(p_.device, VK_FORMAT_R32_UINT, &format);
-                const auto required = VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT | VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT;
+                const auto required = static_cast<VkFormatFeatureFlags>(vkz::format_feature::storage_atomic);
                 if (!features.fragmentStoresAndAtomics || (format.optimalTilingFeatures & required) != required)
                     throw std::runtime_error("SVSM requires R32_UINT storage image integer atomics in fragment shaders");
                 side_ = uint32_t(std::ceil(std::sqrt(double(p_.physical_pages))));
@@ -136,14 +136,12 @@ namespace vkz::svsm {
                     throw std::invalid_argument("SVSM configuration exceeds physical device limits");
                 auto builder = make_descriptor_set_layout_builder(p_.device);
                 for (uint32_t b = 0; b < 12; ++b) {
-                    const auto type = b == 0   ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-                                      : b == 2 ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-                                      : b == 3 ? VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-                                               : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                    const auto type = b == 0   ? vkz::descriptor::type::uniform_buffer
+                                      : b == 2 ? vkz::descriptor::type::storage_image
+                                      : b == 3 ? vkz::descriptor::type::combined_image_sampler
+                                               : vkz::descriptor::type::storage_buffer;
                     auto entry = builder.binding(b).descriptor_type(type).descriptor_count(1).shader_stages(
-                        (b == 0 || b == 1 || b == 2 || b == 7 || b == 10)
-                            ? VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-                            : VK_SHADER_STAGE_COMPUTE_BIT);
+                        (b == 0 || b == 1 || b == 2 || b == 7 || b == 10) ? vkz::shader_stage::compute | vkz::shader_stage::vertex | vkz::shader_stage::fragment : vkz::shader_stage::compute);
                     if (b == 11)
                         layout_ = entry.create_layout();
                     else
@@ -151,10 +149,10 @@ namespace vkz::svsm {
                 }
                 pool_ = descriptor_pool{p_.device,
                                         p_.in_flight_frames,
-                                        {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, p_.in_flight_frames},
-                                         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, p_.in_flight_frames * 9},
-                                         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, p_.in_flight_frames},
-                                         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, p_.in_flight_frames}}};
+                                        {{static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), p_.in_flight_frames},
+                                         {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), p_.in_flight_frames * 9},
+                                         {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), p_.in_flight_frames},
+                                         {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), p_.in_flight_frames}}};
                 sampler_ = sampler::builder(p_.device)
                                .min_filter(VK_FILTER_NEAREST)
                                .mag_filter(VK_FILTER_NEAREST)
@@ -162,28 +160,28 @@ namespace vkz::svsm {
                                .address_mode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
                                .build();
                 atlas_.image = image::builder(p_.memory_allocator)
-                                   .format(VK_FORMAT_R32_UINT)
-                                   .extent(uint32_t(atlas_size), uint32_t(atlas_size))
-                                   .usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
-                                   .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
-                                   .build();
+                    .format(VK_FORMAT_R32_UINT)
+                    .extent(uint32_t(atlas_size), uint32_t(atlas_size))
+                    .usage(vkz::image::usage::storage_download)
+                    .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
+                    .build();
                 atlas_.image_view = image_view::builder(p_.device)
-                                        .image(atlas_.image)
-                                        .format(VK_FORMAT_R32_UINT)
-                                        .view_type(VK_IMAGE_VIEW_TYPE_2D)
-                                        .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
-                                        .level_count(1)
-                                        .layer_count(1)
-                                        .build();
+                    .image(atlas_.image)
+                    .format(VK_FORMAT_R32_UINT)
+                    .view_type(VK_IMAGE_VIEW_TYPE_2D)
+                    .aspect_mask(vkz::image::aspect::color)
+                    .level_count(1)
+                    .layer_count(1)
+                    .build();
                 pages_ = make_buffer(VkDeviceSize(total_) * 16);
                 owners_ = make_buffer(VkDeviceSize(p_.physical_pages) * 4);
                 dummy_ = make_buffer(64);
                 slots_.resize(p_.in_flight_frames);
                 for (auto &s : slots_) {
-                    s.uniform = make_buffer(sizeof(uniforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+                    s.uniform = make_buffer(sizeof(uniforms), vkz::buffer::usage::uniform);
                     s.hierarchy = make_buffer(VkDeviceSize(hierarchy_stride_) * p_.clipmap_count * 4);
                     s.visibility = make_buffer(VkDeviceSize(p_.max_casters) * p_.clipmap_count * 4);
-                    s.draws = make_buffer(draw_size, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+                    s.draws = make_buffer(draw_size, vkz::buffer::usage::indirect);
                     s.stats = make_buffer(sizeof(statistics));
                     s.set = pool_.allocate(layout_);
                 }
@@ -192,12 +190,12 @@ namespace vkz::svsm {
                                .compute_shader(std::vector<uint32_t>{std::begin(svsm_manage_comp), std::end(svsm_manage_comp)})
                                .layout()
                                .add_descriptor_set_layout(layout_)
-                               .add_push_constant_range(VK_SHADER_STAGE_COMPUTE_BIT, 0, 16)
+                               .add_push_constant_range(vkz::shader_stage::compute, 0, 16)
                                .build();
                 make_graphics();
             }
             void make_graphics() {
-                VkPushConstantRange push{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(draw_constants)};
+                VkPushConstantRange push{static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), 0, sizeof(draw_constants)};
                 VkPipelineLayoutCreateInfo layout{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
                 layout.setLayoutCount = 1;
                 layout.pSetLayouts = &layout_.handle;
@@ -216,7 +214,7 @@ namespace vkz::svsm {
                     std::array<VkPipelineShaderStageCreateInfo, 2> stages{};
                     for (uint32_t i = 0; i < 2; ++i) {
                         stages[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-                        stages[i].stage = i ? VK_SHADER_STAGE_FRAGMENT_BIT : VK_SHADER_STAGE_VERTEX_BIT;
+                        stages[i].stage = static_cast<VkShaderStageFlagBits>(i ? vkz::shader_stage::fragment : vkz::shader_stage::vertex);
                         stages[i].module = modules[i];
                         stages[i].pName = "main";
                     }
@@ -238,11 +236,11 @@ namespace vkz::svsm {
                     view.pScissors = &scissor;
                     VkPipelineRasterizationStateCreateInfo raster{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
                     raster.polygonMode = VK_POLYGON_MODE_FILL;
-                    raster.cullMode = VK_CULL_MODE_NONE;
+                    raster.cullMode = static_cast<VkCullModeFlags>(vkz::cull_mode::none);
                     raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
                     raster.lineWidth = 1;
                     VkPipelineMultisampleStateCreateInfo samples{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-                    samples.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+                    samples.rasterizationSamples = static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1);
                     VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
                     VkPipelineRenderingCreateInfo rendering{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
                     VkGraphicsPipelineCreateInfo info{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
@@ -267,7 +265,7 @@ namespace vkz::svsm {
                     vkDestroyShaderModule(p_.device, m, nullptr);
             }
             void check_buffer(const buffer &b, uint64_t size, const char *message) {
-                if (size && (!b._ || b.create_info.size < size || !(b.create_info.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ||
+                if (size && (!b._ || b.create_info.size < size || !(b.create_info.usage & static_cast<VkBufferUsageFlags>(vkz::buffer::usage::storage)) ||
                              b.create_info.size > limits_.maxStorageBufferRange))
                     throw std::invalid_argument(message);
             }
@@ -286,7 +284,7 @@ namespace vkz::svsm {
                 if (!f.depth.image.handle || !f.depth.image_view.handle || !depth.extent.width || !depth.extent.height ||
                     !receiver_format(f.depth.image_view.create_info.format) ||
                     f.depth.image_view.create_info.viewType != VK_IMAGE_VIEW_TYPE_2D || depth.imageType != VK_IMAGE_TYPE_2D ||
-                    depth.samples != VK_SAMPLE_COUNT_1_BIT || !(depth.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ||
+                    depth.samples != static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1) || !(depth.usage & static_cast<VkImageUsageFlags>(vkz::image::usage::sampled)) ||
                     (f.depth.image.layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL &&
                      f.depth.image.layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL &&
                      f.depth.image.layout != VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL && f.depth.image.layout != VK_IMAGE_LAYOUT_GENERAL) ||
@@ -338,19 +336,15 @@ namespace vkz::svsm {
                 const auto &casters = f.caster_count ? f.casters : dummy_;
                 const auto &changes = f.invalidation_count ? f.invalidations : dummy_;
                 const auto &templates = f.caster_count && f.indexed_draws._ ? f.indexed_draws : dummy_;
-                update_descriptors(p_.device,
-                                   {{s.set,
-                                     {descriptor<ubo_descriptor>(s.uniform, 0), descriptor<buffer_descriptor>(pages_, 1),
-                                      image_descriptor{atlas_.image_view, VK_IMAGE_LAYOUT_GENERAL, 2},
-                                      texture_descriptor{f.depth.image_view, sampler_, f.depth.image.layout, 3},
-                                      descriptor<buffer_descriptor>(casters, 4), descriptor<buffer_descriptor>(changes, 5),
-                                      descriptor<buffer_descriptor>(s.hierarchy, 6), descriptor<buffer_descriptor>(s.visibility, 7),
-                                      descriptor<buffer_descriptor>(templates, 8), descriptor<buffer_descriptor>(s.draws, 9),
-                                      descriptor<buffer_descriptor>(owners_, 10), descriptor<buffer_descriptor>(s.stats, 11)}}});
+                update_descriptors(p_.device, {{s.set,
+                                                {make_descriptor<ubo_descriptor>(s.uniform, 0), make_descriptor<buffer_descriptor>(pages_, 1),
+                                                 image_descriptor{atlas_.image_view, VK_IMAGE_LAYOUT_GENERAL, 2}, texture_descriptor{f.depth.image_view, sampler_, f.depth.image.layout, 3},
+                                                 make_descriptor<buffer_descriptor>(casters, 4), make_descriptor<buffer_descriptor>(changes, 5), make_descriptor<buffer_descriptor>(s.hierarchy, 6),
+                                                 make_descriptor<buffer_descriptor>(s.visibility, 7), make_descriptor<buffer_descriptor>(templates, 8), make_descriptor<buffer_descriptor>(s.draws, 9),
+                                                 make_descriptor<buffer_descriptor>(owners_, 10), make_descriptor<buffer_descriptor>(s.stats, 11)}}});
                 // Includes previous-frame shader READS: persistent pages must not be reassigned early.
-                synchronize(cmd, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                            VK_PIPELINE_STAGE_2_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                            VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+                synchronize(cmd, vkz::pipeline::stage::all_commands, vkz::access::memory_read_write, vkz::pipeline::stage::transfer | vkz::pipeline::stage::compute_shader,
+                            vkz::access::transfer_write | vkz::access::shader_read | vkz::access::shader_write);
                 vkCmdUpdateBuffer(cmd, s.uniform, 0, sizeof(u), &u);
                 vkCmdFillBuffer(cmd, s.stats, 0, VK_WHOLE_SIZE, 0);
                 if (reset)
@@ -358,11 +352,10 @@ namespace vkz::svsm {
                 // A reset discards all contents, including recovery after an abandoned first recording.
                 if (reset)
                     atlas_.image.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-                barrier::push_and_flush(cmd, atlas_.image, color_range, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                                        VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL);
-                synchronize(cmd, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                            VK_ACCESS_2_UNIFORM_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+                barrier::push_and_flush(cmd, atlas_.image, color_range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::compute_shader, vkz::access::memory_read_write,
+                                        vkz::access::shader_read_write, VK_IMAGE_LAYOUT_GENERAL);
+                synchronize(cmd, vkz::pipeline::stage::transfer, vkz::access::transfer_write, vkz::pipeline::stage::compute_shader,
+                            vkz::access::uniform_read | vkz::access::shader_read | vkz::access::shader_write);
                 slot_ = f.frame_slot;
                 input_ = f;
                 current_ = u;
@@ -386,11 +379,9 @@ namespace vkz::svsm {
                     }
                 });
                 dispatch(cmd, 6, (f.caster_count + 63) / 64, p_.clipmap_count);
-                synchronize(cmd, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                            VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                            VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
-                            VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_UNIFORM_READ_BIT |
-                                VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
+                synchronize(cmd, vkz::pipeline::stage::compute_shader | vkz::pipeline::stage::transfer, vkz::access::shader_write | vkz::access::transfer_write,
+                            vkz::pipeline::stage::all_graphics | vkz::pipeline::stage::draw_indirect,
+                            vkz::access::shader_read | vkz::access::shader_write | vkz::access::uniform_read | vkz::access::indirect_command_read);
                 state_ = 1;
                 reset_ = false;
                 last_direction_ = direction;
@@ -399,8 +390,7 @@ namespace vkz::svsm {
             }
             template <typename Body> void timed(VkCommandBuffer cmd, uint32_t stage, Body &&body) {
                 if (input_.gpu_profiler)
-                    input_.gpu_profiler->profile(profiling_queries[stage], cmd, std::forward<Body>(body),
-                                                 VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+                    input_.gpu_profiler->profile(profiling_queries[stage], cmd, std::forward<Body>(body), vkz::pipeline::stage::bottom_of_pipe);
                 else
                     body();
             }
@@ -409,7 +399,7 @@ namespace vkz::svsm {
                     if (!x || !y)
                         return;
                     glm::uvec4 push{mode, args.x, args.y, args.z};
-                    vkCmdPushConstants(cmd, compute_.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, 16, &push);
+                    vkCmdPushConstants(cmd, compute_.layout, static_cast<VkShaderStageFlags>(vkz::shader_stage::compute), 0, 16, &push);
                     vkCmdDispatch(cmd, x, y, 1);
                     compute_barrier(cmd);
                 };
@@ -433,8 +423,7 @@ namespace vkz::svsm {
                         draw_constants constants{};
                         constants.clipmap = level;
                         constants.use_visibility = 0;
-                        vkCmdPushConstants(cmd, graphics_layout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                           sizeof(constants), &constants);
+                        vkCmdPushConstants(cmd, graphics_layout_, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), 0, sizeof(constants), &constants);
                         try {
                             draw({cmd, level, current_.light[level], s.set.handle, graphics_layout_, s.visibility,
                                   input_.indexed_draws._ ? s.draws : buffer{}, VkDeviceSize(level) * input_.caster_count * 20,
@@ -453,14 +442,12 @@ namespace vkz::svsm {
             void end(VkCommandBuffer cmd) {
                 if (state_ != 2 || cmd != command_)
                     throw std::logic_error("SVSM end must follow capture on the same command buffer");
-                synchronize(cmd, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
-                            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+                synchronize(cmd, vkz::pipeline::stage::all_graphics, vkz::access::shader_read_write, vkz::pipeline::stage::compute_shader, vkz::access::shader_read_write);
                 vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_.handle);
                 vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_.layout, 0, 1, &slots_[slot_].set.handle, 0, nullptr);
                 dispatch(cmd, 7, (total_ + 63) / 64);
-                synchronize(cmd, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                            VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                            VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_UNIFORM_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT);
+                synchronize(cmd, vkz::pipeline::stage::compute_shader | vkz::pipeline::stage::fragment_shader, vkz::access::shader_write, vkz::pipeline::stage::all_commands,
+                            vkz::access::shader_read | vkz::access::uniform_read | vkz::access::transfer_read);
                 state_ = 0;
             }
             frame_slot &slot(uint32_t s) {

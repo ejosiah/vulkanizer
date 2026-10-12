@@ -139,10 +139,10 @@ namespace vkz {
         create_info_.imageColorSpace = surfaceFormat.colorSpace;
         create_info_.imageExtent = extent_;
         create_info_.imageArrayLayers = 1;
-        create_info_.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        create_info_.imageUsage = static_cast<VkImageUsageFlags>(vkz::image::usage::transfer_dst);
         create_info_.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         create_info_.preTransform = capabilities.currentTransform;
-        create_info_.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+        create_info_.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(vkz::composite_alpha::opaque);
         create_info_.presentMode = choose_present_mode(presentModes);
         create_info_.clipped = VK_TRUE;
     }
@@ -159,8 +159,8 @@ namespace vkz {
         return *this;
     }
 
-    swapchain::builder_base& swapchain::builder_base::set_image_usage(VkImageUsageFlags usage) {
-        create_info_.imageUsage = usage;
+    swapchain::builder_base& swapchain::builder_base::set_image_usage(vkz::image::usage usage) {
+        create_info_.imageUsage = static_cast<VkImageUsageFlags>(usage);
         return *this;
     }
 
@@ -170,13 +170,13 @@ namespace vkz {
         return *this;
     }
 
-    swapchain::builder_base& swapchain::builder_base::set_pre_transform(VkSurfaceTransformFlagBitsKHR transform) {
-        create_info_.preTransform = transform;
+    swapchain::builder_base& swapchain::builder_base::set_pre_transform(vkz::surface_transform transform) {
+        create_info_.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(transform);
         return *this;
     }
 
-    swapchain::builder_base& swapchain::builder_base::set_composite_alpha(VkCompositeAlphaFlagBitsKHR compositeAlpha) {
-        create_info_.compositeAlpha = compositeAlpha;
+    swapchain::builder_base& swapchain::builder_base::set_composite_alpha(vkz::composite_alpha compositeAlpha) {
+        create_info_.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(compositeAlpha);
         return *this;
     }
 

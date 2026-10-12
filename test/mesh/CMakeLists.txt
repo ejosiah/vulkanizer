@@ -37,6 +37,57 @@ cmrc_add_resource_library(vulkanizer_sponza_resources NAMESPACE sponza_shaders
 add_dependencies(vulkanizer_sponza_resources vulkanizer_sponza_shaders)
 target_link_libraries(vulkanizer_sponza_test PRIVATE vulkanizer_sponza_resources)
 
+include("${PROJECT_SOURCE_DIR}/cmake/rtx_sdk.cmake")
+add_executable(rtx_test rtx_test.cpp rtx_tv.cpp rtx_material.cpp rtx_neural_cache.cpp rtx_nrc.cpp rtx_nrd.cpp)
+target_link_libraries(rtx_test PRIVATE vulkanizer_nrc vulkanizer_nrd)
+foreach(runtime IN ITEMS NRC_Vulkan.dll cudart64_13.dll nvrtc64_130_0.dll nvrtc-builtins64_133.dll)
+    add_custom_command(TARGET rtx_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${VULKANIZER_NRC_SDK_ROOT}/Bin/${runtime}" "$<TARGET_FILE_DIR:rtx_test>")
+endforeach()
+target_link_libraries(rtx_test PRIVATE vulkanizer)
+target_compile_definitions(rtx_test PRIVATE
+    VKZ_CAT_VIDEO="${PROJECT_SOURCE_DIR}/test/resources/video/3116737-hd_1920_1080_25fps.mp4"
+    VKZ_SPONZA_MESH="${CMAKE_CURRENT_SOURCE_DIR}/resources/sponza/Sponza.vkmesh"
+    VKZ_LIVING_ROOM_MESH="${CMAKE_CURRENT_SOURCE_DIR}/resources/living_room/LivingRoom.vkmesh")
+set(RTX_SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/rtx")
+set(RTX_SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/rtx_shaders")
+file(MAKE_DIRECTORY "${RTX_SHADER_BINARY_DIR}")
+file(GLOB RTX_SHADER_INCLUDES CONFIGURE_DEPENDS "${RTX_SHADER_SOURCE_DIR}/*.glsl"
+    "${PROJECT_SOURCE_DIR}/src/reflection/*.glsl" "${PROJECT_SOURCE_DIR}/src/reference/*.glsl")
+set(RTX_SHADER_OUTPUTS)
+foreach(shader IN ITEMS tv_filter.comp sponza.vert sponza.frag gbuffer.frag tone_mapping.vert tone_mapping.frag probes.vert probes.frag nrc.rgen nrc.rchit nrc.rmiss nrc.rahit nrc_resolve.comp nrd_prepare.comp nrd_resolve.comp)
+    set(output "${RTX_SHADER_BINARY_DIR}/${shader}.spv")
+    set(source "${RTX_SHADER_SOURCE_DIR}/${shader}")
+    set(shader_options)
+    if(shader STREQUAL "gbuffer.frag")
+        set(source "${RTX_SHADER_SOURCE_DIR}/sponza.frag")
+        list(APPEND shader_options -DGBUFFER_PASS)
+    endif()
+    add_custom_command(OUTPUT "${output}"
+        COMMAND "${GLSLC_EXECUTABLE}" --target-env=vulkan1.3 ${shader_options} "${source}" -o "${output}"
+        DEPENDS "${source}" ${RTX_SHADER_INCLUDES} VERBATIM)
+    list(APPEND RTX_SHADER_OUTPUTS "${output}")
+endforeach()
+foreach(entry IN ITEMS train_bridge query_bridge)
+    set(output "${RTX_SHADER_BINARY_DIR}/nrc_${entry}.spv")
+    add_custom_command(OUTPUT "${output}"
+        COMMAND "${VULKANIZER_DXC}" -spirv -fspv-entrypoint-name=main -T cs_6_6 -E "${entry}" -HV 2021
+            -fspv-target-env=vulkan1.2 -fvk-use-dx-layout -enable-16bit-types
+            "-I${VULKANIZER_NRC_SDK_ROOT}/Include" "${RTX_SHADER_SOURCE_DIR}/nrc_bridge.hlsl" -Fo "${output}"
+        DEPENDS "${RTX_SHADER_SOURCE_DIR}/nrc_bridge.hlsl" "${VULKANIZER_NRC_SDK_ROOT}/Include/Nrc.hlsli"
+        VERBATIM)
+    list(APPEND RTX_SHADER_OUTPUTS "${output}")
+endforeach()
+add_custom_target(rtx_test_shaders DEPENDS ${RTX_SHADER_OUTPUTS})
+cmrc_add_resource_library(rtx_test_resources NAMESPACE rtx_shaders
+    WHENCE "${RTX_SHADER_BINARY_DIR}" ${RTX_SHADER_OUTPUTS})
+add_dependencies(rtx_test_resources rtx_test_shaders)
+target_link_libraries(rtx_test PRIVATE rtx_test_resources)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/resources/sponza/Sponza.vkmesh")
+    add_test(NAME rtx_test COMMAND rtx_test --timeout 3 --no-game-controller --validation)
+    set_tests_properties(rtx_test PROPERTIES TIMEOUT 90 FAIL_REGULAR_EXPRESSION "VUID-|Validation Error")
+endif()
+
 vulkanizer_add_test_executable(vulkanizer_gltf_brdf_test gltf_brdf.cpp)
 target_link_libraries(vulkanizer_gltf_brdf_test PRIVATE vulkanizer_sponza_resources)
 
@@ -61,6 +112,9 @@ set_tests_properties(vulkanizer_shader_binding_table_test PROPERTIES TIMEOUT 90)
 
 vulkanizer_add_test_executable(vulkanizer_reference_ray_tracing_test reference_ray_tracing.cpp)
 set_tests_properties(vulkanizer_reference_ray_tracing_test PROPERTIES TIMEOUT 90)
+
+vulkanizer_add_test_executable(vulkanizer_ddgi_test ddgi.cpp)
+set_tests_properties(vulkanizer_ddgi_test PROPERTIES TIMEOUT 90 FAIL_REGULAR_EXPRESSION "VUID-|Validation Error")
 
 add_executable(vulkanizer_ior_test_grid_test ior_test_grid.cpp)
 target_link_libraries(vulkanizer_ior_test_grid_test PRIVATE vulkanizer vulkanizer_sponza_resources)

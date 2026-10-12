@@ -14,6 +14,27 @@
 #include <vector>
 
 namespace vkz {
+    device_memory device_memory::allocate(vma_memory_allocator &allocator, const VkMemoryRequirements &requirements) {
+        VmaAllocationCreateInfo create_info{};
+        create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        device_memory result{};
+        result.allocator = allocator.allocator;
+        VmaAllocationInfo info{};
+        VKZ_CHECK_VULKAN(vmaAllocateMemory(result.allocator, &requirements, &create_info, &result.allocation, &info));
+        result.handle = info.deviceMemory;
+        result.offset = info.offset;
+        result.size = requirements.size;
+        return result;
+    }
+
+    void device_memory::destroy() {
+        if (allocation) {
+            vmaFreeMemory(allocator, allocation);
+            allocation = {};
+            handle = {};
+        }
+    }
+
     mapping buffer::map() const {
         mapping mapping{};
         vmaMapMemory(allocator, allocation, &mapping._);
@@ -41,6 +62,10 @@ namespace vkz {
     void buffer::flush(size_t offset, size_t size) {
         size = size == VK_WHOLE_SIZE ? create_info.size : size;
         vmaFlushAllocation(allocator, allocation, offset, size);
+    }
+
+    void buffer::invalidate(size_t offset, size_t size) {
+        VKZ_CHECK_VULKAN(vmaInvalidateAllocation(allocator, allocation, offset, size));
     }
 
     image_builder image::builder(vma_memory_allocator& allocator) {
@@ -293,7 +318,7 @@ namespace vkz {
 
         buffer_ = buffer::builder(allocator)
             .size(capacity_)
-            .usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+            .usage(vkz::buffer::usage::transfer_src)
             .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
             .build();
         mapping_ = buffer_.map();
@@ -455,12 +480,12 @@ namespace vkz {
     buffer_builder::buffer_builder(vma_memory_allocator& allocator)
             : allocator_{&allocator} {
         create_info_.size = 1;
-        create_info_.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        create_info_.usage = static_cast<VkBufferUsageFlags>(vkz::buffer::usage::storage);
         create_info_.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     }
 
-    buffer_builder& buffer_builder::flags(VkBufferCreateFlags value) {
-        create_info_.flags = value;
+    buffer_builder& buffer_builder::flags(vkz::buffer::flags value) {
+        create_info_.flags = static_cast<VkBufferCreateFlags>(value);
         return *this;
     }
 
@@ -469,8 +494,8 @@ namespace vkz {
         return *this;
     }
 
-    buffer_builder& buffer_builder::usage(VkBufferUsageFlags value) {
-        create_info_.usage = value;
+    buffer_builder &buffer_builder::usage(vkz::buffer::usage value) {
+        create_info_.usage = static_cast<VkBufferUsageFlags>(value);
         return *this;
     }
 
@@ -521,15 +546,15 @@ namespace vkz {
         create_info_.extent = {1, 1, 1};
         create_info_.mipLevels = 1;
         create_info_.arrayLayers = 1;
-        create_info_.samples = VK_SAMPLE_COUNT_1_BIT;
+        create_info_.samples = static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1);
         create_info_.tiling = VK_IMAGE_TILING_OPTIMAL;
-        create_info_.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        create_info_.usage = static_cast<VkImageUsageFlags>(vkz::image::usage::sampled) | static_cast<VkImageUsageFlags>(vkz::image::usage::transfer_dst);
         create_info_.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         create_info_.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     }
 
-    image_builder& image_builder::flags(VkImageCreateFlags value) {
-        create_info_.flags = value;
+    image_builder& image_builder::flags(vkz::image::flags value) {
+        create_info_.flags = static_cast<VkImageCreateFlags>(value);
         return *this;
     }
 
@@ -563,8 +588,8 @@ namespace vkz {
         return *this;
     }
 
-    image_builder& image_builder::samples(VkSampleCountFlagBits value) {
-        create_info_.samples = value;
+    image_builder& image_builder::samples(vkz::sample_count value) {
+        create_info_.samples = static_cast<VkSampleCountFlagBits>(value);
         return *this;
     }
 
@@ -573,8 +598,8 @@ namespace vkz {
         return *this;
     }
 
-    image_builder& image_builder::usage(VkImageUsageFlags value) {
-        create_info_.usage = value;
+    image_builder &image_builder::usage(vkz::image::usage value) {
+        create_info_.usage = static_cast<VkImageUsageFlags>(value);
         return *this;
     }
 
@@ -617,15 +642,15 @@ namespace vkz {
             : device_{device} {
         create_info_.viewType = VK_IMAGE_VIEW_TYPE_2D;
         create_info_.format = VK_FORMAT_R8G8B8A8_UNORM;
-        create_info_.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        create_info_.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::color);
         create_info_.subresourceRange.baseMipLevel = 0;
         create_info_.subresourceRange.levelCount = 1;
         create_info_.subresourceRange.baseArrayLayer = 0;
         create_info_.subresourceRange.layerCount = 1;
     }
 
-    image_view_builder& image_view_builder::flags(VkImageViewCreateFlags value) {
-        create_info_.flags = value;
+    image_view_builder& image_view_builder::flags(vkz::image_view::flags value) {
+        create_info_.flags = static_cast<VkImageViewCreateFlags>(value);
         return *this;
     }
 
@@ -655,8 +680,8 @@ namespace vkz {
         return *this;
     }
 
-    image_view_builder& image_view_builder::aspect_mask(VkImageAspectFlags value) {
-        create_info_.subresourceRange.aspectMask = value;
+    image_view_builder &image_view_builder::aspect_mask(vkz::image::aspect value) {
+        create_info_.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(value);
         return *this;
     }
 
@@ -713,8 +738,8 @@ namespace vkz {
         create_info_.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     }
 
-    sampler_builder& sampler_builder::flags(VkSamplerCreateFlags value) {
-        create_info_.flags = value;
+    sampler_builder& sampler_builder::flags(vkz::sampler::flags value) {
+        create_info_.flags = static_cast<VkSamplerCreateFlags>(value);
         return *this;
     }
 

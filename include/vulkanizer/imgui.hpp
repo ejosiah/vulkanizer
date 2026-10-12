@@ -16,7 +16,7 @@ namespace vkz::imgui {
         uint32_t api_version{VK_API_VERSION_1_3};
         VkFormat color_attachment_format{VK_FORMAT_UNDEFINED};
         VkRenderPass render_pass{};
-        VkSampleCountFlagBits samples{VK_SAMPLE_COUNT_1_BIT};
+        vkz::sample_count samples{vkz::sample_count::x1};
         bool install_callbacks{true};
         bool enable_keyboard_navigation{true};
         bool enable_gamepad_navigation{};

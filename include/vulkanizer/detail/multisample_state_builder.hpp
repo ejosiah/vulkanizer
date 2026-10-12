@@ -6,7 +6,7 @@ namespace vkz {
     public:
         multisample_state_builder(vkz::device device, graphics_pipeline_builder *parent);
 
-        multisample_state_builder &rasterization_samples(VkSampleCountFlagBits flags);
+        multisample_state_builder &rasterization_samples(vkz::sample_count flags);
 
         multisample_state_builder &enable_sample_shading();
 

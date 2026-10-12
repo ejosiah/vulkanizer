@@ -59,9 +59,9 @@ namespace vkz {
         }
 
     protected:
-        [[nodiscard]] VkQueueFlags queue_flags() const;
+        [[nodiscard]] vkz::queue queue_flags() const;
 
-        [[nodiscard]] VkQueueFlags unique_queue_flags() const;
+        [[nodiscard]] vkz::queue unique_queue_flags() const;
 
         [[nodiscard]] uint32_t graphics_queue_count() const;
 
@@ -119,15 +119,15 @@ namespace vkz {
 
         builder& device_factory(vkz::device_factory& factory);
 
-        builder& add_queue(VkQueueFlagBits flag);
+        builder& add_queue(vkz::queue flag);
 
-        builder& add_unique_queue(VkQueueFlagBits flag);
+        builder& add_unique_queue(vkz::queue flag);
 
         builder& num_graphics_queues(uint count);
 
-        [[nodiscard]] VkQueueFlags queue_flags() const;
+        [[nodiscard]] vkz::queue queue_flags() const;
 
-        [[nodiscard]] VkQueueFlags unique_queue_flags() const;
+        [[nodiscard]] vkz::queue unique_queue_flags() const;
 
         [[nodiscard]] uint32_t graphics_queue_count() const;
 

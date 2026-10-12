@@ -1,0 +1,27 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "shared.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+void main() {
+    ivec3 p = ivec3(gl_GlobalInvocationID);
+
+    if (!valid_pixel(p))
+        return;
+
+    float value = 0;
+    float total_weight = 0;
+
+    for (int y = -6; y <= 6; ++y) {
+        for (int x = -6; x <= 6; ++x) {
+            float weight = float((7 - abs(x)) * (7 - abs(y)));
+            value += imageLoad(max_variation, bounded(p + ivec3(x, y, 0))).r * weight;
+            total_weight += weight;
+        }
+    }
+
+    imageStore(filtered_variation, p, vec4(value / total_weight));
+}

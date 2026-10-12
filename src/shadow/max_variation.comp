@@ -1,0 +1,23 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "shared.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+void main() {
+    ivec3 p = ivec3(gl_GlobalInvocationID);
+
+    if (!valid_pixel(p))
+        return;
+
+    float value = 0;
+
+    for (int y = -2; y <= 2; ++y) {
+        for (int x = -2; x <= 2; ++x)
+            value = max(value, imageLoad(variation, bounded(p + ivec3(x, y, 0))).r);
+    }
+
+    imageStore(max_variation, p, vec4(value));
+}

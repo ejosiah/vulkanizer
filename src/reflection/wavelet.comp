@@ -1,0 +1,85 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "shared.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(push_constant) uniform wavelet_constants {
+    uint iteration;
+};
+
+vec4 color_at(ivec2 p) {
+    if (iteration == 0u)
+        return imageLoad(raw_color, p);
+
+    return (iteration & 1u) != 0u ? imageLoad(filtered_0, p) : imageLoad(filtered_1, p);
+}
+
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+
+    if (any(greaterThanEqual(p, ivec2(resolution))))
+        return;
+
+    if (!reflective_pixel(p)) {
+        if ((iteration & 1u) == 0u)
+            imageStore(filtered_0, p, vec4(0));
+        else
+            imageStore(filtered_1, p, vec4(0));
+
+        if (iteration == 0u) {
+            if (even_frame())
+                imageStore(history_color_0, p, vec4(0));
+            else
+                imageStore(history_color_1, p, vec4(0));
+        }
+
+        return;
+    }
+
+    const float kernel[5] = float[5](1, 4, 6, 4, 1);
+    vec4 center = color_at(p);
+    vec3 normal = current_normal(p);
+    vec3 world = current_world(p);
+    float variance = center.a;
+    float light = luminance(center.rgb);
+    float total_weight = 0;
+    vec3 color = vec3(0);
+    float new_variance = 0;
+    int step_size = 1 << iteration;
+
+    for (int y = -2; y <= 2; ++y) {
+        for (int x = -2; x <= 2; ++x) {
+            ivec2 q = p + ivec2(x, y) * step_size;
+
+            if (any(lessThan(q, ivec2(0))) || any(greaterThanEqual(q, ivec2(resolution))))
+                continue;
+
+            vec4 sample_color = color_at(q);
+            float normal_weight = pow(max(dot(normal, current_normal(q)), 0), 128);
+            float depth_weight = exp(-abs(dot(current_world(q) - world, normal)) / 0.05);
+            float light_weight = exp(-abs(luminance(sample_color.rgb) - light) / (4 * sqrt(max(variance, 1e-5)) + 0.01));
+            float weight = kernel[x + 2] * kernel[y + 2] * normal_weight * depth_weight * light_weight;
+            color += sample_color.rgb * weight;
+            new_variance += sample_color.a * weight * weight;
+            total_weight += weight;
+        }
+    }
+
+    vec4 filtered = vec4(color / max(total_weight, 1e-6), new_variance / max(total_weight * total_weight, 1e-6));
+
+    if ((iteration & 1u) == 0u)
+        imageStore(filtered_0, p, filtered);
+    else
+        imageStore(filtered_1, p, filtered);
+
+    // Feed back the first wavelet level, preserving detail in temporal history.
+    if (iteration == 0u) {
+        if (even_frame())
+            imageStore(history_color_0, p, filtered);
+        else
+            imageStore(history_color_1, p, filtered);
+    }
+}

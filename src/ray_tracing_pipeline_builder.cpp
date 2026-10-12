@@ -75,7 +75,7 @@ namespace vkz {
         : ray_tracing_pipeline_builder_proxy(parent), type(type), group_name(std::move(name)) {
     }
 
-    ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::add_shader(const shader_source &source, VkShaderStageFlagBits shader_type) {
+    ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::add_shader(const shader_source &source, vkz::shader_stage shader_type) {
         VKZ_ASSERT(std::none_of(stages.begin(), stages.end(),
                                 [&](const auto &value) {
                                     return value.type == shader_type;
@@ -86,27 +86,27 @@ namespace vkz {
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::ray_generation_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+        return add_shader(source, vkz::shader_stage::raygen);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::miss_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_MISS_BIT_KHR);
+        return add_shader(source, vkz::shader_stage::miss);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::closest_hit_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        return add_shader(source, vkz::shader_stage::closest_hit);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::any_hit_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+        return add_shader(source, vkz::shader_stage::any_hit);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::intersection_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_INTERSECTION_BIT_KHR);
+        return add_shader(source, vkz::shader_stage::intersection);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::callable_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_CALLABLE_BIT_KHR);
+        return add_shader(source, vkz::shader_stage::callable);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::entry_point(std::string value) {
@@ -142,13 +142,13 @@ namespace vkz {
         return *this;
     }
 
-    ray_tracing_pipeline_layout_builder &ray_tracing_pipeline_layout_builder::add_push_constant_range(VkShaderStageFlags stages, uint32_t offset, uint32_t size) {
+    ray_tracing_pipeline_layout_builder &ray_tracing_pipeline_layout_builder::add_push_constant_range(vkz::shader_stage stages, uint32_t offset, uint32_t size) {
         parent.layout_storage.layout().add_push_constant_range(stages, offset, size);
         return *this;
     }
 
     ray_tracing_pipeline_layout_builder &ray_tracing_pipeline_layout_builder::add_push_constant_range(VkPushConstantRange value) {
-        return add_push_constant_range(value.stageFlags, value.offset, value.size);
+        return add_push_constant_range(static_cast<vkz::shader_stage>(value.stageFlags), value.offset, value.size);
     }
 
     ray_tracing_pipeline_layout_builder &ray_tracing_pipeline_layout_builder::clear() {
@@ -161,26 +161,26 @@ namespace vkz {
         VKZ_ASSERT(groups.size() <= UINT32_MAX, "Too many shader groups");
         bool ray_generation{};
         for (const auto &group : groups) {
-            VkShaderStageFlags stages{};
+            vkz::shader_stage stages{};
             for (const auto &shader : group->stages)
                 stages |= shader.type;
             switch (group->type) {
             case shader_group_type::ray_generation:
-                VKZ_ASSERT(stages == VK_SHADER_STAGE_RAYGEN_BIT_KHR, "Ray generation group requires exactly one ray generation shader");
+                VKZ_ASSERT(stages == vkz::shader_stage::raygen, "Ray generation group requires exactly one ray generation shader");
                 ray_generation = true;
                 break;
             case shader_group_type::miss:
-                VKZ_ASSERT(stages == VK_SHADER_STAGE_MISS_BIT_KHR, "Miss group requires exactly one miss shader");
+                VKZ_ASSERT(stages == vkz::shader_stage::miss, "Miss group requires exactly one miss shader");
                 break;
             case shader_group_type::callable:
-                VKZ_ASSERT(stages == VK_SHADER_STAGE_CALLABLE_BIT_KHR, "Callable group requires exactly one callable shader");
+                VKZ_ASSERT(stages == vkz::shader_stage::callable, "Callable group requires exactly one callable shader");
                 break;
             case shader_group_type::triangles_hit:
-                VKZ_ASSERT(!(stages & ~(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)), "Triangle group has an invalid shader stage");
+                VKZ_ASSERT((stages & ~(vkz::shader_stage::closest_hit | vkz::shader_stage::any_hit)) == vkz::shader_stage::none, "Triangle group has an invalid shader stage");
                 break;
             case shader_group_type::procedural_hit:
-                VKZ_ASSERT((stages & VK_SHADER_STAGE_INTERSECTION_BIT_KHR) &&
-                               !(stages & ~(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR)),
+                VKZ_ASSERT((stages & vkz::shader_stage::intersection) != vkz::shader_stage::none &&
+                               (stages & ~(vkz::shader_stage::closest_hit | vkz::shader_stage::any_hit | vkz::shader_stage::intersection)) == vkz::shader_stage::none,
                            "Procedural group requires an intersection shader");
                 break;
             }
@@ -235,16 +235,16 @@ namespace vkz {
                 modules.values.push_back(module);
                 auto &specialization = specializations.emplace_back(VkSpecializationInfo{VKZ_COUNT(shader.entries), shader.entries.data(), shader.constants.size(), shader.constants.data()});
                 VkPipelineShaderStageCreateInfo stage{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-                stage.stage = shader.type;
+                stage.stage = static_cast<VkShaderStageFlagBits>(shader.type);
                 stage.module = module;
                 stage.pName = shader.entry.c_str();
                 stage.pSpecializationInfo = shader.entries.empty() ? nullptr : &specialization;
                 stages.push_back(stage);
-                if (shader.type == VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+                if (shader.type == vkz::shader_stage::closest_hit)
                     description.closestHitShader = index;
-                else if (shader.type == VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
+                else if (shader.type == vkz::shader_stage::any_hit)
                     description.anyHitShader = index;
-                else if (shader.type == VK_SHADER_STAGE_INTERSECTION_BIT_KHR)
+                else if (shader.type == vkz::shader_stage::intersection)
                     description.intersectionShader = index;
                 else
                     description.generalShader = index;

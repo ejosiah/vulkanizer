@@ -1,0 +1,47 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "shared.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 5, rgba16f) uniform writeonly image2D indirect_image;
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(indirect_image);
+
+    if (any(greaterThanEqual(pixel, size)))
+        return;
+
+    ivec2 source = pixel * (output_resolution_half == 1 ? 2 : 1);
+    float depth = texelFetch(depth_texture, source, 0).r;
+
+    if (output_resolution_half == 1) {
+        for (int y = 0; y < 2; ++y)
+            for (int x = 0; x < 2; ++x) {
+                ivec2 candidate = pixel * 2 + ivec2(x, y);
+
+                if (any(greaterThanEqual(candidate, textureSize(depth_texture, 0))))
+                    continue;
+
+                float value = texelFetch(depth_texture, candidate, 0).r;
+
+                if (value < depth) {
+                    depth = value;
+                    source = candidate;
+                }
+            }
+    }
+
+    if (depth >= 1) {
+        imageStore(indirect_image, pixel, vec4(0));
+        return;
+    }
+
+    vec2 uv = (vec2(source) + 0.5) / vec2(textureSize(depth_texture, 0));
+    vec4 world = inverse_view_projection * vec4(uv * 2 - 1, depth, 1);
+    vec3 position = world.xyz / world.w;
+    vec3 normal = oct_decode(texelFetch(normal_texture, source, 0).rg);
+    imageStore(indirect_image, pixel, vec4(sample_irradiance(position, normal, camera_position), 1));
+}

@@ -38,7 +38,7 @@ namespace {
             create_images();
             create_descriptors();
             pipeline = vkz::reference::create_ray_tracing_pipeline({allocator, layouts, VKZ_COUNT(textures)});
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
             auto cmd = commands.create_command_buffer();
             bvh.build(cmd, scene, {vertices, indices});
             commands.submit_and_wait(cmd);
@@ -191,7 +191,7 @@ namespace {
             material.double_sided = false;
             scene.instances[0].model = scene.instances[0].model_inverse = glm::mat4{1};
             lod = 1;
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
             auto cmd = commands.create_command_buffer();
             bvh.build(cmd, scene, {vertices, indices}, {.lod = lod});
             commands.submit_and_wait(cmd);
@@ -273,7 +273,7 @@ namespace {
             mapping.unmap();
         }
 
-        vkz::buffer allocate(size_t size, VkBufferUsageFlags usage) {
+        vkz::buffer allocate(size_t size, vkz::buffer::usage usage) {
             return vkz::buffer::builder(allocator)
                 .size(size)
                 .usage(usage)
@@ -323,19 +323,19 @@ namespace {
         }
 
         void create_buffers() {
-            constexpr auto geometry_usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+            constexpr auto geometry_usage = vkz::buffer::usage::acceleration_storage_input;
             vertices = allocate(scene.vertex_data.size(), geometry_usage);
             indices = allocate(VKZ_BYTE_SIZE(scene.index_data), geometry_usage);
             write(vertices, scene.vertex_data.data(), scene.vertex_data.size());
             write(indices, scene.index_data.data(), scene.index_data.size());
-            scene_buffer = allocate(sizeof(uniforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-            instance_buffer = allocate(16 * sizeof(vkz::reference::ray_tracing_instance_uniform), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-            material_buffer = allocate(scene.materials.size() * sizeof(vkz::reference::material_uniform), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-            light_buffer = allocate(sizeof(vkz::reference::light_uniform), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-            readback = allocate(extent * extent * sizeof(glm::vec4), VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+            scene_buffer = allocate(sizeof(uniforms), vkz::buffer::usage::uniform);
+            instance_buffer = allocate(16 * sizeof(vkz::reference::ray_tracing_instance_uniform), vkz::buffer::usage::storage);
+            material_buffer = allocate(scene.materials.size() * sizeof(vkz::reference::material_uniform), vkz::buffer::usage::storage);
+            light_buffer = allocate(sizeof(vkz::reference::light_uniform), vkz::buffer::usage::storage);
+            readback = allocate(extent * extent * sizeof(glm::vec4), vkz::buffer::usage::transfer_dst);
         }
 
-        vkz::texture make_image(uint32_t size, VkImageUsageFlags usage) {
+        vkz::texture make_image(uint32_t size, vkz::image::usage usage) {
             vkz::texture result;
             result.image = vkz::image::builder(allocator)
                 .format(VK_FORMAT_R32G32B32A32_SFLOAT)
@@ -344,27 +344,27 @@ namespace {
                 .build();
             result.image_view =
                 vkz::image_view::builder(allocator.device)
-                .image(result.image)
-                .format(VK_FORMAT_R32G32B32A32_SFLOAT)
-                .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
-                .level_count(1)
-                .layer_count(1)
-                .build();
+                    .image(result.image)
+                    .format(VK_FORMAT_R32G32B32A32_SFLOAT)
+                    .aspect_mask(vkz::image::aspect::color)
+                    .level_count(1)
+                    .layer_count(1)
+                    .build();
             result.sampler = vkz::sampler::builder(allocator.device)
                 .build();
             return result;
         }
 
         void create_images() {
-            output = make_image(extent, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+            output = make_image(extent, vkz::image::usage::storage_download);
             const std::array<glm::vec4, 6> colors{{{1, 1, 1, 1}, {0.5f, 0.25f, 0.75f, 1}, {0.9f, 0.6f, 0.25f, 1}, {1, 0.5f, 0.5f, 1}, {0.2f, 0.8f, 0.9f, 1}, {0.3f, 0.5f, 0.7f, 1}}};
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
             auto cmd = commands.create_command_buffer();
             for (const auto &color : colors) {
-                textures.push_back(make_image(1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT));
+                textures.push_back(make_image(1, vkz::image::usage::sampled_upload));
                 vkz::clear(cmd, textures.back().image, VkClearColorValue{{color.x, color.y, color.z, color.w}}, {});
-                vkz::barrier::push_and_flush(cmd, textures.back().image, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
-                                             VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                vkz::barrier::push_and_flush(cmd, textures.back().image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer,
+                                             vkz::pipeline::stage::ray_tracing_shader, vkz::access::transfer_write, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }
             commands.submit_and_wait(cmd);
         }
@@ -378,11 +378,11 @@ namespace {
                 info.pBindings = i == 0 ? vkz::reference::ray_tracing_scene_bindings.data() : &texture_binding;
                 VKZ_CHECK_VULKAN(vkCreateDescriptorSetLayout(allocator.device, &info, nullptr, &layouts[i].handle));
             }
-            const std::array<VkDescriptorPoolSize, 5> sizes{{{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-                                                             {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 5},
-                                                             {VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
-                                                             {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-                                                             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VKZ_COUNT(textures)}}};
+            const std::array<VkDescriptorPoolSize, 5> sizes{{{static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1},
+                                                             {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 5},
+                                                             {static_cast<VkDescriptorType>(vkz::descriptor::type::acceleration_structure), 1},
+                                                             {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), 1},
+                                                             {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), VKZ_COUNT(textures)}}};
             VkDescriptorPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
             pool_info.maxSets = 2;
             pool_info.poolSizeCount = VKZ_COUNT(sizes);
@@ -400,7 +400,7 @@ namespace {
                 VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
                 write.dstSet = sets[0];
                 write.dstBinding = i;
-                write.descriptorType = i == 0 ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                write.descriptorType = i == 0 ? static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer) : static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer);
                 write.descriptorCount = 1;
                 write.pBufferInfo = &buffer_info;
                 vkUpdateDescriptorSets(allocator.device, 1, &write, 0, nullptr);
@@ -410,7 +410,7 @@ namespace {
             light_write.dstSet = sets[0];
             light_write.dstBinding = 7;
             light_write.descriptorCount = 1;
-            light_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            light_write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer);
             light_write.pBufferInfo = &light_info;
             vkUpdateDescriptorSets(allocator.device, 1, &light_write, 0, nullptr);
             VkDescriptorImageInfo output_info{{}, output.image_view, VK_IMAGE_LAYOUT_GENERAL};
@@ -418,7 +418,7 @@ namespace {
             write.dstSet = sets[0];
             write.dstBinding = 6;
             write.descriptorCount = 1;
-            write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image);
             write.pImageInfo = &output_info;
             vkUpdateDescriptorSets(allocator.device, 1, &write, 0, nullptr);
             std::vector<VkDescriptorImageInfo> images;
@@ -427,7 +427,7 @@ namespace {
             write.dstSet = sets[1];
             write.dstBinding = 0;
             write.descriptorCount = VKZ_COUNT(images);
-            write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler);
             write.pImageInfo = images.data();
             vkUpdateDescriptorSets(allocator.device, 1, &write, 0, nullptr);
         }
@@ -442,7 +442,7 @@ namespace {
             write.dstSet = sets[0];
             write.dstBinding = 5;
             write.descriptorCount = 1;
-            write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::acceleration_structure);
             vkUpdateDescriptorSets(allocator.device, 1, &write, 0, nullptr);
         }
 
@@ -457,22 +457,22 @@ namespace {
             for (const auto &material : scene.materials)
                 materials.push_back(vkz::reference::make_material_uniform(scene, material));
             write(material_buffer, materials.data(), materials.size());
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
             auto cmd = commands.create_command_buffer();
             bvh.update_instances(cmd, scene);
-            const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-            vkz::barrier::push_and_flush(cmd, output.image, range, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
-                                         VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL);
+            const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
+            vkz::barrier::push_and_flush(cmd, output.image, range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::ray_tracing_shader, vkz::access::memory_read_write,
+                                         vkz::access::shader_write, VK_IMAGE_LAYOUT_GENERAL);
             vkz::bind_pipeline(cmd, pipeline);
             vkCmdBindDescriptorSets(cmd, pipeline.bind_point, pipeline.layout, 0, VKZ_COUNT(sets), sets.data(), 0, nullptr);
             vkz::trace_ray(cmd, pipeline, extent, extent);
-            vkz::barrier::push_and_flush(cmd, output.image, range, VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                                         VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            vkz::barrier::push_and_flush(cmd, output.image, range, vkz::pipeline::stage::ray_tracing_shader, vkz::pipeline::stage::transfer, vkz::access::shader_write, vkz::access::transfer_read,
+                                         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             VkBufferImageCopy copy{};
-            copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            copy.imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 0, 1};
             copy.imageExtent = {extent, extent, 1};
             vkCmdCopyImageToBuffer(cmd, output.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readback, 1, &copy);
-            vkz::barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_HOST_READ_BIT);
+            vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::transfer, vkz::pipeline::stage::host, vkz::access::transfer_write, vkz::access::host_read);
             commands.submit_and_wait(cmd);
             VKZ_CHECK_VULKAN(vmaInvalidateAllocation(readback.allocator, readback.allocation, 0, VK_WHOLE_SIZE));
             auto mapping = readback.map();

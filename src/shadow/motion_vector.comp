@@ -1,0 +1,45 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "shared.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+
+    if (any(greaterThanEqual(p, ivec2(constants.resolution))))
+        return;
+
+    vec2 motion = vec2(-1);
+    vec3 world = world_at(p);
+    vec3 normal = normal_at(p);
+    float depth = depth_at(p);
+
+    if (constants.history_count > 0 && depth < 1) {
+        vec4 previous = constants.previous_view_projection * vec4(world, 1);
+        vec2 uv = previous.xy / previous.w * 0.5 + 0.5;
+        vec2 current_uv = (vec2(source_pixel(p)) + 0.5) / vec2(textureSize(scene_depth, 0));
+
+        if (previous.w > 0 && all(greaterThanEqual(uv, vec2(0))) && all(lessThan(uv, vec2(1)))) {
+            ivec2 q = min(ivec2(uv * vec2(constants.resolution)), ivec2(constants.resolution) - 1);
+            vec4 old_world = even_frame() ? imageLoad(world_history_1, q) : imageLoad(world_history_0, q);
+            vec3 old_normal = even_frame() ? imageLoad(normal_history_1, q).xyz : imageLoad(normal_history_0, q).xyz;
+            float tolerance = 0.04 + 0.01 * length(world - constants.camera_position);
+
+            if (old_world.w < 1 && length(old_world.xyz - world) < tolerance && dot(old_normal, normal) > 0.9)
+                motion = current_uv - uv;
+        }
+    }
+
+    imageStore(motion_vector, p, vec4(motion, 0, 0));
+
+    if (even_frame()) {
+        imageStore(world_history_0, p, vec4(world, depth));
+        imageStore(normal_history_0, p, vec4(normal, 0));
+    } else {
+        imageStore(world_history_1, p, vec4(world, depth));
+        imageStore(normal_history_1, p, vec4(normal, 0));
+    }
+}

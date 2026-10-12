@@ -115,7 +115,7 @@ namespace vkz::imgui {
         init_info.ImageCount = params_.image_count;
         init_info.PipelineCache = params_.pipeline_cache;
         init_info.PipelineInfoMain.RenderPass = params_.render_pass;
-        init_info.PipelineInfoMain.MSAASamples = params_.samples;
+        init_info.PipelineInfoMain.MSAASamples = static_cast<VkSampleCountFlagBits>(params_.samples);
         init_info.UseDynamicRendering = params_.use_dynamic_rendering;
         init_info.Allocator = params_.allocator;
         init_info.CheckVkResultFn = check_vk_result;

@@ -77,7 +77,7 @@ To create the Conan package locally:
 conan create . --build=missing
 ```
 
-This repository currently produces `vulkanizer/0.0.19`.
+This repository currently produces `vulkanizer/1.0.0`.
 
 ### CLion Debug and Release build directories
 
@@ -274,3 +274,12 @@ Vista skybox assets are local test resources and are not included in Git.
 The reference pipelines support texture transforms, punctual lights, specular, emissive strength, unlit, clearcoat, sheen, anisotropy, iridescence and dispersion. Run `vulkanizer_material_extensions_test --scene ClearCoatTest` or add `--ray-traced` to compare the paths. See [extension integration and sample scenes](docs/reference_ray_tracing.md#material-extensions) for the material/light ABI and available scenes.
 
 Use the [sample model scripts](test/mesh/scripts/README.md) to convert missing Khronos sample assets and render any converted model with the reference test.
+
+## Video decode
+
+Include `<vulkanizer/video.hpp>` for MP4/H.264 Vulkan Video decode. Build
+`vulkanizer_video_test` to play the original video_playback clips with an ImGui
+clip selector, pause, restart and seek controls. See [video integration and frame
+verification](docs/video.md) for device requirements, sample assets and test commands.
+Use `vulkanizer_video_test --video-path <file.mp4>` to add/select a custom video.
+Embedded audio uses [Vulkanizer's port of Vista's audio engine](docs/audio.md).

@@ -321,41 +321,28 @@ void main(){
         current_frame_ = static_cast<size_t>(currentFrame);
         auto& shadow_map = shadow_map_[currentFrame];
         const auto descriptor_set = descriptor_sets_[current_frame_];
-        transition_shadow_map(
-            commandBuffer,
-            shadow_map.image,
-            shadow_map.image.layout,
-            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-            VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-            VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+        transition_shadow_map(commandBuffer, shadow_map.image, shadow_map.image.layout, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, vkz::pipeline::stage::fragment_shader,
+                              vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests, vkz::access::shader_sampled_read, vkz::access::depth_stencil_attachment_write);
 
         vkz::render(commandBuffer, render_info_[currentFrame], [&] {
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &descriptor_set, 0, VK_NULL_HANDLE);
-            vkCmdSetCullMode(commandBuffer, cull_mode_);
-            const bool culls_back_faces = (cull_mode_ & VK_CULL_MODE_BACK_BIT) != 0;
+            vkCmdSetCullMode(commandBuffer, static_cast<VkCullModeFlags>(cull_mode_));
+            const bool culls_back_faces = has_flag(cull_mode_, vkz::cull_mode::back);
             vkCmdSetDepthBias(
                 commandBuffer,
                 culls_back_faces ? back_face_depth_bias_constant_ : depth_bias_constant_,
                 0.0f,
                 culls_back_faces ? back_face_depth_bias_slope_ : depth_bias_slope_);
             vkCmdSetPrimitiveTopology(commandBuffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-            vkCmdPushConstants(commandBuffer, layout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants_), &constants_);
+            vkCmdPushConstants(commandBuffer, layout_, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex), 0, sizeof(constants_), &constants_);
 
             scene(layout_);
         });
 
-        transition_shadow_map(
-            commandBuffer,
-            shadow_map.image,
-            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-            VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+        transition_shadow_map(commandBuffer, shadow_map.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests, vkz::pipeline::stage::fragment_shader,
+                              vkz::access::depth_stencil_attachment_write, vkz::access::shader_sampled_read);
     }
 
     const texture& shadowMap(int index) const {
@@ -374,7 +361,7 @@ void main(){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debug_.pipeline);
         const auto descriptor_set = descriptor_sets_[current_frame_];
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debug_.layout, 0, 1, &descriptor_set, 0, nullptr);
-        vkCmdPushConstants(commandBuffer, debug_.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint), &num_cascades_);
+        vkCmdPushConstants(commandBuffer, debug_.layout, static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment), 0, sizeof(uint), &num_cascades_);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     }
 
@@ -382,7 +369,7 @@ void main(){
         split_lambda_ = value;
     }
 
-    void cullMode(VkCullModeFlags value) {
+    void cullMode(vkz::cull_mode value) {
         cull_mode_ = value;
     }
 
@@ -402,30 +389,28 @@ void main(){
 private:
     void createShadowMapTexture() {
         for (auto& shadow_map : shadow_map_) {
-            shadow_map.image =
-                image::builder(memory_allocator_)
-                    .type(VK_IMAGE_TYPE_2D)
-                    .format(depth_format_)
-                    .extent({ size_, size_, 1})
-                    .mip_levels(1)
-                    .array_layers(num_cascades_)
-                    .samples(VK_SAMPLE_COUNT_1_BIT)
-                    .tiling(VK_IMAGE_TILING_OPTIMAL)
-                    .usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-                    .sharing_mode(VK_SHARING_MODE_EXCLUSIVE)
-                    .initial_layout(VK_IMAGE_LAYOUT_UNDEFINED)
+            shadow_map.image = image::builder(memory_allocator_)
+                .type(VK_IMAGE_TYPE_2D)
+                .format(depth_format_)
+                .extent({size_, size_, 1})
+                .mip_levels(1)
+                .array_layers(num_cascades_)
+                .samples(vkz::sample_count::x1)
+                .tiling(VK_IMAGE_TILING_OPTIMAL)
+                .usage(vkz::image::usage::sampled | vkz::image::usage::depth_stencil | vkz::image::usage::transfer_dst)
+                .sharing_mode(VK_SHARING_MODE_EXCLUSIVE)
+                .initial_layout(VK_IMAGE_LAYOUT_UNDEFINED)
                 .build();
 
-            shadow_map.image_view =
-                image_view::builder(device_)
-                    .image(shadow_map.image)
-                    .view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
-                    .format(depth_format_)
-                    .aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT)
-                    .base_mip_level(0)
-                    .level_count(1)
-                    .base_array_layer(0)
-                    .layer_count(num_cascades_)
+            shadow_map.image_view = image_view::builder(device_)
+                .image(shadow_map.image)
+                .view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
+                .format(depth_format_)
+                .aspect_mask(vkz::image::aspect::depth)
+                .base_mip_level(0)
+                .level_count(1)
+                .base_array_layer(0)
+                .layer_count(num_cascades_)
                 .build();
 
             shadow_map.sampler =
@@ -442,15 +427,8 @@ private:
                 .build();
 
             if (initial_transition_command_buffer_) {
-                transition_shadow_map(
-                    initial_transition_command_buffer_,
-                    shadow_map.image,
-                    VK_IMAGE_LAYOUT_UNDEFINED,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    VK_PIPELINE_STAGE_2_NONE,
-                    VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                    VK_ACCESS_2_NONE,
-                    VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+                transition_shadow_map(initial_transition_command_buffer_, shadow_map.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vkz::pipeline::stage::none,
+                                      vkz::pipeline::stage::fragment_shader, vkz::access::none, vkz::access::shader_sampled_read);
             }
         }
     }
@@ -467,18 +445,16 @@ private:
     }
 
     void createUniforms() {
-        _uniforms.gpu =
-            buffer::builder(memory_allocator_)
-                .usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-                .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
-                .size(sizeof(glm::mat4) * num_cascades_)
+        _uniforms.gpu = buffer::builder(memory_allocator_)
+            .usage(vkz::buffer::usage::storage)
+            .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+            .size(sizeof(glm::mat4) * num_cascades_)
             .build();
 
-        debug_buffer_ =
-            buffer::builder(memory_allocator_)
-                .usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-                .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
-                .size(sizeof(num_cascades_))
+        debug_buffer_ = buffer::builder(memory_allocator_)
+            .usage(vkz::buffer::usage::storage)
+            .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+            .size(sizeof(num_cascades_))
             .build();
 
         _uniforms.mapping = _uniforms.gpu.map();
@@ -491,32 +467,32 @@ private:
     }
 
     void createDescriptorSetLayouts() {
-        descriptor_set_layout_ =
-            descriptor_set_layout_builder{device_}
-                .name("cascade_shadow_map_light_descriptor_set_layout")
-                .binding(0)
-                    .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                    .descriptor_count(1)
-                    .shader_stages(VK_SHADER_STAGE_VERTEX_BIT)
-                .binding(1)
-                    .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                    .descriptor_count(1)
-                    .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                .binding(2)
-                    .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                    .descriptor_count(1)
-                    .shader_stages(VK_SHADER_STAGE_VERTEX_BIT)
-                .create_layout().handle;
+        descriptor_set_layout_ = descriptor_set_layout_builder{device_}
+                                     .name("cascade_shadow_map_light_descriptor_set_layout")
+                                     .binding(0)
+                                     .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                     .descriptor_count(1)
+                                     .shader_stages(vkz::shader_stage::vertex)
+                                     .binding(1)
+                                     .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                     .descriptor_count(1)
+                                     .shader_stages(vkz::shader_stage::fragment)
+                                     .binding(2)
+                                     .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                     .descriptor_count(1)
+                                     .shader_stages(vkz::shader_stage::vertex)
+                                     .create_layout()
+                                     .handle;
 
         if (!vertex_include_descriptorset_layout_) {
-            vertex_include_descriptorset_layout_ =
-                descriptor_set_layout_builder{device_}
-            .name("cascade_shadow_map_vertex_shader_include_layout")
-            .binding(0)
-                .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                .descriptor_count(1)
-                .shader_stages(VK_SHADER_STAGE_VERTEX_BIT)
-            .create_layout().handle;
+            vertex_include_descriptorset_layout_ = descriptor_set_layout_builder{device_}
+                                                       .name("cascade_shadow_map_vertex_shader_include_layout")
+                                                       .binding(0)
+                                                       .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                                       .descriptor_count(1)
+                                                       .shader_stages(vkz::shader_stage::vertex)
+                                                       .create_layout()
+                                                       .handle;
             owns_vertex_include_descriptorset_layout_ = true;
         }
     }
@@ -535,113 +511,112 @@ private:
     void updateDescriptorSets() const {
         for (size_t frame = 0; frame < descriptor_sets_.size(); ++frame) {
             update_descriptor(device_, {
-                .descriptor_set = {descriptor_sets_[frame]},
-                .bindings = {
-                        descriptor<buffer_descriptor>(_uniforms.gpu, 0),
-                        descriptor<texture_descriptor>(shadow_map_[frame], 1),
-                        descriptor<buffer_descriptor>(debug_buffer_, 2),
-                },
-            });
+                                           .descriptor_set = {descriptor_sets_[frame]},
+                                           .bindings =
+                                               {
+                                                   make_descriptor<buffer_descriptor>(_uniforms.gpu, 0),
+                                                   make_descriptor<texture_descriptor>(shadow_map_[frame], 1),
+                                                   make_descriptor<buffer_descriptor>(debug_buffer_, 2),
+                                               },
+                                       });
         }
     }
 
     void createPipeline() {
         std::string vertex_shader = cms_vertex_shader;
         vertex_shader.replace(vertex_shader.find("${vertex_shader_include}"), std::string{"${vertex_shader_include}"}.size(), vertex_shader_include_);
-        pipeline_ =
-            graphics_pipeline_builder{device_}
-                .allow_derivatives()
-                .shader_stage()
-                    .vertex_shader(vertex_shader)
-                    .fragment_shader(cms_fragment_shader)
-                .vertex_input_state()
-                    .add_vertex_binding_description(0, vertex_shader_position_stride_, VK_VERTEX_INPUT_RATE_VERTEX)
-                    .add_vertex_attribute_description(0, 0, VK_FORMAT_R32G32B32_SFLOAT, vertex_shader_position_offset_)
-                .input_assembly_state()
-                    .triangles()
-                .viewport_state()
-                    .viewport()
+        pipeline_ = graphics_pipeline_builder{device_}
+                        .allow_derivatives()
+                        .shader_stage()
+                        .vertex_shader(vertex_shader)
+                        .fragment_shader(cms_fragment_shader)
+                        .vertex_input_state()
+                        .add_vertex_binding_description(0, vertex_shader_position_stride_, VK_VERTEX_INPUT_RATE_VERTEX)
+                        .add_vertex_attribute_description(0, 0, VK_FORMAT_R32G32B32_SFLOAT, vertex_shader_position_offset_)
+                        .input_assembly_state()
+                        .triangles()
+                        .viewport_state()
+                        .viewport()
                         .origin(0, 0)
                         .dimension(size_, size_)
                         .min_depth(0)
                         .max_depth(1)
-                    .scissor()
+                        .scissor()
                         .offset(0, 0)
                         .extent(size_, size_)
-                    .add()
-                .rasterization_state()
-                    .enable_depth_bias()
-                    .depth_bias_constant_factor(depth_bias_constant_)
-                    .depth_bias_slope_factor(depth_bias_slope_)
-                    .cull_front_face()
-                    .front_face_counter_clockwise()
-                    .polygon_mode_fill()
-                .depth_stencil_state()
-                    .enable_depth_write()
-                    .enable_depth_test()
-                    .compare_op_less_or_equal()
-                    .min_depth_bounds(0)
-                    .max_depth_bounds(1)
-                .color_blend_state()
-                    .attachment()
-                    .add()
-                .dynamic_state()
-                    .depth_bias()
-                    .cull_mode()
-                    .primitive_topology()
-                .layout()
-                    .add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants_))
-                    .add_descriptor_set_layout({descriptor_set_layout_, device_})
-                    .add_descriptor_set_layout({vertex_include_descriptorset_layout_, device_})
-                .dynamic_render_pass()
-                    .depth_attachment(depth_format_)
-                    .view_mask(viewMask())
-                .subpass(0)
-                .name("cascade_shadow_map")
-            .build(layout_);
-
-            if(render_pass_) {
-                debug_.pipeline =
-                    graphics_pipeline_builder{device_}
-                        .shader_stage()
-                            .vertex_shader(quad_vertex_shader)
-                            .fragment_shader(shadow_map_debug_frag)
-                        .vertex_input_state()
-                            .clear()
-                        .input_assembly_state()
-                            .triangle_strip()
-                        .viewport_state()
-                            .viewport()
-                                .origin(0, 0)
-                            .dimension(screen_resolution_.x, screen_resolution_.y)
-                                .min_depth(0)
-                                .max_depth(1)
-                            .scissor()
-                                .offset(0, 0)
-                                .extent(screen_resolution_.x, screen_resolution_.y)
-                            .add()
+                        .add()
                         .rasterization_state()
-                            .cull_none()
-                            .front_face_counter_clockwise()
-                            .polygon_mode_fill()
-                        .multisample_state()
-                            .rasterization_samples(debug_samples_)
+                        .enable_depth_bias()
+                        .depth_bias_constant_factor(depth_bias_constant_)
+                        .depth_bias_slope_factor(depth_bias_slope_)
+                        .cull_front_face()
+                        .front_face_counter_clockwise()
+                        .polygon_mode_fill()
                         .depth_stencil_state()
-                            .disable_depth_write()
-                            .disable_depth_test()
-                            .compare_op_always()
-                            .min_depth_bounds(0)
-                            .max_depth_bounds(1)
+                        .enable_depth_write()
+                        .enable_depth_test()
+                        .compare_op_less_or_equal()
+                        .min_depth_bounds(0)
+                        .max_depth_bounds(1)
                         .color_blend_state()
-                            .attachment()
-                            .add()
+                        .attachment()
+                        .add()
+                        .dynamic_state()
+                        .depth_bias()
+                        .cull_mode()
+                        .primitive_topology()
                         .layout()
-                            .add_push_constant_range(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint))
-                            .add_descriptor_set_layout({descriptor_set_layout_, device_})
-                        .render_pass(render_pass_)
+                        .add_push_constant_range(vkz::shader_stage::vertex, 0, sizeof(constants_))
+                        .add_descriptor_set_layout({descriptor_set_layout_, device_})
+                        .add_descriptor_set_layout({vertex_include_descriptorset_layout_, device_})
+                        .dynamic_render_pass()
+                        .depth_attachment(depth_format_)
+                        .view_mask(viewMask())
                         .subpass(0)
-                        .name("debug_cascade_shadow_map")
-                    .build(debug_.layout);
+                        .name("cascade_shadow_map")
+                        .build(layout_);
+
+        if (render_pass_) {
+            debug_.pipeline = graphics_pipeline_builder{device_}
+                                  .shader_stage()
+                                  .vertex_shader(quad_vertex_shader)
+                                  .fragment_shader(shadow_map_debug_frag)
+                                  .vertex_input_state()
+                                  .clear()
+                                  .input_assembly_state()
+                                  .triangle_strip()
+                                  .viewport_state()
+                                  .viewport()
+                                  .origin(0, 0)
+                                  .dimension(screen_resolution_.x, screen_resolution_.y)
+                                  .min_depth(0)
+                                  .max_depth(1)
+                                  .scissor()
+                                  .offset(0, 0)
+                                  .extent(screen_resolution_.x, screen_resolution_.y)
+                                  .add()
+                                  .rasterization_state()
+                                  .cull_none()
+                                  .front_face_counter_clockwise()
+                                  .polygon_mode_fill()
+                                  .multisample_state()
+                                  .rasterization_samples(debug_samples_)
+                                  .depth_stencil_state()
+                                  .disable_depth_write()
+                                  .disable_depth_test()
+                                  .compare_op_always()
+                                  .min_depth_bounds(0)
+                                  .max_depth_bounds(1)
+                                  .color_blend_state()
+                                  .attachment()
+                                  .add()
+                                  .layout()
+                                  .add_push_constant_range(vkz::shader_stage::fragment, 0, sizeof(uint))
+                                  .add_descriptor_set_layout({descriptor_set_layout_, device_})
+                                  .render_pass(render_pass_)
+                                  .subpass(0)
+                                  .name("debug_cascade_shadow_map")
+                                  .build(debug_.layout);
             }
     }
 
@@ -649,22 +624,15 @@ private:
         return (1u << num_cascades_) - 1;
     }
 
-    void transition_shadow_map(
-        VkCommandBuffer command_buffer,
-        image& shadow_map_image,
-        VkImageLayout old_layout,
-        VkImageLayout new_layout,
-        VkPipelineStageFlags2 src_stage_mask,
-        VkPipelineStageFlags2 dst_stage_mask,
-        VkAccessFlags2 src_access_mask,
-        VkAccessFlags2 dst_access_mask) const {
+    void transition_shadow_map(VkCommandBuffer command_buffer, image &shadow_map_image, VkImageLayout old_layout, VkImageLayout new_layout, vkz::pipeline::stage src_stage_mask,
+                               vkz::pipeline::stage dst_stage_mask, vkz::access src_access_mask, vkz::access dst_access_mask) const {
         if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED) {
-            src_stage_mask = VK_PIPELINE_STAGE_2_NONE;
-            src_access_mask = VK_ACCESS_2_NONE;
+            src_stage_mask = vkz::pipeline::stage::none;
+            src_access_mask = vkz::access::none;
         }
 
         VkImageSubresourceRange subresource_range{};
-        subresource_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        subresource_range.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::depth);
         subresource_range.baseMipLevel = 0;
         subresource_range.levelCount = 1;
         subresource_range.baseArrayLayer = 0;
@@ -709,7 +677,7 @@ private:
     float depth_bias_slope_{0.05f};
     float back_face_depth_bias_constant_{1.25f};
     float back_face_depth_bias_slope_{1.75f};
-    VkCullModeFlags cull_mode_{VK_CULL_MODE_FRONT_BIT};
+    vkz::cull_mode cull_mode_{vkz::cull_mode::front};
 
     struct {
         glm::mat4 worldTransform{1};
@@ -726,7 +694,7 @@ private:
     VkPipeline pipeline_{};
     VkPipelineLayout layout_{};
     VkRenderPass render_pass_{};
-    VkSampleCountFlagBits debug_samples_{VK_SAMPLE_COUNT_1_BIT};
+    vkz::sample_count debug_samples_{vkz::sample_count::x1};
 
     struct {
         VkPipeline pipeline{};
@@ -800,7 +768,7 @@ private:
         get(id).splitLambda(value);
     }
 
-    void cull_mode(id id, VkCullModeFlags value) {
+    void cull_mode(id id, vkz::cull_mode value) {
         get(id).cullMode(value);
     }
 }

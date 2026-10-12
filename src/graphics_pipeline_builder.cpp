@@ -78,12 +78,12 @@ namespace vkz {
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::allow_derivatives() {
-        _flags |= VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
+        _flags |= vkz::pipeline::flags::allow_derivatives;
         return *this;
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::set_derivatives() {
-        _flags |= VK_PIPELINE_CREATE_DERIVATIVE_BIT;
+        _flags |= vkz::pipeline::flags::derivative;
         return *this;
     }
 
@@ -158,7 +158,7 @@ namespace vkz {
         auto &tessellation_state = _tessellation_state_builder->build_tessellation_state();
 
         auto info = makeStruct<VkGraphicsPipelineCreateInfo>();
-        info.flags = _flags;
+        info.flags = static_cast<VkPipelineCreateFlags>(_flags);
         info.stageCount = VKZ_COUNT(shader_stages);
         info.pStages = shader_stages.data();
         info.pVertexInputState = &vertex_input_state;
@@ -171,7 +171,7 @@ namespace vkz {
         info.pColorBlendState = &color_blend_state;
         info.pDynamicState = &dynamic_state;
 
-        if (_flags & VK_PIPELINE_CREATE_DERIVATIVE_BIT) {
+        if (has_flag(_flags, vkz::pipeline::flags::derivative)) {
             assert(_base_pipeline);
             info.basePipelineHandle = _base_pipeline;
             info.basePipelineIndex = -1;

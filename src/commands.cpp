@@ -25,64 +25,77 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
 namespace vkz {
-    VkPipelineStageFlags make_access_mask_pipeline_stage_flags(
-            VkAccessFlags access_mask,
-            VkPipelineStageFlags supported_shader_bits) {
+    vkz::pipeline::stage make_access_mask_pipeline_stage_flags(vkz::access access_mask, vkz::pipeline::stage supported_shader_bits) {
         struct access_stage {
-            VkAccessFlags access;
-            VkPipelineStageFlags stages;
+            vkz::access access;
+            vkz::pipeline::stage stages;
         };
+
         const access_stage access_stages[]{
-            {VK_ACCESS_INDIRECT_COMMAND_READ_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT},
-            {VK_ACCESS_INDEX_READ_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT},
-            {VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT},
-            {VK_ACCESS_UNIFORM_READ_BIT, supported_shader_bits},
-            {VK_ACCESS_INPUT_ATTACHMENT_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT},
-            {VK_ACCESS_SHADER_READ_BIT, supported_shader_bits},
-            {VK_ACCESS_SHADER_WRITE_BIT, supported_shader_bits},
-            {VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
-            {VK_ACCESS_COLOR_ATTACHMENT_READ_NONCOHERENT_BIT_EXT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
-            {VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
-            {VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT},
-            {VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT},
-            {VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT},
-            {VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT},
-            {VK_ACCESS_HOST_READ_BIT, VK_PIPELINE_STAGE_HOST_BIT},
-            {VK_ACCESS_HOST_WRITE_BIT, VK_PIPELINE_STAGE_HOST_BIT},
-            {VK_ACCESS_MEMORY_READ_BIT, 0},
-            {VK_ACCESS_MEMORY_WRITE_BIT, 0},
+            {vkz::access::indirect_command_read, vkz::pipeline::stage::draw_indirect},
+            {vkz::access::index_read, vkz::pipeline::stage::vertex_input},
+            {vkz::access::vertex_attribute_read, vkz::pipeline::stage::vertex_input},
+            {vkz::access::uniform_read, supported_shader_bits},
+            {vkz::access::input_attachment_read, vkz::pipeline::stage::fragment_shader},
+            {vkz::access::shader_read, supported_shader_bits},
+            {vkz::access::shader_write, supported_shader_bits},
+            {vkz::access::shader_sampled_read, supported_shader_bits},
+            {vkz::access::shader_storage_read, supported_shader_bits},
+            {vkz::access::shader_storage_write, supported_shader_bits},
+            {vkz::access::color_attachment_read, vkz::pipeline::stage::color_attachment_output},
+            {vkz::access::color_attachment_read_noncoherent, vkz::pipeline::stage::color_attachment_output},
+            {vkz::access::color_attachment_write, vkz::pipeline::stage::color_attachment_output},
+            {vkz::access::depth_stencil_attachment_read, vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests},
+            {vkz::access::depth_stencil_attachment_write, vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests},
+            {vkz::access::transfer_read, vkz::pipeline::stage::transfer},
+            {vkz::access::transfer_write, vkz::pipeline::stage::transfer},
+            {vkz::access::host_read, vkz::pipeline::stage::host},
+            {vkz::access::host_write, vkz::pipeline::stage::host},
+            {vkz::access::memory_read, vkz::pipeline::stage::none},
+            {vkz::access::memory_write, vkz::pipeline::stage::none},
 #if VK_NV_device_generated_commands
-            {VK_ACCESS_COMMAND_PREPROCESS_READ_BIT_NV, VK_PIPELINE_STAGE_COMMAND_PREPROCESS_BIT_NV},
-            {VK_ACCESS_COMMAND_PREPROCESS_WRITE_BIT_NV, VK_PIPELINE_STAGE_COMMAND_PREPROCESS_BIT_NV},
+            {vkz::access::command_preprocess_read, vkz::pipeline::stage::command_preprocess},
+            {vkz::access::command_preprocess_write, vkz::pipeline::stage::command_preprocess},
 #endif
 #if VK_NV_ray_tracing
-            {VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV | supported_shader_bits | VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV},
-            {VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV},
+            {vkz::access::acceleration_structure_read, vkz::pipeline::stage::ray_tracing_shader | supported_shader_bits | vkz::pipeline::stage::acceleration_structure_build},
+            {vkz::access::acceleration_structure_write, vkz::pipeline::stage::acceleration_structure_build},
 #endif
         };
 
-        if (!access_mask) {
-            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        if (access_mask == vkz::access::none) {
+            return vkz::pipeline::stage::top_of_pipe;
         }
 
-        VkPipelineStageFlags stages{};
+        vkz::pipeline::stage stages{};
         for (const auto& mapping : access_stages) {
-            if (mapping.access & access_mask) {
+            if ((mapping.access & access_mask) != vkz::access::none) {
                 stages |= mapping.stages;
             }
         }
-        assert(stages != 0);
+        assert(stages != vkz::pipeline::stage::none);
         return stages;
     }
 
-    void cmd_begin(VkCommandBuffer command_buffer, VkCommandBufferUsageFlags flags) {
+    void cmd_begin(VkCommandBuffer command_buffer, vkz::command_buffer_usage flags) {
         VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        begin_info.flags = flags;
+        begin_info.flags = static_cast<VkCommandBufferUsageFlags>(flags);
         VKZ_CHECK_VULKAN(vkBeginCommandBuffer(command_buffer, &begin_info));
+    }
+
+    void cmd_end(VkCommandBuffer command_buffer) {
+        VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
+    }
+
+    VkQueue get_queue(vkz::device device, uint32_t family_index, uint32_t queue_index) {
+        VkQueue queue{};
+        vkGetDeviceQueue(device, family_index, queue_index, &queue);
+        return queue;
     }
 
     VkSubmitInfo make_submit_info(
@@ -103,7 +116,7 @@ namespace vkz {
     command_pool::command_pool(
             vkz::device device,
             uint32_t family_index,
-            VkCommandPoolCreateFlags flags,
+            vkz::command_pool_flags flags,
             VkQueue default_queue) {
         init(device, family_index, flags, default_queue);
     }
@@ -115,13 +128,13 @@ namespace vkz {
     void command_pool::init(
             vkz::device device,
             uint32_t family_index,
-            VkCommandPoolCreateFlags flags,
+            vkz::command_pool_flags flags,
             VkQueue default_queue) {
         assert(!device_.logical);
         device_ = device;
 
         VkCommandPoolCreateInfo create_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-        create_info.flags = flags;
+        create_info.flags = static_cast<VkCommandPoolCreateFlags>(flags);
         create_info.queueFamilyIndex = family_index;
         VKZ_CHECK_VULKAN(vkCreateCommandPool(device_, &create_info, nullptr, &command_pool_));
 
@@ -144,7 +157,7 @@ namespace vkz {
     VkCommandBuffer command_pool::create_command_buffer(
             VkCommandBufferLevel level,
             bool begin,
-            VkCommandBufferUsageFlags flags,
+            vkz::command_buffer_usage flags,
             const VkCommandBufferInheritanceInfo* inheritance_info) {
         VkCommandBufferAllocateInfo allocate_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
         allocate_info.level = level;
@@ -155,7 +168,7 @@ namespace vkz {
         VKZ_CHECK_VULKAN(vkAllocateCommandBuffers(device_, &allocate_info, &command_buffer));
         if (begin) {
             VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-            begin_info.flags = flags;
+            begin_info.flags = static_cast<VkCommandBufferUsageFlags>(flags);
             begin_info.pInheritanceInfo = inheritance_info;
             VKZ_CHECK_VULKAN(vkBeginCommandBuffer(command_buffer, &begin_info));
         }
@@ -228,7 +241,7 @@ namespace vkz {
     }
 
     scope_command_buffer::scope_command_buffer(vkz::device device, uint32_t family_index, VkQueue queue) {
-        command_pool::init(device, family_index, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queue);
+        command_pool::init(device, family_index, vkz::command_pool_flags::transient, queue);
         command_buffer_ = create_command_buffer();
     }
 
@@ -319,7 +332,7 @@ namespace vkz {
     ring_command_pool::ring_command_pool(
             VkDevice device,
             uint32_t queue_family_index,
-            VkCommandPoolCreateFlags flags,
+            vkz::command_pool_flags flags,
             uint32_t ring_size) {
         init(device, queue_family_index, flags, ring_size);
     }
@@ -331,7 +344,7 @@ namespace vkz {
     void ring_command_pool::init(
             VkDevice device,
             uint32_t queue_family_index,
-            VkCommandPoolCreateFlags flags,
+            vkz::command_pool_flags flags,
             uint32_t ring_size) {
         assert(!device_);
         device_ = device;
@@ -344,7 +357,7 @@ namespace vkz {
         for (auto& entry : pools_) {
             VkCommandPoolCreateInfo create_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
             create_info.queueFamilyIndex = family_index_;
-            create_info.flags = flags_;
+            create_info.flags = static_cast<VkCommandPoolCreateFlags>(flags_);
             VKZ_CHECK_VULKAN(vkCreateCommandPool(device_, &create_info, nullptr, &entry.pool));
         }
     }
@@ -388,7 +401,7 @@ namespace vkz {
     VkCommandBuffer ring_command_pool::create_command_buffer(
             VkCommandBufferLevel level,
             bool begin,
-            VkCommandBufferUsageFlags flags,
+            vkz::command_buffer_usage flags,
             const VkCommandBufferInheritanceInfo* inheritance_info) {
         auto& cycle = pools_[cycle_index_];
         VkCommandBufferAllocateInfo allocate_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
@@ -402,7 +415,7 @@ namespace vkz {
 
         if (begin) {
             VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-            begin_info.flags = flags;
+            begin_info.flags = static_cast<VkCommandBufferUsageFlags>(flags);
             begin_info.pInheritanceInfo = inheritance_info;
             VKZ_CHECK_VULKAN(vkBeginCommandBuffer(command_buffer, &begin_info));
         }
@@ -431,17 +444,11 @@ namespace vkz {
         command_buffers_.push_back(command_buffer);
     }
 
-    void submission_batch::enqueue_signal(
-            VkSemaphore semaphore,
-            uint64_t value,
-            VkPipelineStageFlags2 stage_mask) {
+    void submission_batch::enqueue_signal(VkSemaphore semaphore, uint64_t value, vkz::pipeline::stage stage_mask) {
         signals_.push_back({semaphore, value, stage_mask});
     }
 
-    void submission_batch::enqueue_wait(
-            VkSemaphore semaphore,
-            uint64_t value,
-            VkPipelineStageFlags2 stage_mask) {
+    void submission_batch::enqueue_wait(VkSemaphore semaphore, uint64_t value, vkz::pipeline::stage stage_mask) {
         waits_.push_back({semaphore, value, stage_mask});
     }
 
@@ -484,10 +491,14 @@ namespace vkz {
         signals_.push_back(semaphore);
     }
 
-    void batch_submission::enqueue_wait(VkSemaphore semaphore, VkPipelineStageFlags flags) {
+    void batch_submission::enqueue_wait(VkSemaphore semaphore, vkz::pipeline::stage flags) {
         assert(batches_.empty());
+        const auto native_flags = static_cast<VkPipelineStageFlags>(flags);
+        if (static_cast<VkPipelineStageFlags2>(native_flags) != static_cast<VkPipelineStageFlags2>(flags)) {
+            throw std::invalid_argument{"Synchronization2 stage bits require submission_batch"};
+        }
         waits_.push_back(semaphore);
-        wait_flags_.push_back(flags);
+        wait_flags_.push_back(native_flags);
     }
 
     void batch_submission::enqueue_batch(submission_batch batch) {
@@ -522,7 +533,7 @@ namespace vkz {
                             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                             .semaphore = semaphore.handle,
                             .value = semaphore.value,
-                            .stageMask = semaphore.stage_mask,
+                            .stageMask = static_cast<VkPipelineStageFlags2>(semaphore.stage_mask),
                             .deviceIndex = 0,
                         });
                     }
@@ -590,7 +601,7 @@ namespace vkz {
             vkz::device device,
             VkQueue queue,
             uint32_t queue_family_index,
-            VkCommandPoolCreateFlags flags,
+            vkz::command_pool_flags flags,
             uint32_t ring_size) {
         init(device, queue, queue_family_index, flags, ring_size);
     }
@@ -603,7 +614,7 @@ namespace vkz {
             vkz::device device,
             VkQueue queue,
             uint32_t queue_family_index,
-            VkCommandPoolCreateFlags flags,
+            vkz::command_pool_flags flags,
             uint32_t ring_size) {
         ring_fences::init(device, ring_size);
         ring_command_pool::init(device, queue_family_index, flags, ring_size);
@@ -633,7 +644,7 @@ namespace vkz {
         batch_submission::enqueue_signal(semaphore);
     }
 
-    void fenced_command_pools::enqueue_wait(VkSemaphore semaphore, VkPipelineStageFlags flags) {
+    void fenced_command_pools::enqueue_wait(VkSemaphore semaphore, vkz::pipeline::stage flags) {
         batch_submission::enqueue_wait(semaphore, flags);
     }
 
@@ -657,7 +668,7 @@ namespace vkz {
     VkCommandBuffer fenced_command_pools::create_command_buffer(
             VkCommandBufferLevel level,
             bool begin,
-            VkCommandBufferUsageFlags flags,
+            vkz::command_buffer_usage flags,
             const VkCommandBufferInheritanceInfo* inheritance_info) {
         return ring_command_pool::create_command_buffer(level, begin, flags, inheritance_info);
     }

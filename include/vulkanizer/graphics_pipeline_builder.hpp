@@ -130,7 +130,7 @@ namespace vkz {
         }
 
     protected:
-        VkPipelineCreateFlags _flags = 0;
+        vkz::pipeline::flags _flags = vkz::pipeline::flags::none;
         VkRenderPass _render_pass{};
         VkPipelineLayout _pipeline_layout{};
         VkPipelineLayout _pipeline_layout_owned{};

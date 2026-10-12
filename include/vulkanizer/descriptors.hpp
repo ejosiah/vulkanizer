@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vkz.hpp"
+#include "descriptor.hpp"
 #include "memory.hpp"
 #include "texture.hpp"
 
@@ -71,52 +72,46 @@ namespace vkz {
        uint32_t binding{~0u};
    };
 
-    template<typename Descriptor, typename Resource>
-    Descriptor descriptor(const Resource& resource, uint32_t binding) = delete;
+   template <typename Descriptor, typename Resource> Descriptor make_descriptor(const Resource &resource, uint32_t binding) = delete;
 
-    template<>
-    inline buffer_descriptor descriptor<buffer_descriptor, buffer>(const buffer& buffer, uint32_t binding) {
-        return {
-            .buffer = buffer,
-            .binding = binding,
-        };
-    }
+   template <> inline buffer_descriptor make_descriptor<buffer_descriptor, buffer>(const buffer &buffer, uint32_t binding) {
+       return {
+           .buffer = buffer,
+           .binding = binding,
+       };
+   }
 
-    template<>
-    inline ubo_descriptor descriptor<ubo_descriptor, buffer>(const buffer& buffer, uint32_t binding) {
-        return {
-            .buffer = buffer,
-            .binding = binding,
-        };
-    }
+   template <> inline ubo_descriptor make_descriptor<ubo_descriptor, buffer>(const buffer &buffer, uint32_t binding) {
+       return {
+           .buffer = buffer,
+           .binding = binding,
+       };
+   }
 
-    template<>
-    inline image_descriptor descriptor<image_descriptor, texture>(const texture& texture, uint32_t binding) {
-        return {
-            .view = texture.image_view,
-            .layout = texture.image.layout,
-            .binding = binding,
-        };
-    }
+   template <> inline image_descriptor make_descriptor<image_descriptor, texture>(const texture &texture, uint32_t binding) {
+       return {
+           .view = texture.image_view,
+           .layout = texture.image.layout,
+           .binding = binding,
+       };
+   }
 
-    template<>
-    inline input_attachment_descriptor descriptor<input_attachment_descriptor, texture>(const texture& texture, uint32_t binding) {
-        return {
-            .view = texture.image_view,
-            .layout = texture.image.layout,
-            .binding = binding,
-        };
-    }
+   template <> inline input_attachment_descriptor make_descriptor<input_attachment_descriptor, texture>(const texture &texture, uint32_t binding) {
+       return {
+           .view = texture.image_view,
+           .layout = texture.image.layout,
+           .binding = binding,
+       };
+   }
 
-    template<>
-    inline texture_descriptor descriptor<texture_descriptor, texture>(const texture& texture, uint32_t binding) {
-        return {
-            .view = texture.image_view,
-            .sampler = texture.sampler,
-            .layout = texture.image.layout,
-            .binding = binding,
-        };
-    }
+   template <> inline texture_descriptor make_descriptor<texture_descriptor, texture>(const texture &texture, uint32_t binding) {
+       return {
+           .view = texture.image_view,
+           .sampler = texture.sampler,
+           .layout = texture.image.layout,
+           .binding = binding,
+       };
+   }
 
    struct texture_element_descriptor {
        texture_descriptor texture;
@@ -142,6 +137,7 @@ namespace vkz {
                                 texture_array_descriptor>;
 
     struct descriptor_set_layout {
+        using flags = vkz::descriptor_layout_flags;
         VkDescriptorSetLayout handle{};
         device device;
 
@@ -160,11 +156,12 @@ namespace vkz {
 
     class descriptor_pool {
     public:
+        using flags = vkz::descriptor_pool_flags;
         descriptor_pool() = default;
 
         descriptor_pool(device device, uint32_t max_sets,
                         std::initializer_list<VkDescriptorPoolSize> pool_sizes,
-                        VkDescriptorPoolCreateFlags flags = 0);
+                        vkz::descriptor_pool::flags flags = vkz::descriptor_pool::flags::none);
 
         [[nodiscard]] std::vector<descriptor_set> allocate(std::span<descriptor_set_layout> layouts);
 

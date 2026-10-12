@@ -1,0 +1,77 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_ray_tracing : require
+
+#include "shared.glsl"
+
+layout(set = 1, binding = 4) uniform accelerationStructureEXT tlas;
+layout(location = 0) rayPayloadEXT reflection_payload payload;
+
+uint rng_state;
+
+float random_value() {
+    uint state = rng_state;
+    rng_state = state * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return float((word >> 22u) ^ word) / 4294967296.0;
+}
+
+// GGX visible-normal sampling from Packt chapter 15; see LICENSE.txt.
+vec3 sample_ggx_vndf(vec3 view_ellipsoid, float alpha_x, float alpha_y, float random_x, float random_y)
+{
+    // Section 3.2: transforming the view direction to the hemisphere configuration
+    vec3 view_hemisphere = normalize(vec3(alpha_x * view_ellipsoid.x, alpha_y * view_ellipsoid.y, view_ellipsoid.z));
+    // Section 4.1: orthonormal basis (with special case if cross product is zero)
+    float length_squared = view_hemisphere.x * view_hemisphere.x + view_hemisphere.y * view_hemisphere.y;
+    vec3 tangent_x = length_squared > 0 ? vec3(-view_hemisphere.y, view_hemisphere.x, 0) * inversesqrt(length_squared) : vec3(1,0,0);
+    vec3 tangent_y = cross(view_hemisphere, tangent_x);
+    // Section 4.2: parameterization of the projected area
+    float r = sqrt(random_x);
+    float phi = 2.0 * pi * random_y;
+    float disk_x = r * cos(phi);
+    float disk_y = r * sin(phi);
+    float s = 0.5 * (1.0 + view_hemisphere.z);
+    disk_y = (1.0 - s)*sqrt(1.0 - disk_x*disk_x) + s*disk_y;
+    // Section 4.3: reprojection onto hemisphere
+    vec3 sampled_normal = disk_x*tangent_x + disk_y*tangent_y + sqrt(max(0.0, 1.0 - disk_x*disk_x - disk_y*disk_y))*view_hemisphere;
+    // Section 3.4: transforming the normal back to the ellipsoid configuration
+    vec3 normal_ellipsoid = normalize(vec3(alpha_x * sampled_normal.x, alpha_y * sampled_normal.y, max(0.0, sampled_normal.z)));
+    return normal_ellipsoid;
+}
+
+void main() {
+    ivec2 p = ivec2(gl_LaunchIDEXT.xy);
+    ivec2 q = source_pixel(p);
+    vec4 surface = texelFetch(scene_surface, q, 0);
+    vec3 result = vec3(0);
+    float hit_distance = 0;
+
+    if (enabled != 0u && texelFetch(scene_depth, q, 0).r < 1 && surface.a <= 0.3) {
+        vec3 position = world_at(p);
+        vec3 normal = normal_at(p);
+        vec3 view = normalize(camera_position - position);
+        vec3 axis = abs(normal.z) < 0.99 ? vec3(0, 0, 1) : vec3(0, 1, 0);
+        vec3 tangent = normalize(cross(axis, normal));
+        mat3 basis = mat3(tangent, cross(normal, tangent), normal);
+        rng_state = 19u * uint(p.x) + 47u * uint(p.y) + frame_index * 101u + 1u;
+        float alpha = max(surface.a * surface.a, 0.001);
+        vec3 half_vector = basis * sample_ggx_vndf(transpose(basis) * view, alpha, alpha, random_value(), random_value());
+        vec3 direction = normalize(reflect(-view, half_vector));
+        payload.radiance = vec3(0);
+        payload.hit_distance = 0;
+
+        if (dot(normal, direction) > 0) {
+            traceRayEXT(tlas, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0,
+                position + normal * 0.005, 0.01, direction, 100, 0);
+            hit_distance = payload.hit_distance;
+            vec3 fresnel = surface.rgb + (1 - surface.rgb) * pow(1 - max(dot(view, half_vector), 0), 5);
+            float n_v = max(dot(normal, view), 0.001);
+            float n_l = max(dot(normal, direction), 0.001);
+            float g2_over_g1 = 2 * n_l / (n_l + sqrt(alpha * alpha + (1 - alpha * alpha) * n_l * n_l));
+            result = clamp(payload.radiance * fresnel * g2_over_g1, vec3(0), vec3(65504));
+        }
+    }
+
+    imageStore(raw_color, p, vec4(result, hit_distance));
+}

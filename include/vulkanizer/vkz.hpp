@@ -2,6 +2,9 @@
 
 
 #include "types.hpp"
+#include "flags.hpp"
+#include "access.hpp"
+#include "shader_stage.hpp"
 #include "status.hpp"
 #include <volk.h>
 
@@ -32,7 +35,7 @@ namespace vkz {
 
     struct shader_info{
         VkShaderModule module{};
-        VkShaderStageFlagBits stage{};
+        vkz::shader_stage stage{};
         const char* entry{"main"};
     };
 

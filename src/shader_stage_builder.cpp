@@ -27,27 +27,27 @@ namespace vkz {
             return first != std::string::npos && source.compare(first, 8, "#version") == 0;
         }
 
-        EShLanguage glsl_stage(VkShaderStageFlagBits stage) {
+        EShLanguage glsl_stage(vkz::shader_stage stage) {
             switch (stage) {
-                case VK_SHADER_STAGE_VERTEX_BIT:
-                    return EShLangVertex;
-                case VK_SHADER_STAGE_FRAGMENT_BIT:
-                    return EShLangFragment;
-                case VK_SHADER_STAGE_GEOMETRY_BIT:
-                    return EShLangGeometry;
-                case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
-                    return EShLangTessControl;
-                case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
-                    return EShLangTessEvaluation;
-                case VK_SHADER_STAGE_COMPUTE_BIT:
-                    return EShLangCompute;
+            case vkz::shader_stage::vertex:
+                return EShLangVertex;
+            case vkz::shader_stage::fragment:
+                return EShLangFragment;
+            case vkz::shader_stage::geometry:
+                return EShLangGeometry;
+            case vkz::shader_stage::tessellation_control:
+                return EShLangTessControl;
+            case vkz::shader_stage::tessellation_evaluation:
+                return EShLangTessEvaluation;
+            case vkz::shader_stage::compute:
+                return EShLangCompute;
 #ifdef VK_SHADER_STAGE_TASK_BIT_EXT
-                case VK_SHADER_STAGE_TASK_BIT_EXT:
-                    return EShLangTaskNV;
+            case vkz::shader_stage::task:
+                return EShLangTaskNV;
 #endif
 #ifdef VK_SHADER_STAGE_MESH_BIT_EXT
-                case VK_SHADER_STAGE_MESH_BIT_EXT:
-                    return EShLangMeshNV;
+            case vkz::shader_stage::mesh:
+                return EShLangMeshNV;
 #endif
                 default:
                     throw std::runtime_error{"Inline GLSL shader stage is not supported"};
@@ -84,7 +84,7 @@ namespace vkz {
             }
         };
 
-        std::vector<uint32_t> compile_inline_glsl(const std::string& source, VkShaderStageFlagBits stage) {
+        std::vector<uint32_t> compile_inline_glsl(const std::string &source, vkz::shader_stage stage) {
             static const glslang_process process;
             const auto language = glsl_stage(stage);
             const char* strings[]{source.c_str()};
@@ -123,34 +123,34 @@ namespace vkz {
     }
 
     shader_builder &shader_stage_builder::vertex_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_VERTEX_BIT);
+        return add_shader(source, vkz::shader_stage::vertex);
     }
 
     shader_builder &shader_stage_builder::task_shader(const shader_source &source) {
         if (!task_shader_supported()) throw std::runtime_error{"Task Shader not supported"};
-        return add_shader(source, VK_SHADER_STAGE_TASK_BIT_EXT);
+        return add_shader(source, vkz::shader_stage::task);
     }
 
     shader_builder &shader_stage_builder::mesh_shader(const shader_source &source) {
         if (!mesh_shaderSupported()) throw std::runtime_error{"Mesh Shader not supported"};
-        return add_shader(source, VK_SHADER_STAGE_MESH_BIT_EXT);
+        return add_shader(source, vkz::shader_stage::mesh);
     }
 
     shader_builder &shader_stage_builder::fragment_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_FRAGMENT_BIT);
+        return add_shader(source, vkz::shader_stage::fragment);
     }
 
 
     shader_builder &shader_stage_builder::geometry_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_GEOMETRY_BIT);
+        return add_shader(source, vkz::shader_stage::geometry);
     }
 
     shader_builder &shader_stage_builder::tessellation_evaluation_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
+        return add_shader(source, vkz::shader_stage::tessellation_evaluation);
     }
 
     shader_builder &shader_stage_builder::tessellation_control_shader(const shader_source &source) {
-        return add_shader(source, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
+        return add_shader(source, vkz::shader_stage::tessellation_control);
     }
 
     void shader_stage_builder::validate() const {
@@ -188,8 +188,7 @@ namespace vkz {
         }
     }
 
-    shader_builder &
-    shader_stage_builder::add_shader(const shader_stage_builder::shader_source &source, VkShaderStageFlagBits stage) {
+    shader_builder &shader_stage_builder::add_shader(const shader_stage_builder::shader_source &source, vkz::shader_stage stage) {
         auto itr = std::find_if(_shader_builders.begin(), _shader_builders.end(), [&](const auto &builder) {
             return builder->is_stage(stage);
         });
@@ -237,8 +236,7 @@ namespace vkz {
     shader_builder::shader_builder(shader_stage_builder *parent)
             : graphics_pipeline_builder_proxy(parent->_builder), _parent{parent} {}
 
-    shader_builder::shader_builder(const shader_source &source, VkShaderStageFlagBits stage, shader_stage_builder *parent)
-            : graphics_pipeline_builder_proxy(parent->_builder), _parent{parent} {
+    shader_builder::shader_builder(const shader_source &source, vkz::shader_stage stage, shader_stage_builder *parent) : graphics_pipeline_builder_proxy(parent->_builder), _parent{parent} {
         _shader.stage = stage;
         std::visit(overloaded{
                 [&](const byte_string& source) { _shader.module = create_shader_module(device(), source); },
@@ -262,7 +260,7 @@ namespace vkz {
 
     VkPipelineShaderStageCreateInfo &shader_builder::build_shader() {
         _create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        _create_info.stage = _shader.stage;
+        _create_info.stage = static_cast<VkShaderStageFlagBits>(_shader.stage);
         _create_info.module = _shader.module;
         _create_info.pName = _shader.entry;
 
@@ -304,19 +302,19 @@ namespace vkz {
     }
 
     bool shader_builder::is_vertex_shader() const {
-        return _shader.stage == VK_SHADER_STAGE_VERTEX_BIT;
+        return _shader.stage == vkz::shader_stage::vertex;
     }
 
     bool shader_builder::is_mesh_shader() const {
-        return _shader.stage == VK_SHADER_STAGE_MESH_BIT_EXT;
+        return _shader.stage == vkz::shader_stage::mesh;
     }
 
     bool shader_builder::is_tess_eval_shader() const {
-        return _shader.stage == VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+        return _shader.stage == vkz::shader_stage::tessellation_evaluation;
     }
 
     bool shader_builder::is_tess_control_shader() const {
-        return _shader.stage == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+        return _shader.stage == vkz::shader_stage::tessellation_control;
     }
 
     void shader_builder::copy(const shader_builder &source) {
@@ -326,8 +324,7 @@ namespace vkz {
         std::memcpy(_data.data(), source._data.data(), source._data.size());
     }
 
-    bool shader_builder::is_stage(VkShaderStageFlagBits stage) const {
+    bool shader_builder::is_stage(vkz::shader_stage stage) const {
         return _shader.stage == stage;
     }
-
 }

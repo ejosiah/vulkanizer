@@ -1,0 +1,258 @@
+project,file,line,context
+light_transport,src/light_transport/ddgi.cpp,58,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/ddgi.cpp,63,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+light_transport,src/light_transport/ddgi.cpp,68,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/ddgi.cpp,77,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/neural_radiance_cache.cpp,179,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/nrd_denoiser.cpp,102,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+light_transport,src/light_transport/nrd_denoiser.cpp,127,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/path_tracer.cpp,223,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/path_tracer.cpp,271,vkz::buffer::builder(ray_allocator).size(render_width * height * sizeof(glm::vec4)).usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT).memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU).build();
+light_transport,src/light_transport/path_tracer.cpp,343,"vkz::texture create_image(VkFormat format, VkImageUsageFlags usage) {"
+light_transport,src/light_transport/path_tracer.cpp,345,"result.image = vkz::image::builder(ray_allocator).format(format).extent(render_width, height).usage(usage).build();"
+light_transport,src/light_transport/path_tracer.cpp,367,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/path_tracer.cpp,591,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+light_transport,src/light_transport/photon_mapper.cpp,46,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+light_transport,src/light_transport/photon_mapper.cpp,171,auto readback = vkz::buffer::builder(s.allocator).size(size).usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT).memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU).build();
+light_transport,src/light_transport/radiance_cascades.cpp,78,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/radiance_cascades.cpp,86,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/real_time_path_tracer.cpp,270,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+light_transport,src/light_transport/real_time_path_tracer.cpp,289,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+light_transport,src/light_transport/real_time_path_tracer.cpp,294,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/real_time_path_tracer.cpp,299,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+light_transport,src/light_transport/real_time_path_tracer.cpp,304,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+light_transport,src/light_transport/rtx_demo_renderer.cpp,134,"vkz::buffer make_buffer(size_t bytes, VkBufferUsageFlags usage) {"
+light_transport,src/light_transport/rtx_demo_renderer.cpp,135,return vkz::buffer::builder(allocator).size(bytes).usage(usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT).memory_usage(VMA_MEMORY_USAGE_GPU_ONLY).build();
+light_transport,src/light_transport/rtx_demo_renderer.cpp,138,"vkz::buffer upload(const void *data, size_t bytes, VkBufferUsageFlags usage) {"
+light_transport,src/light_transport/rtx_demo_renderer.cpp,140,auto staging = vkz::buffer::builder(allocator).size(bytes).usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_ONLY).build();
+light_transport,src/light_transport/rtx_demo_renderer.cpp,173,VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+light_transport,src/light_transport/rtx_demo_renderer.cpp,175,usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+light_transport,src/light_transport/rtx_demo_renderer.cpp,177,usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+light_transport,src/light_transport/rtx_demo_renderer.cpp,178,if (i < 2) usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+light_transport,src/light_transport/rtx_demo_renderer.cpp,180,"texture.image = vkz::image::builder(allocator).type(volume ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D).format(formats[i]).extent(w, h, 1).usage(usage).build();"
+light_transport,src/light_transport/scene_resources.cpp,122,"vkz::buffer upload(const void *data, size_t size, VkBufferUsageFlags usage) {"
+light_transport,src/light_transport/scene_resources.cpp,123,auto result = vkz::buffer::builder(ray_allocator).size(size).usage(usage).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+light_transport,src/light_transport/volume_renderer.cpp,154,.usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/volume_renderer.cpp,170,auto staging = vkz::buffer::builder(allocator).size(byte_count).usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_ONLY).build();
+light_transport,src/light_transport/volume_renderer.cpp,253,.usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+light_transport,src/light_transport/volume_renderer.cpp,272,auto staging = vkz::buffer::builder(allocator).size(ranges.size() * sizeof(glm::vec4)).usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_ONLY).build();
+light_transport,src/light_transport/volume_renderer.cpp,327,"accumulation.image = vkz::image::builder(allocator).extent(create_info.width, create_info.height, 1).format(VK_FORMAT_R32G32B32A32_SFLOAT).usage(VK_IMAGE_USAGE_STORAGE_BIT).build();"
+vista,include/gpu_buffer_utils.hpp,11,"VkBufferUsageFlags usage,"
+vista,include/gpu_buffer_utils.hpp,15,.usage(usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,skybox_generator/render_support.hpp,43,"VkImageUsageFlags usage, VkImageAspectFlags aspect) {"
+vista,skybox_generator/render_support.hpp,46,"target.image = vkz::image::builder(allocator).format(format).extent(width, height).usage(usage).build();"
+vista,skybox_generator/render_support.hpp,105,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+vista,skybox_generator/skybox_generator.cpp,268,"const auto make_cube = [this](uint32_t size, uint32_t mip_levels, VkImageUsageFlags usage) {"
+vista,skybox_generator/skybox_generator.cpp,276,.usage(usage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+vista,src/atmosphere.cpp,220,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/atmosphere.cpp,263,.usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)
+vista,src/atmosphere.cpp,428,"const auto create_buffer = [this](VkDeviceSize size, VkBufferUsageFlags usage, const void* data) {"
+vista,src/atmosphere.cpp,431,.usage(usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/cbt/mesh.cpp,41,constexpr VkBufferUsageFlags StorageBufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+vista,src/cbt/mesh.cpp,42,constexpr VkBufferUsageFlags IndirectStorageBufferUsage = StorageBufferUsage | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+vista,src/cbt/mesh.cpp,43,constexpr VkBufferUsageFlags VertexStorageBufferUsage = StorageBufferUsage | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+vista,src/cbt/mesh.cpp,44,constexpr VkBufferUsageFlags IndexStorageBufferUsage = StorageBufferUsage | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+vista,src/cbt/mesh.cpp,89,VkBufferUsageFlags usage = StorageBufferUsage) {
+vista,src/cbt/mesh.cpp,95,"VkDeviceSize byte_size, VkBufferUsageFlags usage) {"
+vista,src/clouds.cpp,221,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/clouds.cpp,227,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/clouds.cpp,458,.usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)
+vista,src/clouds.cpp,505,.usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,src/clouds.cpp,604,.usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)
+vista,src/cut_patches.cpp,48,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,src/cut_patches.cpp,69,vkz::buffer::builder(allocator).size(sizeof(cut_regions)).usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT).memory_usage(VMA_MEMORY_USAGE_GPU_ONLY).build();
+vista,src/displacement_map.cpp,646,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/displacement_map.cpp,901,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,src/displacement_map_io.cpp,29,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,src/displacement_map_io.cpp,34,.usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/displacement_minecraft.cpp,53,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/grass.cpp,191,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,src/height_map_pyramid.cpp,147,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+vista,src/height_map_pyramid.cpp,163,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,src/iwave.cpp,64,kernels = vkz::buffer::builder(allocator).size(sizeof(bank)).usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+vista,src/iwave.cpp,74,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+vista,src/lighting_bolt.cpp,479,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/lighting_bolt.cpp,486,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+vista,src/lighting_bolt.cpp,493,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/lighting_bolt.cpp,498,slot.buffer = vkz::buffer::builder(params_.allocator).size(sizeof(selection)).usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT).memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU).build();
+vista,src/lighting_bolt.cpp,507,.usage(VK_IMAGE_USAGE_STORAGE_BIT)
+vista,src/lighting_bolt.cpp,670,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+vista,src/lighting_bolt.cpp,680,.usage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+vista,src/lighting_bolt.cpp,695,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/lighting_bolt.cpp,701,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT)
+vista,src/lighting_bolt.cpp,707,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,src/lighting_bolt.cpp,713,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,src/material_packer.cpp,100,.usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+vista,src/material_packer.cpp,122,.usage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+vista,src/mesh_updater.cpp,170,"const auto create_buffer = [&](VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage) {"
+vista,src/mesh_updater.cpp,173,.usage(usage)
+vista,src/noise_cutter_surface.cpp,67,.usage(VK_IMAGE_USAGE_STORAGE_BIT)
+vista,src/noise_cutter_surface.cpp,88,indices_ = vkz::buffer::builder(allocator).size(plane.indices.size() * sizeof(uint32_t)).usage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+vista,src/noise_cutter_surface.cpp,98,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,src/shadow_map_generator.cpp,51,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+vista,src/shadow_map_generator.cpp,165,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/spline.cpp,179,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+vista,src/spline_controller.cpp,135,curve_buffer_ = vkz::buffer::builder(allocator).size(sizeof(spline2d::point) * curve_resolution_).usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+vista,src/spline_controller.cpp,137,fill_buffer_ = vkz::buffer::builder(allocator).size(sizeof(spline2d::point) * curve_resolution_ * 2).usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+vista,src/subdivision_mesh.cpp,41,"VkBufferUsageFlags usage, const void* data = nullptr) {"
+vista,src/subdivision_mesh.cpp,44,.usage(usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain.cpp,283,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor.cpp,131,.usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,src/terrain_editor.cpp,159,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor.cpp,503,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor.cpp,706,.usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)
+vista,src/terrain_editor.cpp,738,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,src/terrain_editor/brush_grid_renderer.cpp,34,.usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/brush_grid_renderer.cpp,148,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+vista,src/terrain_editor/brush_grid_renderer.cpp,252,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,src/terrain_editor/brush_grid_renderer.cpp,431,.usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,src/terrain_editor/brush_grid_renderer.cpp,449,.usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+vista,src/terrain_editor/brush_grid_renderer.cpp,471,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+vista,src/terrain_editor/collision.cpp,44,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/cutter_tools.cpp,74,mesh.vertices = vkz::buffer::builder(allocator).size(mesh.triangles.size() * sizeof(glm::vec3)).usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+vista,src/terrain_editor/editor_character.cpp,30,"template <class T> vkz::buffer upload(vkz::vma_memory_allocator allocator, std::span<const T> data, VkBufferUsageFlags usage) {"
+vista,src/terrain_editor/editor_character.cpp,33,.usage(usage)
+vista,src/terrain_editor/editor_character.cpp,171,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/editor_character.cpp,176,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/editor_character.cpp,237,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/lake_renderer.cpp,360,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+vista,src/terrain_editor/lake_renderer.cpp,365,.usage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+vista,src/terrain_editor/lake_renderer.cpp,382,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/lake_surface.cpp,25,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/material_packer.cpp,76,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+vista,src/terrain_editor/material_paint.cpp,55,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/minecraft_controls.cpp,31,.usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,src/terrain_editor/project.cpp,70,.usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+vista,src/terrain_editor/project.cpp,82,.usage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/project.cpp,121,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/project.cpp,299,.usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+vista,src/terrain_editor/road_renderer.cpp,74,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/road_renderer.cpp,99,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/scene_shadows.hpp,38,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/scene_shadows.hpp,43,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/scene_shadows.hpp,51,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/support.hpp,78,"uint32_t width, uint32_t height, VkImageUsageFlags usage,"
+vista,src/terrain_editor/support.hpp,82,"result.image = vkz::image::builder(allocator).format(format).extent(width, height).usage(usage).build();"
+vista,src/terrain_editor/support.hpp,186,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+vista,src/terrain_editor/tree_imposter.cpp,33,"vkz::buffer upload(vkz::vma_memory_allocator allocator, const void *data, size_t bytes, VkBufferUsageFlags usage) {"
+vista,src/terrain_editor/tree_imposter.cpp,36,.usage(usage)
+vista,src/terrain_editor/tree_population.cpp,115,"vkz::buffer buffer(vkz::vma_memory_allocator allocator, size_t bytes, VkBufferUsageFlags usage, const void *data = nullptr) {"
+vista,src/terrain_editor/tree_population.cpp,118,.usage(usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+vista,src/terrain_editor/tree_population.cpp,146,.usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/tree_population.cpp,609,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,src/terrain_editor/tree_population.cpp,1333,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,src/water.cpp,105,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,src/water_data.cpp,43,.size(sizeof(water::deformation_data)).usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,src/water_data.cpp,49,.size(sizeof(water::simulation_data)).usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,src/water_data.cpp,181,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+vista,test/character_application.cpp,215,.size(sizeof(glm::mat4) * bone_matrices.size()).usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,test/character_application.cpp,226,.size(sizeof(skin_vertex) * skin.size()).usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,test/character_application.cpp,255,.size(sizeof(character_material) * material_colors.size()).usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,test/character_application.cpp,266,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+vista,test/character_application.cpp,343,.size(sizeof(float) * cascade_splits.size()).usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,test/character_application.cpp,453,.usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,test/character_application.cpp,485,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,test/displacement_map_test.cpp,58,".extent(size, size).usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT).build();"
+vista,test/displacement_map_test.cpp,65,.usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+vista,test/displacement_map_test.cpp,67,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT).memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU).build();
+vista,test/displacement_map_test.cpp,197,auto output=vkz::buffer::builder(allocator_).size(4).usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT).memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU).build();
+vista,test/displacement_map_test.cpp,288,.usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+vista,test/displacement_map_test.cpp,293,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,test/displacement_map_test.cpp,813,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,test/grass_application.cpp,347,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+vista,test/grass_application.cpp,407,.usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).build();
+vista,test/grass_application.cpp,421,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).build();
+vista,test/grid_renderer.cpp,62,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+vista,test/lake_renderer_test.cpp,41,.usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,test/lake_renderer_test.cpp,71,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,test/lake_renderer_test.cpp,115,vkz::buffer::builder(allocator_).size(heights.size() * sizeof(glm::vec2)).usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT).memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU).build();
+vista,test/lake_renderer_test.cpp,194,auto output = vkz::buffer::builder(allocator_).size(size * size * sizeof(glm::vec4)).usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT).memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU).build();
+vista,test/lighting/lighting_poc.cpp,260,.usage(buffer_usage)
+vista,test/lighting/lighting_poc.cpp,267,.usage(buffer_usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+vista,test/lighting/lighting_poc.cpp,274,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,test/lighting/lighting_poc.cpp,281,.usage(buffer_usage)
+vista,test/lighting/lighting_poc.cpp,289,.usage(buffer_usage)
+vista,test/lighting/lighting_poc.cpp,296,.usage(buffer_usage)
+vista,test/lighting/lighting_poc.cpp,303,.usage(buffer_usage)
+vista,test/lighting/lighting_poc.cpp,310,.usage(buffer_usage)
+vista,test/lighting/lighting_poc.cpp,317,.usage(buffer_usage)
+vista,test/lighting/lighting_poc.cpp,324,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT)
+vista,test/lighting/lighting_poc.cpp,333,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,test/lighting/terrain_environment.hpp,17,.usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)
+vista,test/lighting/terrain_environment.hpp,53,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+vista,test/lighting/terrain_material_renderer.hpp,46,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+vista,test/material_packer_test.cpp,59,auto buffer = vkz::buffer::builder(allocator_).size(data.size()).usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT).memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU).build();
+vista,test/night_environment_test.cpp,28,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+vista,test/night_environment_test.cpp,53,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,test/physics_playground_application.cpp,254,.usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).build();
+vista,test/physics_playground_application.cpp,268,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).build();
+vista,test/physics_playground_application.cpp,395,.size(sizeof(glm::mat4) * transforms.size()).usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,test/physics_playground_application.cpp,408,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+vista,test/physics_playground_application.cpp,487,.size(sizeof(float) * cascade_splits.size()).usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,test/skybox.cpp,65,.usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_ONLY).build();
+vista,test/skybox.cpp,74,.usage(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).build();
+vista,test/support.hpp,86,"uint32_t width, uint32_t height, VkImageUsageFlags usage,"
+vista,test/support.hpp,90,"result.image = vkz::image::builder(allocator).format(format).extent(width, height).usage(usage).build();"
+vista,test/support.hpp,202,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+vista,test/support.hpp,207,.usage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+vista,test/support.hpp,251,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+vista,test/texture_to_ktx.cpp,70,.usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+vista,test/texture_to_ktx.cpp,88,.usage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+vista,test/tree_population_test.cpp,187,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,test/tree_population_test.cpp,312,.usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+vista,test/tree_population_test.cpp,346,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+vista,test/tree_population_test.cpp,441,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,test/tree_population_test.cpp,563,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+vista,test/vista_application.cpp,395,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+vista,tools/grass_baker/main.cpp,182,.usage(depth ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+vista,tools/imposter_baker/main.cpp,279,"vkz::buffer upload(const void *data, size_t bytes, VkBufferUsageFlags usage) {"
+vista,tools/imposter_baker/main.cpp,280,auto result = vkz::buffer::builder(allocator_).size(bytes).usage(usage).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+vista,tools/imposter_baker/main.cpp,388,.usage(depth ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+vista,tools/imposter_baker/main.cpp,558,void usage() {
+vista,tools/imposter_baker/main.cpp,616,usage();
+VulkanXR,example/checkerboard_renderer.cpp,127,.usage()
+VulkanXR,example/controller_renderer.cpp,67,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+VulkanXR,example/controller_renderer.cpp,219,.usage()
+VulkanXR,example/movement_renderer.cpp,245,.usage()
+VulkanXR,example/movement_renderer.cpp,389,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+VulkanXR,example/movement_renderer.cpp,399,.usage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+VulkanXR,example/rtx_neural_cache.cpp,188,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+VulkanXR,example/rtx_nrc.cpp,15,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+VulkanXR,example/rtx_nrd.cpp,119,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+VulkanXR,example/rtx_nrd.cpp,146,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+VulkanXR,example/rtx_nrd.cpp,232,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+VulkanXR,example/rtx_tv.cpp,32,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+VulkanXR,example/rtx_tv.cpp,103,.usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
+VulkanXR,example/rtx_tv.cpp,136,.usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+VulkanXR,example/rtx_tv.cpp,267,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+VulkanXR,example/rtx_tv.cpp,359,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+VulkanXR,example/space_visualization_renderer.cpp,250,.usage()
+VulkanXR,example/space_visualization_renderer.cpp,260,.usage()
+VulkanXR,example/space_visualization_renderer.cpp,274,.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+VulkanXR,example/space_visualization_renderer.cpp,284,.usage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+VulkanXR,example/space_visualization_renderer.cpp,344,.usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+VulkanXR,example/sponza_lighting.hpp,181,.usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+VulkanXR,example/sponza_lighting.hpp,321,.usage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+VulkanXR,example/sponza_lighting.hpp,442,"vkz::buffer load_buffer(VkBufferUsageFlags usage, const void *data, size_t size) {"
+VulkanXR,example/sponza_lighting.hpp,445,.usage(usage)
+VulkanXR,example/sponza_lighting.hpp,473,.usage(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+VulkanXR,example/sponza_lighting.hpp,706,"const auto create = [&](vkz::texture &target, VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT) {"
+VulkanXR,example/sponza_lighting.hpp,712,.usage(usage | (samples == VK_SAMPLE_COUNT_1_BIT ? VK_IMAGE_USAGE_SAMPLED_BIT : 0))
+VulkanXR,example/sponza_reference.hpp,41,.usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+VulkanXR,example/sponza_reference.hpp,290,.usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+VulkanXR,example/sponza_reference.hpp,307,.usage(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+VulkanXR,example/sponza_reference.hpp,429,.usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+VulkanXR,example/sponza_reference.hpp,450,.usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | (ray_traced ? VK_IMAGE_USAGE_STORAGE_BIT : 0))
+VulkanXR,example/sponza_renderer.cpp,31,"[[nodiscard]] vkz::buffer upload(vkz::vma_memory_allocator &allocator, VkBufferUsageFlags usage, const void *data, std::size_t size) {"
+VulkanXR,example/sponza_renderer.cpp,34,.usage(usage)
+VulkanXR,example/sponza_renderer.cpp,141,const VkBufferUsageFlags ray_usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+VulkanXR,example/sponza_renderer.cpp,249,.usage()
+VulkanXR,src/desktop_application.cpp,17,[[nodiscard]] VkImageUsageFlags image_usage(const swapchain_create_info &create_info) {
+VulkanXR,src/desktop_application.cpp,18,VkImageUsageFlags result = VK_IMAGE_USAGE_SAMPLED_BIT;
+VulkanXR,src/desktop_application.cpp,20,result |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+VulkanXR,src/desktop_application.cpp,23,result |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+VulkanXR,src/desktop_application.cpp,26,result |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+VulkanXR,src/desktop_application.cpp,29,result |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+VulkanXR,src/desktop_application.cpp,122,.usage(image_usage(specification))
+VulkanXR,src/vxr/swapchain.hpp,41,usage_flags_ |= value;
+VulkanXR,src/vxr/swapchain.hpp,45,swapchain_create_info &usage() {

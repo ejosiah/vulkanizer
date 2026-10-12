@@ -83,7 +83,7 @@ namespace {
         return std::string{VKZ_PRIMITIVE_TEST_SHADER_DIR} + "/" + name + ".spv";
     }
 
-    VkSampleCountFlagBits pick_sample_count(VkPhysicalDevice physical_device) {
+    vkz::sample_count pick_sample_count(VkPhysicalDevice physical_device) {
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(physical_device, &properties);
 
@@ -91,13 +91,13 @@ namespace {
             properties.limits.framebufferColorSampleCounts &
             properties.limits.framebufferDepthSampleCounts;
 
-        if (supported & VK_SAMPLE_COUNT_4_BIT) {
-            return VK_SAMPLE_COUNT_4_BIT;
+        if (supported & static_cast<VkSampleCountFlags>(vkz::sample_count::x4)) {
+            return vkz::sample_count::x4;
         }
-        if (supported & VK_SAMPLE_COUNT_2_BIT) {
-            return VK_SAMPLE_COUNT_2_BIT;
+        if (supported & static_cast<VkSampleCountFlags>(vkz::sample_count::x2)) {
+            return vkz::sample_count::x2;
         }
-        return VK_SAMPLE_COUNT_1_BIT;
+        return vkz::sample_count::x1;
     }
 
     float implicit_paraboloid(float x, float y) {
@@ -175,11 +175,7 @@ namespace {
         return vkz::prim::cube(color);
     }
 
-    vkz::buffer create_buffer(
-            vkz::vma_memory_allocator& allocator,
-            VkBufferUsageFlags usage,
-            const void* data,
-            size_t size) {
+    vkz::buffer create_buffer(vkz::vma_memory_allocator &allocator, vkz::buffer::usage usage, const void *data, size_t size) {
         auto buffer =
             vkz::buffer::builder(allocator)
                 .usage(usage)
@@ -194,16 +190,8 @@ namespace {
 
     vkz::mesh_buffers create_mesh(vkz::vma_memory_allocator& allocator, const vkz::prim::primitive& primitive) {
         vkz::mesh_buffers result{};
-        result.vertex_buffer = create_buffer(
-            allocator,
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            primitive.vertices.data(),
-            sizeof(vkz::prim::vertex) * primitive.vertices.size());
-        result.index_buffer = create_buffer(
-            allocator,
-            VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            primitive.indices.data(),
-            sizeof(vkz::uint) * primitive.indices.size());
+        result.vertex_buffer = create_buffer(allocator, vkz::buffer::usage::vertex, primitive.vertices.data(), sizeof(vkz::prim::vertex) * primitive.vertices.size());
+        result.index_buffer = create_buffer(allocator, vkz::buffer::usage::index, primitive.indices.data(), sizeof(vkz::uint) * primitive.indices.size());
         return result;
     }
 
@@ -236,36 +224,33 @@ int main(int argc, char **argv) {
     const auto depth_format = vkz::pick_depth_format(context.device.physical);
     const auto sample_count = pick_sample_count(context.device.physical);
 
-    auto color_image =
-        vkz::image::builder(allocator)
-            .format(swapchain->format())
-            .extent(swapchain->width(), swapchain->height())
-            .samples(sample_count)
-            .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-            .build();
-    auto color_view =
-        vkz::image_view::builder(context.device)
-            .image(color_image)
-            .view_type(VK_IMAGE_VIEW_TYPE_2D)
-            .format(swapchain->format())
-            .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
-            .level_count(1)
-            .layer_count(1)
-            .build();
+    auto color_image = vkz::image::builder(allocator)
+        .format(swapchain->format())
+        .extent(swapchain->width(), swapchain->height())
+        .samples(sample_count)
+        .usage(vkz::image::usage::color)
+        .build();
+    auto color_view = vkz::image_view::builder(context.device)
+        .image(color_image)
+        .view_type(VK_IMAGE_VIEW_TYPE_2D)
+        .format(swapchain->format())
+        .aspect_mask(vkz::image::aspect::color)
+        .level_count(1)
+        .layer_count(1)
+        .build();
 
-    auto depth_image =
-        vkz::image::builder(allocator)
-            .format(depth_format)
-            .extent(swapchain->width(), swapchain->height())
-            .samples(sample_count)
-            .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-            .build();
+    auto depth_image = vkz::image::builder(allocator)
+        .format(depth_format)
+        .extent(swapchain->width(), swapchain->height())
+        .samples(sample_count)
+        .usage(vkz::image::usage::depth_stencil)
+        .build();
     auto depth_view =
         vkz::image_view::builder(context.device)
             .image(depth_image)
             .view_type(VK_IMAGE_VIEW_TYPE_2D)
             .format(depth_format)
-            .aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT)
+            .aspect_mask(vkz::image::aspect::depth)
             .level_count(1)
             .layer_count(1)
             .build();
@@ -282,53 +267,52 @@ int main(int argc, char **argv) {
         .samples = sample_count,
     });
 
-    auto pipeline =
-        vkz::graphics_pipeline_builder{context.device}
-            .shader_stage()
-                .vertex_shader(shader_path("primitive.vert"))
-                .fragment_shader(shader_path("primitive.frag"))
-            .vertex_input_state()
-                .add_vertex_binding_description(0, sizeof(vkz::prim::vertex), VK_VERTEX_INPUT_RATE_VERTEX)
-                .add_vertex_attribute_description(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vkz::prim::vertex, position))
-                .add_vertex_attribute_description(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vkz::prim::vertex, normal))
-                .add_vertex_attribute_description(2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vkz::prim::vertex, color))
-            .input_assembly_state()
-                .triangles()
-            .viewport_state()
-                .viewport()
-                    .origin(0, 0)
-                    .dimension(swapchain->width(), swapchain->height())
-                    .min_depth(0.0f)
-                    .max_depth(1.0f)
-                .scissor()
-                    .offset(0, 0)
-                    .extent(static_cast<int32_t>(swapchain->width()), static_cast<int32_t>(swapchain->height()))
-            .rasterization_state()
-                .cull_none()
-                .front_face_counter_clockwise()
-                .polygon_mode_fill()
-            .multisample_state()
-                .rasterization_samples(sample_count)
-            .depth_stencil_state()
-                .enable_depth_test()
-                .enable_depth_write()
-                .compare_op_less_or_equal()
-            .color_blend_state()
-                .attachment()
-                    .add()
-            .layout()
-                .add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_constants))
-            .dynamic_render_pass()
-                .add_color_attachment(swapchain->format())
-                .depth_attachment(depth_format)
-            .name("primitive_test")
-            .build();
+    auto pipeline = vkz::graphics_pipeline_builder{context.device}
+                        .shader_stage()
+                        .vertex_shader(shader_path("primitive.vert"))
+                        .fragment_shader(shader_path("primitive.frag"))
+                        .vertex_input_state()
+                        .add_vertex_binding_description(0, sizeof(vkz::prim::vertex), VK_VERTEX_INPUT_RATE_VERTEX)
+                        .add_vertex_attribute_description(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vkz::prim::vertex, position))
+                        .add_vertex_attribute_description(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vkz::prim::vertex, normal))
+                        .add_vertex_attribute_description(2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vkz::prim::vertex, color))
+                        .input_assembly_state()
+                        .triangles()
+                        .viewport_state()
+                        .viewport()
+                        .origin(0, 0)
+                        .dimension(swapchain->width(), swapchain->height())
+                        .min_depth(0.0f)
+                        .max_depth(1.0f)
+                        .scissor()
+                        .offset(0, 0)
+                        .extent(static_cast<int32_t>(swapchain->width()), static_cast<int32_t>(swapchain->height()))
+                        .rasterization_state()
+                        .cull_none()
+                        .front_face_counter_clockwise()
+                        .polygon_mode_fill()
+                        .multisample_state()
+                        .rasterization_samples(sample_count)
+                        .depth_stencil_state()
+                        .enable_depth_test()
+                        .enable_depth_write()
+                        .compare_op_less_or_equal()
+                        .color_blend_state()
+                        .attachment()
+                        .add()
+                        .layout()
+                        .add_push_constant_range(vkz::shader_stage::vertex, 0, sizeof(push_constants))
+                        .dynamic_render_pass()
+                        .add_color_attachment(swapchain->format())
+                        .depth_attachment(depth_format)
+                        .name("primitive_test")
+                        .build();
 
     vkz::fenced_command_pools commands{
         context.device,
         graphics_queue,
         queue_family_index,
-        VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        vkz::command_pool_flags::transient,
         1,
     };
     VkSemaphore image_available = vkz::create_semaphore(context.device.logical);
@@ -406,44 +390,24 @@ int main(int argc, char **argv) {
         auto image = swapchain->get_image(image_index);
 
         VkImageSubresourceRange color_range{};
-        color_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        color_range.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::color);
         color_range.levelCount = 1;
         color_range.layerCount = 1;
         const auto color_initialized = color_image.layout != VK_IMAGE_LAYOUT_UNDEFINED;
-        vkz::barrier::push_and_flush(
-            command_buffer,
-            color_image,
-            color_range,
-            color_initialized ? VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_2_NONE,
-            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-            color_initialized ? VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT : VK_ACCESS_2_NONE,
-            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        vkz::barrier::push_and_flush(
-            command_buffer,
-            image,
-            color_range,
-            VK_PIPELINE_STAGE_2_NONE,
-            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_ACCESS_2_NONE,
-            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vkz::barrier::push_and_flush(command_buffer, color_image, color_range, color_initialized ? vkz::pipeline::stage::color_attachment_output : vkz::pipeline::stage::none,
+                                     vkz::pipeline::stage::color_attachment_output, color_initialized ? vkz::access::color_attachment_write : vkz::access::none, vkz::access::color_attachment_write,
+                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vkz::barrier::push_and_flush(command_buffer, image, color_range, vkz::pipeline::stage::none, vkz::pipeline::stage::color_attachment_output, vkz::access::none,
+                                     vkz::access::color_attachment_write, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
         VkImageSubresourceRange depth_range{};
-        depth_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        depth_range.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::depth);
         depth_range.levelCount = 1;
         depth_range.layerCount = 1;
         const auto depth_initialized = depth_image.layout != VK_IMAGE_LAYOUT_UNDEFINED;
-        vkz::barrier::push_and_flush(
-            command_buffer,
-            depth_image,
-            depth_range,
-            depth_initialized ? VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_2_NONE,
-            VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-            depth_initialized ? VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT : VK_ACCESS_2_NONE,
-            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        vkz::barrier::push_and_flush(command_buffer, depth_image, depth_range, depth_initialized ? vkz::pipeline::stage::late_fragment_tests : vkz::pipeline::stage::none,
+                                     vkz::pipeline::stage::early_fragment_tests, depth_initialized ? vkz::access::depth_stencil_attachment_write : vkz::access::none,
+                                     vkz::access::depth_stencil_attachment_write, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
         vkz::render_info render_info{};
         render_info.color_attachments.push_back({
@@ -471,20 +435,12 @@ int main(int argc, char **argv) {
             vkz::imgui::render(command_buffer);
         });
 
-        vkz::barrier::push_and_flush(
-            command_buffer,
-            image,
-            color_range,
-            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_2_NONE,
-            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_ACCESS_2_NONE,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        vkz::barrier::push_and_flush(command_buffer, image, color_range, vkz::pipeline::stage::color_attachment_output, vkz::pipeline::stage::none, vkz::access::color_attachment_write,
+                                     vkz::access::none, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
         VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
         commands.enqueue(command_buffer);
-        commands.enqueue_wait(image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        commands.enqueue_wait(image_available, vkz::pipeline::stage::color_attachment_output);
         commands.enqueue_signal(render_finished);
         VKZ_CHECK_VULKAN(commands.execute());
 

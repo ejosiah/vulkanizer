@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
         context.device,
         graphics_queue,
         queue_family_index,
-        VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        vkz::command_pool_flags::transient,
         1,
     };
     VkSemaphore image_available = vkz::create_semaphore(context.device.logical);
@@ -143,20 +143,12 @@ int main(int argc, char **argv) {
         auto command_buffer = commands.create_command_buffer();
         auto image = swapchain->get_image(image_index);
         VkImageSubresourceRange range{};
-        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        range.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::color);
         range.levelCount = 1;
         range.layerCount = 1;
 
-        vkz::barrier::push_and_flush(
-                command_buffer,
-                image,
-                range,
-                VK_PIPELINE_STAGE_2_NONE,
-                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_ACCESS_2_NONE,
-                VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                VK_IMAGE_LAYOUT_UNDEFINED,
-                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vkz::barrier::push_and_flush(command_buffer, image, range, vkz::pipeline::stage::none, vkz::pipeline::stage::color_attachment_output, vkz::access::none, vkz::access::color_attachment_write,
+                                     VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
         vkz::render_info render_info{};
         render_info.color_attachments.push_back({
@@ -170,20 +162,12 @@ int main(int argc, char **argv) {
             vkz::imgui::render(command_buffer);
         });
 
-        vkz::barrier::push_and_flush(
-                command_buffer,
-                image,
-                range,
-                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_PIPELINE_STAGE_2_NONE,
-                VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                VK_ACCESS_2_NONE,
-                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        vkz::barrier::push_and_flush(command_buffer, image, range, vkz::pipeline::stage::color_attachment_output, vkz::pipeline::stage::none, vkz::access::color_attachment_write, vkz::access::none,
+                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
         VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
         commands.enqueue(command_buffer);
-        commands.enqueue_wait(image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        commands.enqueue_wait(image_available, vkz::pipeline::stage::color_attachment_output);
         commands.enqueue_signal(render_finished);
         VKZ_CHECK_VULKAN(commands.execute());
 

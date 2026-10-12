@@ -74,9 +74,9 @@ namespace vkz {
         return *this;
     }
 
-    color_blend_attachment_state_builder &color_blend_attachment_state_builder::color_write_mask(VkColorComponentFlags flags) {
+    color_blend_attachment_state_builder &color_blend_attachment_state_builder::color_write_mask(vkz::color_component flags) {
         dirty();
-        _scratchpad.colorWriteMask = flags;
+        _scratchpad.colorWriteMask = static_cast<VkColorComponentFlags>(flags);
         return *this;
     }
 
@@ -84,8 +84,7 @@ namespace vkz {
         _dirty = false;
         _scratchpad = VkPipelineColorBlendAttachmentState{};
         _scratchpad.colorWriteMask =
-                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                VK_COLOR_COMPONENT_A_BIT;
+                static_cast<VkColorComponentFlags>(vkz::color_component::rgba);
     }
 
     color_blend_attachment_state_builder &color_blend_attachment_state_builder::add() {

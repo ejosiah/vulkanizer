@@ -144,38 +144,36 @@ namespace {
         const auto extent = base.image.create_info.extent;
         const uint32_t levels = 1 + uint32_t(std::floor(std::log2(std::max(extent.width, extent.height))));
         result.image = vkz::image::builder(allocator)
-                           .format(VK_FORMAT_R8G8B8A8_SRGB)
-                           .extent(extent)
-                           .mip_levels(levels)
-                           .usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-                           .build();
-        vkz::command_pool commands{allocator.device, family, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queue};
+            .format(VK_FORMAT_R8G8B8A8_SRGB)
+            .extent(extent)
+            .mip_levels(levels)
+            .usage(vkz::image::usage::sampled_transfer)
+            .build();
+        vkz::command_pool commands{allocator.device, family, vkz::command_pool_flags::transient, queue};
         auto cmd = commands.create_command_buffer();
-        vkz::barrier::push(base.image, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                           VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                           VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        vkz::barrier::push_and_flush(cmd, result.image, {VK_IMAGE_ASPECT_COLOR_BIT, 0, levels, 0, 1}, VK_PIPELINE_STAGE_2_NONE,
-                                     VK_PIPELINE_STAGE_2_TRANSFER_BIT, 0, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        vkz::barrier::push(base.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::transfer,
+                           vkz::access::memory_read_write, vkz::access::transfer_read, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        vkz::barrier::push_and_flush(cmd, result.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, levels, 0, 1}, vkz::pipeline::stage::none, vkz::pipeline::stage::transfer,
+                                     vkz::access::none, vkz::access::transfer_write, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         VkImageCopy region{};
-        region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        region.srcSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 0, 1};
         region.dstSubresource = region.srcSubresource;
         region.extent = extent;
         vkCmdCopyImage(cmd, base.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, result.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
                        &region);
         vkz::generate_mip_maps(cmd, result.image);
-        vkz::barrier::push_and_flush(cmd, result.image, {VK_IMAGE_ASPECT_COLOR_BIT, 0, levels, 0, 1}, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                     VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                                     VK_ACCESS_2_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        vkz::barrier::push_and_flush(cmd, result.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, levels, 0, 1}, vkz::pipeline::stage::all_commands,
+                                     vkz::pipeline::stage::fragment_shader, vkz::access::memory_read_write, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         commands.submit_and_wait(cmd);
         base.destroy();
-        result.image_view = vkz::image_view::builder(allocator.device)
-                                .image(result.image)
-                                .format(VK_FORMAT_R8G8B8A8_SRGB)
-                                .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
-                                .level_count(levels)
-                                .layer_count(1)
-                                .build();
+        result.image_view =
+            vkz::image_view::builder(allocator.device)
+                .image(result.image)
+                .format(VK_FORMAT_R8G8B8A8_SRGB)
+                .aspect_mask(vkz::image::aspect::color)
+                .level_count(levels)
+                .layer_count(1)
+                .build();
         result.sampler = vkz::sampler::builder(allocator.device)
                              .mag_filter(VK_FILTER_LINEAR)
                              .min_filter(VK_FILTER_LINEAR)
@@ -227,7 +225,7 @@ namespace {
             .front_face_counter_clockwise()
             .polygon_mode_fill()
             .multisample_state()
-            .rasterization_samples(VK_SAMPLE_COUNT_1_BIT);
+            .rasterization_samples(vkz::sample_count::x1);
         if ((!shadow || csm_shadow) && depth != VK_FORMAT_UNDEFINED) {
             builder.depth_stencil_state().enable_depth_test().compare_op_less_or_equal();
             if (color == VK_FORMAT_UNDEFINED)
@@ -239,8 +237,8 @@ namespace {
             builder.rasterization_state().enable_depth_bias();
             builder.dynamic_state().depth_bias();
         }
-        builder.layout().add_descriptor_set_layout(shadows).add_descriptor_set_layout(materials).add_push_constant_range(
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(scene_constants));
+        builder.layout().add_descriptor_set_layout(shadows).add_descriptor_set_layout(materials).add_push_constant_range(vkz::shader_stage::vertex | vkz::shader_stage::fragment, 0,
+                                                                                                                         sizeof(scene_constants));
         auto &rendering = builder.dynamic_render_pass();
         if (color != VK_FORMAT_UNDEFINED)
             rendering.add_color_attachment(color);
@@ -385,36 +383,38 @@ int main(int argc, char **argv) try {
     auto allocator = host.allocator();
     const auto queue = app.graphics_queue();
     const auto family = app.queue_family_index();
-    vkz::command_pool uploads{device, family, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queue};
-    auto upload = [&](const void *data, size_t bytes, VkBufferUsageFlags usage) {
+    vkz::command_pool uploads{device, family, vkz::command_pool_flags::transient, queue};
+    auto upload = [&](const void *data, size_t bytes, vkz::buffer::usage usage) {
         const size_t input_bytes = bytes;
         bytes = std::max(bytes, size_t(16));
         auto staging = vkz::buffer::builder(allocator)
-                           .size(bytes)
-                           .usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
-                           .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
-                           .build();
+            .size(bytes)
+            .usage(vkz::buffer::usage::transfer_src)
+            .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+            .build();
         auto map = staging.map();
         std::memset(map.as<void>(), 0, bytes);
         if (input_bytes)
             std::memcpy(map.as<void>(), data, input_bytes);
         vmaFlushAllocation(staging.allocator, staging.allocation, 0, bytes);
         map.unmap();
-        auto result = vkz::buffer::builder(allocator).size(bytes).usage(usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT).build();
+        auto result = vkz::buffer::builder(allocator)
+            .size(bytes)
+            .usage(usage | vkz::buffer::usage::transfer_dst)
+            .build();
         auto cmd = uploads.create_command_buffer();
         VkBufferCopy copy{0, 0, bytes};
         vkCmdCopyBuffer(cmd, staging, result, 1, &copy);
-        vkz::barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                     VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_MEMORY_READ_BIT);
+        vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::transfer, vkz::pipeline::stage::all_commands, vkz::access::transfer_write, vkz::access::memory_read);
         uploads.submit_and_wait(cmd);
         staging.destroy();
         return result;
     };
-    auto vertices = upload(model.vertices.data(), model.vertices.size() * sizeof(vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    auto vertices = upload(model.vertices.data(), model.vertices.size() * sizeof(vertex), vkz::buffer::usage::vertex);
     std::vector<uint32_t> indices(model.vertices.size());
     for (uint32_t i = 0; i < indices.size(); ++i)
         indices[i] = i;
-    auto index_buffer = upload(indices.data(), indices.size() * 4, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    auto index_buffer = upload(indices.data(), indices.size() * 4, vkz::buffer::usage::index);
     indices.clear();
     indices.shrink_to_fit();
     model.vertices.clear();
@@ -425,54 +425,53 @@ int main(int argc, char **argv) try {
         bounds.push_back(b.bounds);
         templates.push_back({b.count, 1, b.first, 0, 0});
     }
-    auto caster_buffer = upload(bounds.data(), bounds.size() * sizeof(bounds[0]), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    auto draw_buffer = upload(templates.data(), templates.size() * sizeof(templates[0]), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    auto caster_buffer = upload(bounds.data(), bounds.size() * sizeof(bounds[0]), vkz::buffer::usage::storage);
+    auto draw_buffer = upload(templates.data(), templates.size() * sizeof(templates[0]), vkz::buffer::usage::storage);
     const auto output_format = host.output_format();
     vkz::texture output;
     output.image = vkz::image::builder(allocator)
-                       .format(output_format)
-                       .extent(width, height)
-                       .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
-                       .build();
+        .format(output_format)
+        .extent(width, height)
+        .usage(vkz::image::usage::color | vkz::image::usage::sampled | vkz::image::usage::transfer_src)
+        .build();
     output.image_view = vkz::image_view::builder(device)
-                            .image(output.image)
-                            .format(output_format)
-                            .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
-                            .level_count(1)
-                            .layer_count(1)
-                            .build();
+        .image(output.image)
+        .format(output_format)
+        .aspect_mask(vkz::image::aspect::color)
+        .level_count(1)
+        .layer_count(1)
+        .build();
     output.sampler = vkz::sampler::builder(device).build();
     auto output_layout = vkz::make_descriptor_set_layout_builder(device)
                              .binding(0)
                              .descriptor_count(1)
-                             .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                             .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                             .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                             .shader_stages(vkz::shader_stage::fragment)
                              .create_layout();
-    vkz::descriptor_pool output_pool{device, 1, {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}}};
+    vkz::descriptor_pool output_pool{device, 1, {{static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1}}};
     auto output_set = output_pool.allocate(output_layout);
     vkz::update_descriptors(
         device, {{output_set, {vkz::texture_descriptor{output.image_view, output.sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0}}}});
     vkz::buffer screenshot_buffer;
-    if (!screenshot.empty())
-        screenshot_buffer = vkz::buffer::builder(allocator)
-                                .size(width * height * 4)
-                                .usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-                                .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
-                                .build();
+    if (!screenshot.empty()) screenshot_buffer = vkz::buffer::builder(allocator)
+        .size(width * height * 4)
+        .usage(vkz::buffer::usage::transfer_dst)
+        .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
+        .build();
     vkz::texture depth;
     const auto depth_format = vkz::pick_depth_format(device.physical);
     depth.image = vkz::image::builder(allocator)
-                      .format(depth_format)
-                      .extent(width, height)
-                      .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
-                      .build();
+        .format(depth_format)
+        .extent(width, height)
+        .usage(vkz::image::usage::depth_stencil_sampled)
+        .build();
     depth.image_view = vkz::image_view::builder(device)
-                           .image(depth.image)
-                           .format(depth_format)
-                           .aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT)
-                           .level_count(1)
-                           .layer_count(1)
-                           .build();
+        .image(depth.image)
+        .format(depth_format)
+        .aspect_mask(vkz::image::aspect::depth)
+        .level_count(1)
+        .layer_count(1)
+        .build();
     const auto shadows = vkz::svsm::create({.device = device,
                                             .memory_allocator = allocator,
                                             .physical_pages = 4096,
@@ -489,24 +488,23 @@ int main(int argc, char **argv) try {
     std::vector<vkz::texture> textures(1);
     auto &white = textures.front();
     white.image = vkz::image::builder(allocator)
-                      .format(VK_FORMAT_R8G8B8A8_SRGB)
-                      .extent(1, 1)
-                      .usage(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
-                      .build();
+        .format(VK_FORMAT_R8G8B8A8_SRGB)
+        .extent(1, 1)
+        .usage(vkz::image::usage::sampled_upload)
+        .build();
     white.image_view = vkz::image_view::builder(device)
-                           .image(white.image)
-                           .format(VK_FORMAT_R8G8B8A8_SRGB)
-                           .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
-                           .level_count(1)
-                           .layer_count(1)
-                           .build();
+        .image(white.image)
+        .format(VK_FORMAT_R8G8B8A8_SRGB)
+        .aspect_mask(vkz::image::aspect::color)
+        .level_count(1)
+        .layer_count(1)
+        .build();
     white.sampler = vkz::sampler::builder(device).build();
     {
         auto cmd = uploads.create_command_buffer();
         vkz::clear(cmd, white.image, VkClearColorValue{{1, 1, 1, 1}}, {});
-        vkz::barrier::push_and_flush(cmd, white.image, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                     VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_READ_BIT,
-                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        vkz::barrier::push_and_flush(cmd, white.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer, vkz::pipeline::stage::fragment_shader,
+                                     vkz::access::transfer_write, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         uploads.submit_and_wait(cmd);
     }
     std::vector<uint32_t> material_textures(model.materials.size() + 1, 0);
@@ -533,35 +531,35 @@ int main(int argc, char **argv) try {
     auto material_layout = vkz::make_descriptor_set_layout_builder(device)
                                .binding(0)
                                .descriptor_count(1)
-                               .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                               .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                               .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                               .shader_stages(vkz::shader_stage::fragment)
                                .binding(1)
                                .descriptor_count(1)
-                               .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                               .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                               .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                               .shader_stages(vkz::shader_stage::fragment)
                                .binding(2)
                                .descriptor_count(1)
-                               .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                               .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                               .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                               .shader_stages(vkz::shader_stage::fragment)
                                .create_layout();
     vkz::descriptor_pool material_pool{
-        device, uint32_t(material_textures.size()), {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, uint32_t(material_textures.size() * 3)}}};
+        device, uint32_t(material_textures.size()), {{static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), uint32_t(material_textures.size() * 3)}}};
     auto materials = material_pool.allocate_n(material_layout, material_textures.size());
     for (uint32_t i = 0; i < materials.size(); ++i) {
         if (!bistro_loaded) {
-            vkz::update_descriptors(device, {{materials[i], {vkz::descriptor<vkz::texture_descriptor>(textures.front(), 0)}}});
+            vkz::update_descriptors(device, {{materials[i], {vkz::make_descriptor<vkz::texture_descriptor>(textures.front(), 0)}}});
             continue;
         }
-        vkz::update_descriptors(
-            device, {{materials[i],
-                      {vkz::descriptor<vkz::texture_descriptor>(textures[material_textures[i]], 0),
-                       vkz::descriptor<vkz::texture_descriptor>(sky, 1), vkz::descriptor<vkz::texture_descriptor>(irradiance, 2)}}});
+        vkz::update_descriptors(device, {{materials[i],
+                                          {vkz::make_descriptor<vkz::texture_descriptor>(textures[material_textures[i]], 0), vkz::make_descriptor<vkz::texture_descriptor>(sky, 1),
+                                           vkz::make_descriptor<vkz::texture_descriptor>(irradiance, 2)}}});
     }
     vkz::descriptor_set_layout shadow_layout{vkz::svsm::descriptor_set_layout(shadows), device};
-    vkz::descriptor_pool csm_pool{
-        device,
-        2,
-        {{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4}, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2}, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}}};
+    vkz::descriptor_pool csm_pool{device,
+                                  2,
+                                  {{static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 4},
+                                   {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 2},
+                                   {static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1}}};
     auto csm_initial_transition = uploads.create_command_buffer();
     const auto cascades =
         vkz::csm::create({.device = device,
@@ -575,34 +573,33 @@ int main(int argc, char **argv) try {
                           .in_flight_frames = 1,
                           .num_cascades = 4,
                           .size = 4096,
-                          .cull_mode = VK_CULL_MODE_NONE});
+                          .cull_mode = vkz::cull_mode::none});
     uploads.submit_and_wait(csm_initial_transition);
     auto csm_camera_buffer = vkz::buffer::builder(allocator)
-                                 .size(80)
-                                 .usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
-                                 .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
-                                 .build();
+        .size(80)
+        .usage(vkz::buffer::usage::uniform)
+        .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+        .build();
     auto csm_lighting_layout = vkz::make_descriptor_set_layout_builder(device)
                                    .binding(0)
                                    .descriptor_count(1)
-                                   .descriptor_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                                   .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                                   .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                   .shader_stages(vkz::shader_stage::fragment)
                                    .binding(1)
                                    .descriptor_count(1)
-                                   .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                                   .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                                   .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                   .shader_stages(vkz::shader_stage::fragment)
                                    .binding(2)
                                    .descriptor_count(1)
-                                   .descriptor_type(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-                                   .shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                                   .descriptor_type(vkz::descriptor::type::uniform_buffer)
+                                   .shader_stages(vkz::shader_stage::fragment)
                                    .create_layout();
     auto csm_lighting_set = csm_pool.allocate(csm_lighting_layout);
     const auto csm_texture = vkz::csm::shadow_map(cascades, 0);
-    vkz::update_descriptors(
-        device, {{csm_lighting_set,
-                  {vkz::descriptor<vkz::buffer_descriptor>(vkz::csm::cascade_view_projection(cascades), 0),
-                   vkz::texture_descriptor{csm_texture.image_view, csm_texture.sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1},
-                   vkz::descriptor<vkz::ubo_descriptor>(csm_camera_buffer, 2)}}});
+    vkz::update_descriptors(device, {{csm_lighting_set,
+                                      {vkz::make_descriptor<vkz::buffer_descriptor>(vkz::csm::cascade_view_projection(cascades), 0),
+                                       vkz::texture_descriptor{csm_texture.image_view, csm_texture.sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1},
+                                       vkz::make_descriptor<vkz::ubo_descriptor>(csm_camera_buffer, 2)}}});
     auto csm_forward =
         make_pipeline(device, output_format, depth_format, csm_lighting_layout, material_layout, "bistro.vert", "bistro_csm.frag");
     auto csm_shadow = make_pipeline(device, VK_FORMAT_UNDEFINED, depth_format, {vkz::csm::descriptor_set_layout(cascades), device},
@@ -634,10 +631,10 @@ int main(int argc, char **argv) try {
     initializer.perspective(65, float(width) / height, 0.05f, 2000);
     vkz::camera::controller controller{camera, vkz::camera::movement_type::spectator, input.get_device()};
     auto stats_readback = vkz::buffer::builder(allocator)
-                              .size(sizeof(vkz::svsm::statistics))
-                              .usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-                              .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
-                              .build();
+        .size(sizeof(vkz::svsm::statistics))
+        .usage(vkz::buffer::usage::transfer_dst)
+        .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
+        .build();
     vkz::profiler gpu_profiler{device, 16};
     std::vector<std::string> profile_names{"Receiver depth", "SVSM total", "CSM total", "SVSM lighting", "CSM lighting"};
     std::vector<std::string> recorded_queries;
@@ -796,10 +793,9 @@ int main(int argc, char **argv) try {
         }
         if (run_csm)
             recorded_queries.emplace_back("CSM total");
-        vkz::barrier::push_and_flush(cmd, depth.image, {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                                     VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                                     VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        vkz::barrier::push_and_flush(cmd, depth.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::depth), 0, 1, 0, 1}, vkz::pipeline::stage::all_commands,
+                                     vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests, vkz::access::memory_read_write,
+                                     vkz::access::depth_stencil_attachment_write, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
         scene_constants constants{};
         constants.matrix = camera.projection * camera.view;
         constants.light_direction = glm::vec4(glm::normalize(sun), 0);
@@ -824,8 +820,7 @@ int main(int argc, char **argv) try {
                 constants.info.x = clip;
                 constants.info.y = b;
                 vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 1, 1, &materials[m].handle, 0, nullptr);
-                vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
-                                   &constants);
+                vkCmdPushConstants(cmd, pipeline.layout, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), 0, sizeof(constants), &constants);
                 if (indirect)
                     vkCmdDrawIndexedIndirect(cmd, vkz::svsm::indexed_draws(shadows, 0),
                                              (VkDeviceSize(clip) * model.batches.size() + b) * 20, 1, 20);
@@ -838,8 +833,7 @@ int main(int argc, char **argv) try {
         render.depth_attachment = vkz::depth_stencil_attachment{depth.image_view, depth_format, {1, 0}, true};
         auto draw_floor = [&](const vkz::pipeline &pipeline) {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
-            vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
-                               &constants);
+            vkCmdPushConstants(cmd, pipeline.layout, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), 0, sizeof(constants), &constants);
             vkCmdDraw(cmd, 3, 1, 0, 0);
         };
         gpu_profiler.profile(
@@ -852,11 +846,10 @@ int main(int argc, char **argv) try {
                         draw_scene(prepass, false, 0);
                 });
             },
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-        vkz::barrier::push_and_flush(cmd, depth.image, {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1},
-                                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                                     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                                     VK_ACCESS_2_SHADER_READ_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
+            vkz::pipeline::stage::bottom_of_pipe);
+        vkz::barrier::push_and_flush(cmd, depth.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::depth), 0, 1, 0, 1},
+                                     vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests, vkz::pipeline::stage::compute_shader,
+                                     vkz::access::depth_stencil_attachment_write, vkz::access::shader_read, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
         const float depth_extent = floor_scene ? 1000000.0f : glm::length(glm::max(glm::abs(model.minimum), glm::abs(model.maximum))) + 10;
         auto shadow_set = vkz::svsm::descriptor_set(shadows, 0);
         if (run_svsm)
@@ -881,7 +874,7 @@ int main(int argc, char **argv) try {
                     });
                     vkz::svsm::end(shadows, cmd);
                 },
-                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+                vkz::pipeline::stage::bottom_of_pipe);
         if (run_csm) {
             struct csm_camera_data {
                 glm::mat4 view;
@@ -918,17 +911,15 @@ int main(int argc, char **argv) try {
                         },
                         cmd, 0);
                 },
-                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+                vkz::pipeline::stage::bottom_of_pipe);
         }
-        vkz::barrier::push_and_flush(cmd, depth.image, {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                                     VK_ACCESS_2_SHADER_READ_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+        vkz::barrier::push_and_flush(cmd, depth.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::depth), 0, 1, 0, 1}, vkz::pipeline::stage::compute_shader,
+                                     vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests, vkz::access::shader_read, vkz::access::depth_stencil_attachment_read,
                                      VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
         auto &color = output.image;
-        vkz::barrier::push_and_flush(cmd, color.handle, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                     VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                                     color.layout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vkz::barrier::push_and_flush(cmd, color.handle, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::all_commands,
+                                     vkz::pipeline::stage::color_attachment_output, vkz::access::memory_read_write, vkz::access::color_attachment_write, color.layout,
+                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         render.color_attachments.push_back({output.image_view, output_format, {0.10f, 0.14f, 0.20f, 1}});
         render.depth_attachment->clear = false;
         gpu_profiler.profile(
@@ -952,16 +943,14 @@ int main(int argc, char **argv) try {
                     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_pipeline.handle);
                     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_pipeline.layout, 1, 1, &materials.back().handle, 0,
                                             nullptr);
-                    vkCmdPushConstants(cmd, sky_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                       sizeof(sky_constants), &sky_constants);
+                    vkCmdPushConstants(cmd, sky_pipeline.layout, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), 0, sizeof(sky_constants), &sky_constants);
                     vkCmdDraw(cmd, 3, 1, 0, 0);
                 });
             },
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+            vkz::pipeline::stage::bottom_of_pipe);
         // ImGui's pipeline declares no depth attachment; use a separate color-only rendering scope.
-        vkz::barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                     VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                                     VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
+        vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::color_attachment_output, vkz::pipeline::stage::color_attachment_output, vkz::access::color_attachment_write,
+                                     vkz::access::color_attachment_read_write);
         render.depth_attachment.reset();
         render.color_attachments[0].clear = false;
         vkz::render(cmd, render, [&] {
@@ -971,8 +960,7 @@ int main(int argc, char **argv) try {
                 page_constants.info.z = uint32_t(page_view);
                 vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pages_pipeline.handle);
                 vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pages_pipeline.layout, 0, 1, &shadow_set, 0, nullptr);
-                vkCmdPushConstants(cmd, pages_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                   sizeof(page_constants), &page_constants);
+                vkCmdPushConstants(cmd, pages_pipeline.layout, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), 0, sizeof(page_constants), &page_constants);
                 vkCmdDraw(cmd, 3, 1, 0, 0);
             }
             vkz::imgui::render(cmd);
@@ -980,28 +968,23 @@ int main(int argc, char **argv) try {
         VkBufferCopy copy{0, 0, sizeof(stats)};
         if (run_svsm)
             vkCmdCopyBuffer(cmd, vkz::svsm::counters(shadows, 0), stats_readback, 1, &copy);
-        vkz::barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                     VK_ACCESS_2_HOST_READ_BIT);
+        vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::transfer, vkz::pipeline::stage::host, vkz::access::transfer_write, vkz::access::host_read);
         if (screenshot_buffer._) {
-            vkz::barrier::push_and_flush(cmd, color.handle, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-                                         VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                         VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
-                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            vkz::barrier::push_and_flush(cmd, color.handle, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::color_attachment_output,
+                                         vkz::pipeline::stage::transfer, vkz::access::color_attachment_write, vkz::access::transfer_read, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             VkBufferImageCopy image_copy{};
-            image_copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            image_copy.imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 0, 1};
             image_copy.imageExtent = {width, height, 1};
             vkCmdCopyImageToBuffer(cmd, color.handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, screenshot_buffer, 1, &image_copy);
-            vkz::barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_HOST_BIT,
-                                         VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_HOST_READ_BIT);
-            vkz::barrier::push_and_flush(cmd, color.handle, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                         VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
-                                         VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::transfer, vkz::pipeline::stage::host, vkz::access::transfer_write, vkz::access::host_read);
+            vkz::barrier::push_and_flush(cmd, color.handle, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer,
+                                         vkz::pipeline::stage::fragment_shader, vkz::access::transfer_read, vkz::access::shader_sampled_read, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         } else
-            vkz::barrier::push_and_flush(cmd, color.handle, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-                                         VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                                         VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            vkz::barrier::push_and_flush(cmd, color.handle, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::color_attachment_output,
+                                         vkz::pipeline::stage::fragment_shader, vkz::access::color_attachment_write, vkz::access::shader_sampled_read, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         output.image.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     };
     auto output_pipeline = make_pipeline(device, output_format, VK_FORMAT_UNDEFINED, output_layout, material_layout, "bistro_sky.vert",

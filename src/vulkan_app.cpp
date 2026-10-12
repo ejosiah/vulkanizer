@@ -1,4 +1,5 @@
 #include <vulkanizer/vulkan_app.hpp>
+#include <vulkanizer/pipeline.hpp>
 
 #include <vulkanizer/log.hpp>
 #include <vulkanizer/status.hpp>
@@ -152,6 +153,9 @@ namespace {
         }
 
         builder.add_extension_chain(create_info.extension_chain);
+        for (const auto flag : create_info.queues) {
+            builder.add_queue(flag);
+        }
 
         return builder.build();
     }
@@ -270,7 +274,7 @@ namespace vkz {
         }
     }
 
-    std::unique_ptr<vkz::swapchain> vulkan_app::create_swapchain(VkImageUsageFlags image_usage) const {
+    std::unique_ptr<vkz::swapchain> vulkan_app::create_swapchain(vkz::image::usage image_usage) const {
         auto builder = vkz::swapchain::builder(context_);
         builder.set_image_usage(image_usage);
         if (!vsync_) {
@@ -298,7 +302,7 @@ namespace vkz {
         for (uint32_t i = 0; i < queue_families.size(); ++i) {
             VkBool32 present_supported{};
             VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &present_supported));
-            if ((queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && present_supported) {
+            if ((queue_families[i].queueFlags & static_cast<VkQueueFlags>(vkz::queue::graphics)) && present_supported) {
                 return i;
             }
         }
@@ -306,9 +310,9 @@ namespace vkz {
         VKZ_THROW("No graphics/present queue family is available")
     }
 
-    VkCommandPool create_command_pool(VkDevice device, uint32_t queue_family_index, VkCommandPoolCreateFlags flags) {
+    VkCommandPool create_command_pool(VkDevice device, uint32_t queue_family_index, vkz::command_pool_flags flags) {
         VkCommandPoolCreateInfo create_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-        create_info.flags = flags;
+        create_info.flags = static_cast<VkCommandPoolCreateFlags>(flags);
         create_info.queueFamilyIndex = queue_family_index;
 
         VkCommandPool command_pool{};
@@ -326,7 +330,7 @@ namespace vkz {
         VKZ_CHECK_VULKAN(vkAllocateCommandBuffers(device, &allocate_info, &command_buffer));
 
         VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        begin_info.flags = static_cast<VkCommandBufferUsageFlags>(vkz::command_buffer_usage::one_time_submit);
         VKZ_CHECK_VULKAN(vkBeginCommandBuffer(command_buffer, &begin_info));
         return command_buffer;
     }
@@ -341,7 +345,7 @@ namespace vkz {
             VkFence fence) {
         VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
 
-        VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        const VkPipelineStageFlags wait_stage = static_cast<VkPipelineStageFlags>(vkz::pipeline::stage::color_attachment_output);
         VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
         submit_info.waitSemaphoreCount = wait_semaphore ? 1u : 0u;
         submit_info.pWaitSemaphores = wait_semaphore ? &wait_semaphore : nullptr;
@@ -387,7 +391,7 @@ namespace vkz {
             VkFormatProperties properties{};
             vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
 
-            if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+            if (properties.optimalTilingFeatures & static_cast<VkFormatFeatureFlags>(vkz::format_feature::depth_stencil_attachment)) {
                 return format;
             }
         }
@@ -403,15 +407,14 @@ namespace vkz {
             vkz::image swapchain_image{};
             swapchain_image.handle = swapchain.get_image(i);
             swapchain_image.create_info.format = swapchain.format();
-            image_views.push_back(
-                vkz::image_view::builder(device)
-                    .image(swapchain_image)
-                    .view_type(VK_IMAGE_VIEW_TYPE_2D)
-                    .format(swapchain.format())
-                    .aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT)
-                    .level_count(1)
-                    .layer_count(1)
-                    .build());
+            image_views.push_back(vkz::image_view::builder(device)
+                .image(swapchain_image)
+                .view_type(VK_IMAGE_VIEW_TYPE_2D)
+                .format(swapchain.format())
+                .aspect_mask(vkz::image::aspect::color)
+                .level_count(1)
+                .layer_count(1)
+                .build());
         }
 
         return image_views;

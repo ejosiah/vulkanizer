@@ -108,13 +108,16 @@ namespace {
             .viewport_state().viewport().origin(0, 0).dimension(width, height).min_depth(0).max_depth(1)
                 .scissor().offset(0, 0).extent(width, height)
             .rasterization_state().cull_none().front_face_counter_clockwise().polygon_mode_fill()
-            .multisample_state().rasterization_samples(VK_SAMPLE_COUNT_1_BIT)
+            .multisample_state().rasterization_samples(vkz::sample_count::x1)
             .depth_stencil_state().enable_depth_test().enable_depth_write().compare_op_less_or_equal()
             .color_blend_state().attachment().add();
         auto& builder = pipeline_builder.layout();
         if (descriptors) builder.add_descriptor_set_layout(descriptors);
-        auto result = builder.add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(camera_constants))
-            .dynamic_render_pass().add_color_attachment(color).depth_attachment(depth).build();
+        auto result = builder.add_push_constant_range(vkz::shader_stage::vertex | vkz::shader_stage::fragment, 0, sizeof(camera_constants))
+                          .dynamic_render_pass()
+                          .add_color_attachment(color)
+                          .depth_attachment(depth)
+                          .build();
         return result;
     }
 }
@@ -154,10 +157,20 @@ int main(int argc, char **argv) {
     auto swapchain = app.create_swapchain();
     auto swap_views = vkz::create_swapchain_image_views(context.device, *swapchain);
     const auto depth_format = vkz::pick_depth_format(context.device.physical);
-    auto depth_image = vkz::image::builder(allocator).format(depth_format).extent(width, height)
-        .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT).build();
-    auto depth_view = vkz::image_view::builder(context.device).image(depth_image).view_type(VK_IMAGE_VIEW_TYPE_2D)
-        .format(depth_format).aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT).level_count(1).layer_count(1).build();
+    auto depth_image = vkz::image::builder(allocator)
+        .format(depth_format)
+        .extent(width, height)
+        .usage(vkz::image::usage::depth_stencil)
+        .build();
+    auto depth_view =
+        vkz::image_view::builder(context.device)
+            .image(depth_image)
+            .view_type(VK_IMAGE_VIEW_TYPE_2D)
+            .format(depth_format)
+            .aspect_mask(vkz::image::aspect::depth)
+            .level_count(1)
+            .layer_count(1)
+            .build();
 
     const std::array<const char*, 6> face_names{"right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"};
     std::vector<pixels> faces;
@@ -170,39 +183,56 @@ int main(int argc, char **argv) {
     vkz::staging_buffer staging{allocator, cube_pixels.size()};
     auto staging_memory = staging.borrow(cube_pixels.size());
     staging_memory.copy_from(cube_pixels.data());
-    auto cube_image = vkz::image::builder(allocator).flags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
-        .format(VK_FORMAT_R8G8B8A8_SRGB).extent(faces[0].width, faces[0].height).array_layers(6)
-        .usage(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).build();
-    auto cube_view = vkz::image_view::builder(context.device).image(cube_image).view_type(VK_IMAGE_VIEW_TYPE_CUBE)
-        .format(VK_FORMAT_R8G8B8A8_SRGB).aspect_mask(VK_IMAGE_ASPECT_COLOR_BIT).level_count(1).layer_count(6).build();
+    auto cube_image = vkz::image::builder(allocator)
+        .flags(vkz::image::flags::cube_compatible)
+        .format(VK_FORMAT_R8G8B8A8_SRGB)
+        .extent(faces[0].width, faces[0].height)
+        .array_layers(6)
+        .usage(vkz::image::usage::sampled_upload)
+        .build();
+    auto cube_view = vkz::image_view::builder(context.device)
+        .image(cube_image)
+        .view_type(VK_IMAGE_VIEW_TYPE_CUBE)
+        .format(VK_FORMAT_R8G8B8A8_SRGB)
+        .aspect_mask(vkz::image::aspect::color)
+        .level_count(1)
+        .layer_count(6)
+        .build();
     {
         vkz::scope_command_buffer upload{device, family, queue};
-        VkImageSubresourceRange cube_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6};
-        vkz::barrier::push_and_flush(upload, cube_image, cube_range, VK_PIPELINE_STAGE_2_NONE, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-            VK_ACCESS_2_NONE, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        VkImageSubresourceRange cube_range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 6};
+        vkz::barrier::push_and_flush(upload, cube_image, cube_range, vkz::pipeline::stage::none, vkz::pipeline::stage::transfer, vkz::access::none, vkz::access::transfer_write,
+                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         vkz::buffer staging_source{};
         staging_source._ = staging.handle();
         staging_source.create_info.size = staging_memory.size();
         vkz::copy(upload, staging_source, cube_image, cube_view);
-        vkz::barrier::push_and_flush(upload, cube_image, cube_range, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-            VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        vkz::barrier::push_and_flush(upload, cube_image, cube_range, vkz::pipeline::stage::transfer, vkz::pipeline::stage::fragment_shader, vkz::access::transfer_write,
+                                     vkz::access::shader_sampled_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
     staging.return_memory(staging_memory);
     staging.destroy();
     auto cube_sampler = vkz::sampler::builder(context.device).mag_filter(VK_FILTER_LINEAR).min_filter(VK_FILTER_LINEAR)
         .address_mode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE).build();
 
-    auto descriptor_layout = vkz::descriptor_set_layout_builder{context.device}.binding(0).descriptor_count(1)
-        .descriptor_type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).shader_stages(VK_SHADER_STAGE_FRAGMENT_BIT).create_layout();
+    auto descriptor_layout = vkz::descriptor_set_layout_builder{context.device}
+                                 .binding(0)
+                                 .descriptor_count(1)
+                                 .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                 .shader_stages(vkz::shader_stage::fragment)
+                                 .create_layout();
     vkz::descriptor_pool descriptor_pool{
         context.device,
         1,
-        {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}},
+        {{static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1}},
     };
     auto descriptor = descriptor_pool.allocate(descriptor_layout);
     VkDescriptorImageInfo image_info{cube_sampler, cube_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-    write.dstSet = descriptor.handle; write.descriptorCount = 1; write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; write.pImageInfo = &image_info;
+    write.dstSet = descriptor.handle;
+    write.descriptorCount = 1;
+    write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler);
+    write.pImageInfo = &image_info;
     vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
 
     auto sky_pipeline = make_pipeline(context, swapchain->format(), depth_format, "camera_skybox.vert", "camera_skybox.frag", descriptor_layout);
@@ -212,8 +242,11 @@ int main(int argc, char **argv) {
         quad_vertex{{-1, -1}, {0, 0}}, quad_vertex{{ 1, -1}, {1, 0}}, quad_vertex{{ 1,  1}, {1, 1}},
         quad_vertex{{-1, -1}, {0, 0}}, quad_vertex{{ 1,  1}, {1, 1}}, quad_vertex{{-1,  1}, {0, 1}},
     };
-    auto quad_buffer = vkz::buffer::builder(allocator).size(sizeof(quad_vertices))
-        .usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
+    auto quad_buffer = vkz::buffer::builder(allocator)
+        .size(sizeof(quad_vertices))
+        .usage(vkz::buffer::usage::vertex)
+        .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+        .build();
     {
         auto mapped = quad_buffer.map();
         std::memcpy(mapped.as<void>(), quad_vertices.data(), sizeof(quad_vertices));
@@ -223,7 +256,7 @@ int main(int argc, char **argv) {
         .min_image_count = 2, .image_count = swapchain->image_count(), .api_version = VK_API_VERSION_1_3,
         .color_attachment_format = swapchain->format()});
     auto available = vkz::create_semaphore(device), finished = vkz::create_semaphore(device);
-    vkz::fenced_command_pools commands{device, queue, family, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, 1};
+    vkz::fenced_command_pools commands{device, queue, family, vkz::command_pool_flags::transient, 1};
     uint32_t frame{};
     auto previous = std::chrono::steady_clock::now();
 
@@ -251,16 +284,14 @@ int main(int argc, char **argv) {
 //        constants.projection = glm::perspective(glm::radians(65.0f), camera.aspect_ratio, 0.1f, 100.f);
         commands.set_cycle_and_wait(frame++);
         auto cmd = commands.create_command_buffer(); VkImage color = swapchain->get_image(index);
-        VkImageSubresourceRange color_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        vkz::barrier::push_and_flush(cmd, color, color_range, VK_PIPELINE_STAGE_2_NONE, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_ACCESS_2_NONE, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        VkImageSubresourceRange depth_range{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
+        VkImageSubresourceRange color_range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
+        vkz::barrier::push_and_flush(cmd, color, color_range, vkz::pipeline::stage::none, vkz::pipeline::stage::color_attachment_output, vkz::access::none, vkz::access::color_attachment_write,
+                                     VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkImageSubresourceRange depth_range{static_cast<VkImageAspectFlags>(vkz::image::aspect::depth), 0, 1, 0, 1};
         const auto depth_initialized = depth_image.layout != VK_IMAGE_LAYOUT_UNDEFINED;
-        vkz::barrier::push_and_flush(cmd, depth_image, depth_range,
-            depth_initialized ? VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_2_NONE,
-            VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-            depth_initialized ? VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT : VK_ACCESS_2_NONE,
-            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        vkz::barrier::push_and_flush(cmd, depth_image, depth_range, depth_initialized ? vkz::pipeline::stage::late_fragment_tests : vkz::pipeline::stage::none,
+                                     vkz::pipeline::stage::early_fragment_tests, depth_initialized ? vkz::access::depth_stencil_attachment_write : vkz::access::none,
+                                     vkz::access::depth_stencil_attachment_write, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
         vkz::render_info rendering{};
         rendering.color_attachments.push_back({.view=swap_views[index], .format=swapchain->format(), .clear_value={0,0,0,1}});
         rendering.depth_attachment = vkz::depth_stencil_attachment{.view=depth_view, .format=depth_format, .clear_value={1,0}};
@@ -268,17 +299,17 @@ int main(int argc, char **argv) {
         vkz::render(cmd, rendering, [&] {
             vkz::bind_vertex_buffer(cmd, quad_buffer);
             vkz::bind_pipeline(cmd, sky_pipeline);
-            vkz::push_constants(cmd, sky_pipeline, constants, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+            vkz::push_constants(cmd, sky_pipeline, constants, vkz::shader_stage::vertex | vkz::shader_stage::fragment);
             vkz::draw(cmd, static_cast<uint32_t>(quad_vertices.size()));
             vkz::bind_pipeline(cmd, floor_pipeline);
-            vkz::push_constants(cmd, floor_pipeline, constants, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+            vkz::push_constants(cmd, floor_pipeline, constants, vkz::shader_stage::vertex | vkz::shader_stage::fragment);
             vkz::draw(cmd, static_cast<uint32_t>(quad_vertices.size())); vkz::imgui::render(cmd);
         });
-        vkz::barrier::push_and_flush(cmd, color, color_range, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_NONE,
-            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        vkz::barrier::push_and_flush(cmd, color, color_range, vkz::pipeline::stage::color_attachment_output, vkz::pipeline::stage::none, vkz::access::color_attachment_write, vkz::access::none,
+                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
         VKZ_CHECK_VULKAN(vkEndCommandBuffer(cmd));
         commands.enqueue(cmd);
-        commands.enqueue_wait(available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        commands.enqueue_wait(available, vkz::pipeline::stage::color_attachment_output);
         commands.enqueue_signal(finished);
         VKZ_CHECK_VULKAN(commands.execute());
         const auto handle = swapchain->handle(); VkPresentInfoKHR present{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};

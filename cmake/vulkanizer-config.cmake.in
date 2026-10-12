@@ -11,5 +11,6 @@ find_dependency(glslang)
 find_dependency(TinyGLTF)
 find_dependency(Ktx)
 find_dependency(stb)
+find_dependency(Threads)
 
 include("${CMAKE_CURRENT_LIST_DIR}/vulkanizer-targets.cmake")

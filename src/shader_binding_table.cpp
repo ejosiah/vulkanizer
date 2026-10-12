@@ -59,8 +59,7 @@ namespace vkz {
             return;
         }
         vkz::copy(command_buffer, staging, storage);
-        barrier::push_and_flush(command_buffer, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
-            VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+        barrier::push_and_flush(command_buffer, vkz::pipeline::stage::transfer, vkz::pipeline::stage::ray_tracing_shader, vkz::access::transfer_write, vkz::access::shader_read);
         upload_pending = false;
     }
 
@@ -150,10 +149,10 @@ namespace vkz {
             size = plan.offset + plan.stride * plan.records.size();
         }
         result.storage = buffer::builder(allocator)
-                .size(size + base_alignment - 1)
-                .usage(VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-                .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
-                .build();
+            .size(size + base_alignment - 1)
+            .usage(vkz::buffer::usage::shader_binding_table | vkz::buffer::usage::device_address | vkz::buffer::usage::transfer_dst)
+            .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
+            .build();
         VkBufferDeviceAddressInfo address_info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
         address_info.buffer = result.storage;
         const auto buffer_address = vkGetBufferDeviceAddress(allocator.device, &address_info);
@@ -162,7 +161,7 @@ namespace vkz {
         const auto padding = base - buffer_address;
         result.staging = buffer::builder(allocator)
             .size(result.storage.create_info.size)
-            .usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+            .usage(vkz::buffer::usage::transfer_src)
             .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
             .build();
         auto mapping = result.staging.map();

@@ -146,7 +146,7 @@ namespace vkz {
         for (const auto &name : query_names) {
             auto &query = queries.at(name);
             uint64_t timestamps[2]{};
-            VKZ_CHECK_VULKAN(vkGetQueryPoolResults(device_, query_pool_, query.start_id, 2, sizeof(timestamps), timestamps, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT));
+            VKZ_CHECK_VULKAN(vkGetQueryPoolResults(device_, query_pool_, query.start_id, 2, sizeof(timestamps), timestamps, sizeof(uint64_t), static_cast<VkQueryResultFlags>(vkz::query_result::bits_64)));
             query.runtimes.push_back(static_cast<uint64_t>(static_cast<double>(timestamps[1] - timestamps[0]) * timestamp_period_));
         }
     }
@@ -279,7 +279,7 @@ namespace vkz {
     std::vector<uint64_t> profiler::read_timestamps() const {
         std::vector<uint64_t> timestamps(queries.size() * 2);
         VKZ_CHECK_VULKAN(vkGetQueryPoolResults(device_, query_pool_, 0, static_cast<uint32_t>(timestamps.size()), timestamps.size() * sizeof(uint64_t), timestamps.data(), sizeof(uint64_t),
-                                               VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT));
+                                               static_cast<VkQueryResultFlags>(vkz::query_result::wait_64)));
         return timestamps;
     }
 

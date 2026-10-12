@@ -73,6 +73,7 @@ namespace vkz::mesh {
         glm::vec3 color{1.0f};                  // Linear RGB.
         float intensity{1.0f};                  // Candela for point/spot, lux for directional.
         float range{};                          // Zero means infinite; ignored for directional lights.
+        float source_radius{};                  // Runtime emitter radius in world units; zero uses the legacy shadow size.
         glm::vec3 position{};                   // World space; ignored for directional lights.
         glm::vec3 direction{0.0f, 0.0f, -1.0f}; // Unit emission direction; ignored for point lights.
         float inner_cone_angle{};               // Spot half-angles, in radians.

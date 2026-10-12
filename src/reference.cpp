@@ -85,13 +85,12 @@ namespace vkz::reference {
                     .enable_depth_write();
         }
 
-        builder
-                .color_blend_state()
-                    .attachment()
-                        .add()
-                .layout()
-                    .add_descriptor_set_layouts(info.layouts)
-                    .add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(instance_uniform));
+        builder.color_blend_state()
+            .attachment()
+            .add()
+            .layout()
+            .add_descriptor_set_layouts(info.layouts)
+            .add_push_constant_range(vkz::shader_stage::vertex | vkz::shader_stage::fragment, 0, sizeof(instance_uniform));
         if (info.ibl_layout) {
             builder.layout().add_descriptor_set_layout(info.ibl_layout);
         }
@@ -106,10 +105,11 @@ namespace vkz::reference {
                 .build();
     }
 
-    std::array<VkDescriptorSetLayoutBinding, 5> ibl_bindings(VkShaderStageFlags stages) {
+    std::array<VkDescriptorSetLayoutBinding, 5> ibl_bindings(vkz::shader_stage stages) {
         std::array<VkDescriptorSetLayoutBinding, 5> result{};
         for (uint32_t i = 0; i < result.size(); ++i)
-            result[i] = {i, i == 4 ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, stages, nullptr};
+            result[i] = {i, i == 4 ? static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer) : static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1,
+                         static_cast<VkShaderStageFlags>(stages), nullptr};
         return result;
     }
 
@@ -157,36 +157,36 @@ namespace vkz::reference {
                    "Tone mapping requires a device, input layout, extent and output format");
         return graphics_pipeline_builder{info.device}
             .shader_stage()
-                .vertex_shader(shader(shader_stage::background_vertex))
-                .fragment_shader(shader(shader_stage::tone_mapping_fragment))
+            .vertex_shader(shader(shader_stage::background_vertex))
+            .fragment_shader(shader(shader_stage::tone_mapping_fragment))
             .input_assembly_state()
-                .triangles()
+            .triangles()
             .viewport_state()
-                .viewport()
-                    .origin(0, 0)
-                    .dimension(info.extent.width, info.extent.height)
-                    .min_depth(0)
-                    .max_depth(1)
-                .scissor()
-                    .offset(0, 0)
-                    .extent(info.extent.width, info.extent.height)
-                    .add()
+            .viewport()
+            .origin(0, 0)
+            .dimension(info.extent.width, info.extent.height)
+            .min_depth(0)
+            .max_depth(1)
+            .scissor()
+            .offset(0, 0)
+            .extent(info.extent.width, info.extent.height)
+            .add()
             .rasterization_state()
-                .cull_none()
-                .polygon_mode_fill()
+            .cull_none()
+            .polygon_mode_fill()
             .multisample_state()
-                .rasterization_samples(VK_SAMPLE_COUNT_1_BIT)
+            .rasterization_samples(vkz::sample_count::x1)
             .depth_stencil_state()
-                .disable_depth_test()
-                .disable_depth_write()
+            .disable_depth_test()
+            .disable_depth_write()
             .color_blend_state()
-                .attachment()
-                    .add()
+            .attachment()
+            .add()
             .layout()
-                .add_descriptor_set_layout(info.layout)
-                .add_push_constant_range(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(tone_mapping_uniform))
+            .add_descriptor_set_layout(info.layout)
+            .add_push_constant_range(vkz::shader_stage::fragment, 0, sizeof(tone_mapping_uniform))
             .dynamic_render_pass()
-                .add_color_attachment(info.color_format)
+            .add_color_attachment(info.color_format)
             .name("reference_tone_mapping")
             .build();
     }

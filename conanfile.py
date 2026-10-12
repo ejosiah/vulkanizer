@@ -6,7 +6,7 @@ from pathlib import Path
 
 class VulkanizerConan(ConanFile):
     name = "vulkanizer"
-    version = "0.0.43"
+    version = "1.0.0"
     package_type = "static-library"
 
     license = "MIT"
@@ -63,5 +63,11 @@ class VulkanizerConan(ConanFile):
         self.cpp_info.set_property("cmake_file_name", "vulkanizer")
         self.cpp_info.set_property("cmake_target_name", "vulkanizer::vulkanizer")
         self.cpp_info.libs = ["vulkanizer"]
+        if self.settings.os == "Windows":
+            self.cpp_info.system_libs = ["mfplat", "mfreadwrite", "mfuuid", "ole32", "winmm"]
+        elif self.settings.os == "Linux":
+            self.cpp_info.system_libs = ["pthread", "dl", "m"]
+        elif self.settings.os == "Macos":
+            self.cpp_info.frameworks = ["CoreAudio", "AudioToolbox", "CoreFoundation"]
         if self.options.with_nsight_aftermath:
             self.cpp_info.libs.append("GFSDK_Aftermath_Lib.x64")

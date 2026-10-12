@@ -1,0 +1,25 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+#define NRD_DESCRIPTOR_SET 0
+#include "nrd_signals.glsl"
+#include "nrd_input.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(p, imageSize(nrd_diffuse_output))))
+        return;
+    if (shadow_light >= 0) {
+        // SIGMA_BackEnd_UnpackShadow decodes sqrt-encoded visibility.
+        float encoded = imageLoad(nrd_specular_output, p).r;
+        imageStore(shadow_output, ivec3(p, shadow_light), vec4(clamp(encoded * encoded, 0, 1)));
+        return;
+    }
+    if (shadow_light != -2)
+        imageStore(diffuse_output, p, vec4(max(imageLoad(nrd_diffuse_output, p).rgb, vec3(0)), 1));
+    vec3 specular = imageLoad(nrd_specular_output, p).rgb * imageLoad(nrd_specular_factor, p).rgb;
+    if (shadow_light != -3)
+        imageStore(specular_output, p, vec4(max(specular, vec3(0)), 1));
+}

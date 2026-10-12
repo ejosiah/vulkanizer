@@ -42,7 +42,7 @@ namespace vkz {
                 device_,
                 graphics_queue,
                 queue_family_index,
-                VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+                vkz::command_pool_flags::transient,
                 frames_in_flight_
         );
 
@@ -142,14 +142,11 @@ namespace vkz {
 
             if (depth_testing_) {
                 auto &depth = depth_buffers_[frame_index_];
-                VkImageSubresourceRange depth_range{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
-                const auto stages = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-                vkz::barrier::push_and_flush(command_buffer, depth.image.handle, depth_range,
-                    depth_initialized_[frame_index_] ? stages : VK_PIPELINE_STAGE_2_NONE, stages,
-                    depth_initialized_[frame_index_] ? VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT : VK_ACCESS_2_NONE,
-                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                    depth_initialized_[frame_index_] ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
-                    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+                VkImageSubresourceRange depth_range{static_cast<VkImageAspectFlags>(vkz::image::aspect::depth), 0, 1, 0, 1};
+                const auto stages = vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests;
+                vkz::barrier::push_and_flush(command_buffer, depth.image.handle, depth_range, depth_initialized_[frame_index_] ? stages : vkz::pipeline::stage::none, stages,
+                                             depth_initialized_[frame_index_] ? vkz::access::depth_stencil_attachment_write : vkz::access::none, vkz::access::depth_stencil_attachment_read_write,
+                                             depth_initialized_[frame_index_] ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
                 depth_initialized_[frame_index_] = true;
                 depth.image.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
                 depth_buffer_->image.layout = depth.image.layout;
@@ -158,21 +155,14 @@ namespace vkz {
 
             auto image = swapchain->get_image(image_index);
             VkImageSubresourceRange range{};
-            range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            range.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::color);
             range.levelCount = 1;
             range.layerCount = 1;
 
-            vkz::barrier::push_and_flush(
-                    command_buffer,
-                    image,
-                    range,
-                    // Chain the layout transition after the acquire semaphore's wait stage.
-                    VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    VK_ACCESS_2_NONE,
-                    VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                    VK_IMAGE_LAYOUT_UNDEFINED,
-                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            vkz::barrier::push_and_flush(command_buffer, image, range,
+                                         // Chain the layout transition after the acquire semaphore's wait stage.
+                                         vkz::pipeline::stage::color_attachment_output, vkz::pipeline::stage::color_attachment_output, vkz::access::none, vkz::access::color_attachment_write,
+                                         VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
             render_info_.color_attachments[0].view = image_views[image_index];
 
@@ -180,22 +170,15 @@ namespace vkz {
                 render_swapchain(command_buffer);
             });
 
-            vkz::barrier::push_and_flush(
-                    command_buffer,
-                    image,
-                    range,
-                    VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    VK_PIPELINE_STAGE_2_NONE,
-                    VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                    VK_ACCESS_2_NONE,
-                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            vkz::barrier::push_and_flush(command_buffer, image, range, vkz::pipeline::stage::color_attachment_output, vkz::pipeline::stage::none, vkz::access::color_attachment_write,
+                                         vkz::access::none, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
             VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
             commands_pool_->enqueue(command_buffer);
-            commands_pool_->enqueue_wait(image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+            commands_pool_->enqueue_wait(image_available, vkz::pipeline::stage::color_attachment_output);
             commands_pool_->enqueue_signal(render_finished);
             VKZ_CHECK_VULKAN(commands_pool_->execute());
+            frame_submitted();
 
             VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
             const auto swapchain_handle = swapchain->handle();
@@ -249,11 +232,18 @@ namespace vkz {
         depth_buffers_.resize(frames_in_flight_);
         depth_initialized_.assign(frames_in_flight_, false);
         for (auto &depth : depth_buffers_) {
-            depth.image = image::builder(allocator_).format(format).type(VK_IMAGE_TYPE_2D)
+            depth.image = image::builder(allocator_)
+                .format(format)
+                .type(VK_IMAGE_TYPE_2D)
                 .extent(swapchain_->width(), swapchain_->height())
-                .usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT).build();
-            depth.image_view = image_view::builder(device_).image(depth.image).format(format)
-                .view_type(VK_IMAGE_VIEW_TYPE_2D).aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT).build();
+                .usage(vkz::image::usage::depth_stencil)
+                .build();
+            depth.image_view = image_view::builder(device_)
+                .image(depth.image)
+                .format(format)
+                .view_type(VK_IMAGE_VIEW_TYPE_2D)
+                .aspect_mask(vkz::image::aspect::depth)
+                .build();
         }
         render_info_.depth_attachment = {.view = depth_buffers_[frame_index_].image_view, .format = format};
         depth_buffer_ = depth_buffers_[frame_index_];

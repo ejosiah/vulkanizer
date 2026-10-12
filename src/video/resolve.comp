@@ -1,0 +1,20 @@
+#version 450
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(set = 0, binding = 0) uniform sampler2D decoded;
+layout(rgba8, set = 0, binding = 1) writeonly uniform image2D output_image;
+
+layout(push_constant) uniform Size {
+    ivec2 visible;
+    ivec2 coded;
+}
+
+size;
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, size.visible))) {
+        return;
+    }
+    vec2 uv = (vec2(pixel) + 0.5) / vec2(size.coded);
+    imageStore(output_image, pixel, vec4(texture(decoded, uv).rgb, 1.0));
+}

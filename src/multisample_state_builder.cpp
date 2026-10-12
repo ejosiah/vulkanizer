@@ -7,12 +7,12 @@ namespace vkz {
             : graphics_pipeline_builder_proxy(parent),
             _info{
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-                .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT
+                .rasterizationSamples = static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1)
             }
     {}
 
-    multisample_state_builder &multisample_state_builder::rasterization_samples(VkSampleCountFlagBits flags) {
-        _info.rasterizationSamples = flags;
+    multisample_state_builder &multisample_state_builder::rasterization_samples(vkz::sample_count flags) {
+        _info.rasterizationSamples = static_cast<VkSampleCountFlagBits>(flags);
         return *this;
     }
 

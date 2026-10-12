@@ -1,0 +1,21 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+#include "nrc_records.glsl"
+
+layout(set = 0, binding = 1, std430) readonly buffer query_buffer { nrc_vertex queries[]; };
+layout(set = 1, binding = 0, rgba32f) uniform image2D indirect_light;
+layout(local_size_x = 8, local_size_y = 8) in;
+
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(indirect_light);
+    if (any(greaterThanEqual(p, size)))
+        return;
+    nrc_vertex query = queries[p.x + p.y * size.x];
+    vec3 radiance = imageLoad(indirect_light, p).rgb;
+    if (query.throughput_valid.w == 0 || any(isnan(radiance)) || any(isinf(radiance)))
+        radiance = vec3(0);
+    // Neural predictions can be slightly negative before convergence.
+    imageStore(indirect_light, p, vec4(clamp(radiance, 0, 65504), query.normal_distance.w));
+}

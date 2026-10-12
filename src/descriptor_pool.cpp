@@ -13,7 +13,7 @@ namespace vkz {
             vkz::device device,
             uint32_t max_sets,
             std::initializer_list<VkDescriptorPoolSize> pool_sizes,
-            VkDescriptorPoolCreateFlags flags)
+            vkz::descriptor_pool::flags flags)
         : device_{device} {
         if (!device_.logical) {
             VKZ_THROW("Cannot create a descriptor pool with a null logical device")
@@ -28,7 +28,7 @@ namespace vkz {
         const VkDescriptorPoolCreateInfo create_info{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
             .pNext = nullptr,
-            .flags = flags,
+            .flags = static_cast<VkDescriptorPoolCreateFlags>(flags),
             .maxSets = max_sets,
             .poolSizeCount = static_cast<uint32_t>(pool_sizes.size()),
             .pPoolSizes = pool_sizes.begin(),

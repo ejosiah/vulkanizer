@@ -1,8 +1,15 @@
 cmake_minimum_required(VERSION 3.24)
-project(vulkanizer VERSION 0.0.43)
+project(vulkanizer VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 20)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+include(FetchContent)
+FetchContent_Declare(miniaudio
+    GIT_REPOSITORY https://github.com/mackron/miniaudio.git
+    GIT_TAG f40cf03f80cdb7e741d43e53b7e706e8c1394bcf # Vista's pinned 0.11.23
+    SOURCE_SUBDIR unused)
+FetchContent_MakeAvailable(miniaudio)
+find_package(Threads REQUIRED)
 
 option(VULKANIZER_BUILD_TESTS "Build vulkanizer tests" ON)
 option(VULKANIZER_ENABLE_NSIGHT_AFTERMATH "Enable NVIDIA Nsight Aftermath GPU crash dumps" OFF)
@@ -88,6 +95,16 @@ foreach(shader IN ITEMS camera_motion resolve resolve16)
 endforeach()
 target_include_directories(vulkanizer PRIVATE "${TAA_GENERATED_DIR}")
 
+set(VIDEO_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/video")
+file(MAKE_DIRECTORY "${VIDEO_GENERATED_DIR}")
+add_custom_command(OUTPUT "${VIDEO_GENERATED_DIR}/video_resolve.hpp"
+    COMMAND "${VULKANIZER_GLSLC}" --target-env=vulkan1.2 "${CMAKE_CURRENT_SOURCE_DIR}/src/video/resolve.comp" -o "${VIDEO_GENERATED_DIR}/resolve.spv"
+    COMMAND "${CMAKE_COMMAND}" "-DINPUT=${VIDEO_GENERATED_DIR}/resolve.spv" "-DOUTPUT=${VIDEO_GENERATED_DIR}/video_resolve.hpp" "-DSYMBOL=video_resolve" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/video/resolve.comp" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+    VERBATIM)
+target_sources(vulkanizer PRIVATE "${VIDEO_GENERATED_DIR}/video_resolve.hpp")
+target_include_directories(vulkanizer PRIVATE "${VIDEO_GENERATED_DIR}")
+
 # Software-paged virtual shadows: internal SPIR-V is embedded; the public GLSL integration
 # include is installed with the headers for application-owned deformation/material pipelines.
 set(SVSM_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/svsm")
@@ -105,6 +122,67 @@ foreach(shader IN ITEMS manage.comp shadow.vert shadow.frag)
     target_sources(vulkanizer PRIVATE "${header}")
 endforeach()
 target_include_directories(vulkanizer PRIVATE "${SVSM_GENERATED_DIR}")
+
+# DDGI owns fixed descriptor sets and embeds all probe tracing/update shaders.
+set(DDGI_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/ddgi")
+set(DDGI_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/ddgi")
+file(MAKE_DIRECTORY "${DDGI_GENERATED_DIR}")
+foreach(shader IN ITEMS probe.rgen probe.rmiss probe.rchit probe.rahit irradiance_update.comp visibility_update.comp sample_indirect.comp update_probes.comp)
+    string(REPLACE "." "_" symbol "ddgi_${shader}")
+    set(source "${DDGI_SHADER_DIR}/${shader}")
+    set(spv "${DDGI_GENERATED_DIR}/${shader}.spv")
+    set(header "${DDGI_GENERATED_DIR}/${symbol}.hpp")
+    add_custom_command(OUTPUT "${header}"
+        COMMAND "${VULKANIZER_GLSLC}" --target-env=vulkan1.2 "${source}" -o "${spv}"
+        COMMAND "${CMAKE_COMMAND}" "-DINPUT=${spv}" "-DOUTPUT=${header}" "-DSYMBOL=${symbol}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+        DEPENDS "${source}" "${DDGI_SHADER_DIR}/shared.glsl" "${DDGI_SHADER_DIR}/surface.glsl"
+            "${DDGI_SHADER_DIR}/octahedral.glsl" "${DDGI_SHADER_DIR}/debug_opts.glsl"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/reference/gltf_types.glsl" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+        VERBATIM)
+    target_sources(vulkanizer PRIVATE "${header}")
+endforeach()
+target_include_directories(vulkanizer PRIVATE "${DDGI_GENERATED_DIR}")
+
+
+# Ray-query shadows own ordinary descriptors and embedded compute shaders.
+set(SHADOW_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/shadow")
+set(SHADOW_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/shadow")
+file(MAKE_DIRECTORY "${SHADOW_GENERATED_DIR}")
+foreach(shader IN ITEMS motion_vector.comp variance.comp max_variation.comp filter_variation.comp visibility.comp filter_visibility.comp raw_visibility.comp)
+    string(REPLACE "." "_" symbol "shadow_${shader}")
+    set(source "${SHADOW_SHADER_DIR}/${shader}")
+    set(spv "${SHADOW_GENERATED_DIR}/${shader}.spv")
+    set(header "${SHADOW_GENERATED_DIR}/${symbol}.hpp")
+    add_custom_command(OUTPUT "${header}"
+        COMMAND "${VULKANIZER_GLSLC}" --target-env=vulkan1.2 "${source}" -o "${spv}"
+        COMMAND "${CMAKE_COMMAND}" "-DINPUT=${spv}" "-DOUTPUT=${header}" "-DSYMBOL=${symbol}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+        DEPENDS "${source}" "${SHADOW_SHADER_DIR}/shared.glsl" "${SHADOW_SHADER_DIR}/surface.glsl"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/reference/gltf_types.glsl" "${CMAKE_CURRENT_SOURCE_DIR}/src/reference/ray_visibility.glsl"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+        VERBATIM)
+    target_sources(vulkanizer PRIVATE "${header}")
+endforeach()
+target_include_directories(vulkanizer PRIVATE "${SHADOW_GENERATED_DIR}")
+
+# Chapter 15 reflections: tracing, temporal moments and five wavelet passes.
+set(REFLECTION_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/reflection")
+set(REFLECTION_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/reflection")
+file(MAKE_DIRECTORY "${REFLECTION_GENERATED_DIR}")
+foreach(shader IN ITEMS reflection.rgen reflection.rmiss reflection.rchit reflection.rahit temporal.comp wavelet.comp)
+    string(REPLACE "." "_" symbol "reflection_${shader}")
+    set(source "${REFLECTION_SHADER_DIR}/${shader}")
+    set(spv "${REFLECTION_GENERATED_DIR}/${shader}.spv")
+    set(header "${REFLECTION_GENERATED_DIR}/${symbol}.hpp")
+    add_custom_command(OUTPUT "${header}"
+        COMMAND "${VULKANIZER_GLSLC}" --target-env=vulkan1.2 "${source}" -o "${spv}"
+        COMMAND "${CMAKE_COMMAND}" "-DINPUT=${spv}" "-DOUTPUT=${header}" "-DSYMBOL=${symbol}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+        DEPENDS "${source}" "${REFLECTION_SHADER_DIR}/shared.glsl" "${REFLECTION_SHADER_DIR}/surface.glsl" "${CMAKE_CURRENT_SOURCE_DIR}/src/reference/ray_visibility.glsl"
+            "${REFLECTION_SHADER_DIR}/ddgi_sampling.glsl" "${DDGI_SHADER_DIR}/octahedral.glsl" "${DDGI_SHADER_DIR}/debug_opts.glsl"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/reference/gltf_types.glsl" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_spirv.cmake"
+        VERBATIM)
+    target_sources(vulkanizer PRIVATE "${header}")
+endforeach()
+target_include_directories(vulkanizer PRIVATE "${REFLECTION_GENERATED_DIR}")
 
 # Core glTF reference shaders are library resources, including tests-disabled builds.
 # CMakeRC 2.0.1; vendored license is cmake/CMakeRC.LICENSE.txt.
@@ -202,6 +280,15 @@ target_link_libraries(vulkanizer PUBLIC
 
 target_include_directories(vulkanizer PUBLIC ${INCLUDE_DIRS} ${INSTALL_INCLUDE_DIRS})
 target_link_libraries(vulkanizer PRIVATE TinyGLTF::TinyGLTF)
+target_include_directories(vulkanizer PRIVATE "${miniaudio_SOURCE_DIR}")
+target_link_libraries(vulkanizer PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+if(WIN32)
+    target_link_libraries(vulkanizer PRIVATE mfplat mfreadwrite mfuuid ole32 winmm)
+elseif(APPLE)
+    target_link_libraries(vulkanizer PRIVATE "-framework CoreAudio" "-framework AudioToolbox" "-framework CoreFoundation")
+elseif(UNIX)
+    target_link_libraries(vulkanizer PRIVATE m)
+endif()
 target_include_directories(vulkanizer PRIVATE "${IMGUI_BINDINGS_DIR}")
 target_compile_definitions(vulkanizer PRIVATE GLFW_INCLUDE_NONE IMGUI_IMPL_VULKAN_USE_VOLK)
 
@@ -263,3 +350,5 @@ if(VULKANIZER_BUILD_TESTS)
 endif()
 
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSES/glTF-Sample-Renderer.txt" DESTINATION "${CMAKE_INSTALL_DATADIR}/vulkanizer/licenses")
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSES/h264-parser.txt" "${CMAKE_CURRENT_SOURCE_DIR}/LICENSES/minimp4.txt" DESTINATION "${CMAKE_INSTALL_DATADIR}/vulkanizer/licenses")
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSES/miniaudio.txt" DESTINATION "${CMAKE_INSTALL_DATADIR}/vulkanizer/licenses")

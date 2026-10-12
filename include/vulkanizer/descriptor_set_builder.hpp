@@ -44,13 +44,13 @@ namespace vkz {
                 return *this;
             }
 
-            const descriptor_set_layout_binding_builder &descriptor_type(VkDescriptorType type) const {
-                _binding.descriptorType = type;
+            const descriptor_set_layout_binding_builder &descriptor_type(vkz::descriptor::type type) const {
+                _binding.descriptorType = static_cast<VkDescriptorType>(type);
                 return *this;
             }
 
-            const descriptor_set_layout_binding_builder &shader_stages(VkShaderStageFlags flags) const {
-                _binding.stageFlags = flags;
+            const descriptor_set_layout_binding_builder &shader_stages(vkz::shader_stage flags) const {
+                _binding.stageFlags = static_cast<VkShaderStageFlags>(flags);
                 return *this;
             }
 
@@ -69,7 +69,7 @@ namespace vkz {
                 return *this;
             }
 
-            [[nodiscard]] descriptor_set_layout create_layout(VkDescriptorSetLayoutCreateFlags flags = 0) const {
+            [[nodiscard]] descriptor_set_layout create_layout(vkz::descriptor_set_layout::flags flags = vkz::descriptor_set_layout::flags::none) const {
                 assert_binding();
                 bindings.push_back(_binding);
 
@@ -78,9 +78,9 @@ namespace vkz {
                         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
                 void *next = nullptr;
                 if (bindless_enabled) {
-                    flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+                    flags |= vkz::descriptor_set_layout::flags::update_after_bind_pool;
                     std::generate(bindless_flags.begin(), bindless_flags.end(), [] {
-                        return VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+                        return static_cast<VkDescriptorBindingFlags>(vkz::descriptor::binding_flags::bindless);
                     });
                     extended_info.bindingCount = VKZ_COUNT(bindless_flags);
                     extended_info.pBindingFlags = bindless_flags.data();
@@ -89,7 +89,7 @@ namespace vkz {
 
                 VkDescriptorSetLayoutCreateInfo create_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
                 create_info.pNext = next;
-                create_info.flags = flags;
+                create_info.flags = static_cast<VkDescriptorSetLayoutCreateFlags>(flags);
                 create_info.bindingCount = VKZ_COUNT(bindings);
                 create_info.pBindings = bindings.data();
 

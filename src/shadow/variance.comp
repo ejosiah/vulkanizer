@@ -1,0 +1,25 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "shared.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+void main() {
+    ivec3 p = ivec3(gl_GlobalInvocationID);
+
+    if (!valid_pixel(p))
+        return;
+
+    vec4 history = previous_visibility(ivec3(previous_pixel(p.xy), p.z));
+    float value = max(max(history.x, history.y), max(history.z, history.w))
+                - min(min(history.x, history.y), min(history.z, history.w));
+    vec2 motion = imageLoad(motion_vector, p.xy).xy;
+
+    // Reproject history; reject newly exposed or changed surfaces.
+    if (constants.history_count < 4 || !valid_history(p.xy))
+        value = 1;
+
+    imageStore(variation, p, vec4(value));
+}

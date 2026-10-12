@@ -1,0 +1,65 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 0) uniform sampler2D video_frame;
+layout(rgba16f, set = 0, binding = 1) writeonly uniform image2D screen;
+layout(rgba16f, set = 0, binding = 2) writeonly uniform image2DArray filtered;
+layout(push_constant) uniform filter_parameters { int mode; } parameters;
+
+vec3 linear_rgb(vec3 value) {
+    return mix(value / 12.92, pow((value + 0.055) / 1.055, vec3(2.4)),
+        greaterThan(value, vec3(0.04045)));
+}
+
+vec3 sample_emitter(vec2 uv) {
+    if (any(lessThan(uv, vec2(0))) || any(greaterThan(uv, vec2(1))))
+        return vec3(0);
+
+    return linear_rgb(textureLod(video_frame, uv, 0).rgb);
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+
+    if (parameters.mode == 0) {
+        if (any(greaterThanEqual(pixel, imageSize(screen))))
+            return;
+
+        imageStore(screen, pixel, vec4(sample_emitter((vec2(pixel) + 0.5) / imageSize(screen)), 1));
+        return;
+    }
+
+    ivec3 size = imageSize(filtered);
+    int layer = int(gl_GlobalInvocationID.z);
+
+    if (any(greaterThanEqual(pixel, size.xy)) || layer >= size.z)
+        return;
+
+    // Authors' textured-emitter footprint: d grows by three between levels.
+    // Importance sample the normalized planar cosine kernel d² / π(r²+d²)².
+    // Black padding preserves the finite rectangle at and beyond its edges.
+    vec2 uv = ((vec2(pixel) + 0.5) / size.xy - 0.125) / 0.75;
+    float d = pow(3.0, float(layer)) / 2048.0;
+    vec3 radiance = vec3(0);
+
+    const uint sample_count = 64u;
+
+    for (uint i = 0u; i < sample_count; ++i) {
+        float u = (float(i) + 0.5) / float(sample_count);
+        float angle = 6.28318530718 * float(bitfieldReverse(i)) * 2.3283064365386963e-10;
+        float radius = d * sqrt(u / (1.0 - u));
+        if (d < 0.1) {
+            radiance += sample_emitter(uv + radius * vec2(cos(angle), sin(angle)));
+        } else {
+            // Large footprints: integrate over the emitter rather than missing it
+            // with distant cosine samples. This is the same normalized kernel.
+            vec2 sample_uv = vec2(u, float(bitfieldReverse(i)) * 2.3283064365386963e-10);
+            vec2 offset = sample_uv - uv;
+            float denominator = dot(offset, offset) + d * d;
+            float weight = d * d / (3.14159265359 * denominator * denominator);
+            radiance += sample_emitter(sample_uv) * weight;
+        }
+    }
+
+    imageStore(filtered, ivec3(pixel, layer), vec4(radiance / float(sample_count), 1));
+}

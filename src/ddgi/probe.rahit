@@ -1,0 +1,28 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_ray_tracing : require
+
+#include "shared.glsl"
+#include "surface.glsl"
+
+void main() {
+    gltf_material material = materials[instance_data().z];
+
+    float alpha = clamp(material.base_color.a * vertex_color().a * surface_sample(material, 0).a, 0, 1);
+    if (material.flags.x == 1 && alpha < material.roughness_normal_occlusion_cutoff.w) {
+        ignoreIntersectionEXT;
+        return;
+    }
+
+    if (material.flags.x == 2) {
+        // Alpha blend is fractional coverage, not an opaque ray intersection.
+        uint seed = gl_LaunchIDEXT.x * 747796405u + gl_LaunchIDEXT.y * 277803737u
+            + uint(gl_PrimitiveID) * 2891336453u + uint(gl_InstanceCustomIndexEXT) * 1597334677u
+            + floatBitsToUint(barycentrics.x) + floatBitsToUint(barycentrics.y) * 3812015801u;
+        seed = (seed ^ (seed >> 16)) * 2246822519u;
+        seed = (seed ^ (seed >> 13)) * 3266489917u;
+        if (float(seed) / 4294967296.0 >= alpha)
+            ignoreIntersectionEXT;
+    }
+}

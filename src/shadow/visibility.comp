@@ -1,0 +1,116 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_ray_query : require
+
+#include "shared.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 4) uniform accelerationStructureEXT scene_acceleration;
+
+#include "surface.glsl"
+
+// Poisson disk samples from Packt chapter13/shaders/lighting.h; see LICENSE.txt.
+const vec2 poisson_samples[32] =
+{
+    vec2( 0.39963964752463255f, 0.8910925368990373f ),
+    vec2( -0.4940572704167889f, -0.8620650241721987f ),
+    vec2( 0.8075570857119035f, -0.5440713505497983f ),
+    vec2( -0.9116635046112362f, 0.2639502616182513f ),
+    vec2( 0.05343036802745114f, 0.021474316209819044f ),
+    vec2( 0.8499579311323042f, 0.27318537130618137f ),
+    vec2( -0.3403992818902896f, 0.7063573920801801f ),
+    vec2( 0.2101073022086032f, -0.8129909357248446f ),
+    vec2( -0.9005900483859263f, -0.391550837884129f ),
+    vec2( -0.19587476659917602f, -0.3981303634779107f ),
+    vec2( -0.4648065562502342f, 0.02105911800771148f ),
+    vec2( 0.35934411533835076f, 0.4121051098766807f ),
+    vec2( 0.5065318505687553f, -0.10705978878497402f ),
+    vec2( -0.7602340603847367f, 0.6493924352633489f ),
+    vec2( -0.019782992429490595f, 0.8925406666774142f ),
+    vec2( 0.3983473193951535f, -0.4801357934668924f ),
+    vec2( 0.9869656537989692f, -0.09638640479894947f ),
+    vec2( -0.25015603010828763f, 0.2972338092340553f ),
+    vec2( -0.13317277640560815f, -0.9143508644248124f ),
+    vec2( 0.6996155560882538f, 0.6876222716775685f ),
+    vec2( -0.6345508708611187f, -0.24002497065722314f ),
+    vec2( 0.07481225966233056f, 0.6194024571949546f ),
+    vec2( -0.5795518698024703f, 0.35706998381720817f ),
+    vec2( 0.10538818335743431f, -0.5072259616736443f ),
+    vec2( 0.5901520300517671f, -0.8055715970062381f ),
+    vec2( 0.4997349661429248f, 0.18391430091175387f ),
+    vec2( -0.8936441537563113f, -0.09018813624787847f ),
+    vec2( -0.49099986787705147f, -0.5534594920185129f ),
+    vec2( 0.7883035678609505f, -0.2850303445322458f ),
+    vec2( 0.20190051133128753f, -0.2287805625191621f ),
+    vec2( 0.10095624109822983f, 0.356329397671627f ),
+    vec2( 0.5999403247649068f, 0.4733652413019988f ),
+};
+
+float trace_visibility(vec3 origin, vec3 direction, float distance) {
+    return trace_shadow_visibility(origin, direction, distance).x;
+}
+
+void main() {
+    ivec3 p = ivec3(gl_GlobalInvocationID);
+
+    if (!valid_pixel(p))
+        return;
+
+    uint slot = constants.frame_index % 4;
+    vec4 history = previous_visibility(ivec3(previous_pixel(p.xy), p.z));
+    uvec4 counts = imageLoad(sample_count_cache, p);
+    vec2 motion = imageLoad(motion_vector, p.xy).xy;
+
+    if (!valid_history(p.xy)) {
+        history = vec4(1);
+        counts = uvec4(1);
+    }
+
+    float variance = imageLoad(filtered_variation, p).r;
+    uint previous_count = counts[(slot + 3) % 4];
+    uint sample_count = variance > 0.2 ? min(previous_count + 1, 5u) : max(previous_count, 2u) - 1;
+    float visibility = 1;
+
+    if (depth_at(p.xy) < 1) {
+        vec3 position = world_at(p.xy);
+        vec3 normal = normal_at(p.xy);
+        light source = lights[p.z];
+        bool directional = source.direction_type.w == 0;
+        vec3 delta = source.position_range.xyz - position;
+        float distance = directional ? 100 : length(delta);
+        vec3 direction = directional ? normalize(-source.direction_type.xyz) : delta / max(distance, 0.001);
+        vec3 axis = abs(direction.y) < 0.99 ? vec3(0, 1, 0) : vec3(1, 0, 0);
+        vec3 x_axis = normalize(cross(direction, axis));
+        vec3 y_axis = cross(direction, x_axis);
+        float source_radius = source.cone.z > 0 ? source.cone.z : source.position_range.w * 0.01;
+        float radius = directional ? 0.01 : source_radius / max(distance, 0.001);
+        visibility = 0;
+
+        if (dot(normal, direction) > 0 && distance > 0.02) {
+            for (uint s = 0; s < sample_count; ++s) {
+                vec2 disk = poisson_samples[(s * 4 + slot) % 32];
+                vec3 ray = normalize(direction + radius * (x_axis * disk.x + y_axis * disk.y));
+                float shadow_distance = distance;
+                if (!directional && source.cone.z > 0) {
+                    float projection = dot(delta, ray);
+                    shadow_distance = projection - sqrt(max(source_radius * source_radius - dot(delta, delta) + projection * projection, 0));
+                }
+
+                visibility += trace_visibility(position + normal * 0.005, ray, max(shadow_distance - 0.01, 0.011));
+            }
+
+            visibility /= float(sample_count);
+        }
+    }
+
+    if (!valid_history(p.xy))
+        history = vec4(visibility);
+
+    history[slot] = visibility;
+    counts[slot] = sample_count;
+
+    store_visibility(p, history);
+    imageStore(sample_count_cache, p, counts);
+}

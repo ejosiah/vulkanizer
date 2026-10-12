@@ -31,11 +31,11 @@ namespace vkz::csm {
         VkCommandBuffer initial_transition_command_buffer{};
         VkRenderPass debug_render_pass{};
         glm::uvec2 debug_resolution{};
-        VkSampleCountFlagBits debug_samples{VK_SAMPLE_COUNT_1_BIT};
+        vkz::sample_count debug_samples{vkz::sample_count::x1};
         uint in_flight_frames{};
         uint num_cascades{DEFAULT_CASCADE_COUNT};
         uint size{DEFAULT_SHADOW_MAP_SIZE};
-        VkCullModeFlags cull_mode{VK_CULL_MODE_FRONT_BIT};
+        vkz::cull_mode cull_mode{vkz::cull_mode::front};
     };
 
     struct camera {
@@ -66,5 +66,5 @@ namespace vkz::csm {
 
     void split_lambda(id id, float value);
 
-    void cull_mode(id id, VkCullModeFlags value);
+    void cull_mode(id id, vkz::cull_mode value);
 }

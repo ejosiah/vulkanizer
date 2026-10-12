@@ -1,6 +1,7 @@
 #pragma once
 
 #include "context.hpp"
+#include "memory.hpp"
 
 #include <vector>
 
@@ -57,13 +58,13 @@ namespace vkz {
 
         [[maybe_unused]] builder_base& set_image_format(VkFormat format, VkColorSpaceKHR colorSpace);
 
-        [[maybe_unused]] builder_base& set_image_usage(VkImageUsageFlags usage);
+        [[maybe_unused]] builder_base& set_image_usage(vkz::image::usage usage);
 
         [[maybe_unused]] builder_base& set_extent(uint32_t width, uint32_t height);
 
-        [[maybe_unused]] builder_base& set_pre_transform(VkSurfaceTransformFlagBitsKHR transform);
+        [[maybe_unused]] builder_base& set_pre_transform(vkz::surface_transform transform);
 
-        [[maybe_unused]] builder_base& set_composite_alpha(VkCompositeAlphaFlagBitsKHR compositeAlpha);
+        [[maybe_unused]] builder_base& set_composite_alpha(vkz::composite_alpha compositeAlpha);
 
         [[maybe_unused]] builder_base& set_present_mode(VkPresentModeKHR mode);
 

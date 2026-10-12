@@ -80,7 +80,7 @@ namespace vkz {
             return _alpha_blend_op;
         }
 
-        color_blend_attachment_state_builder &color_write_mask(VkColorComponentFlags flags);
+        color_blend_attachment_state_builder &color_write_mask(vkz::color_component flags);
 
         color_blend_attachment_state_builder &add();
 

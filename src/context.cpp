@@ -17,19 +17,20 @@
 namespace vkz {
     namespace {
         VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
-                VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                VkDebugUtilsMessageSeverityFlagBitsEXT native_severity,
                 VkDebugUtilsMessageTypeFlagsEXT,
                 const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
                 void*) {
+            const auto severity = static_cast<vkz::debug_severity>(native_severity);
             const auto message = callbackData && callbackData->pMessage
                                  ? std::string_view{callbackData->pMessage}
                                  : std::string_view{};
 
-            if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+            if (has_flag(severity, vkz::debug_severity::error)) {
                 error(message);
-            } else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+            } else if (has_flag(severity, vkz::debug_severity::warning)) {
                 warn(message);
-            } else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+            } else if (has_flag(severity, vkz::debug_severity::info)) {
                 info(message);
             } else {
                 debug(message);
@@ -42,14 +43,9 @@ namespace vkz {
             VkDebugUtilsMessengerCreateInfoEXT create_info{};
             create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
             create_info.messageSeverity =
-                    VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-                    VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-                    VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                    VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+                    static_cast<VkDebugUtilsMessageSeverityFlagsEXT>(vkz::debug_severity::all);
             create_info.messageType =
-                    VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+                    static_cast<VkDebugUtilsMessageTypeFlagsEXT>(vkz::debug_type::standard);
             create_info.pfnUserCallback = debug_callback;
             return create_info;
         }
@@ -75,25 +71,25 @@ namespace vkz {
             return VK_MAKE_API_VERSION(0, parts[0], parts[1], parts[2]);
         }
 
-        std::vector<VkQueueFlagBits> queue_bits(VkQueueFlags flags) {
-            std::vector<VkQueueFlagBits> bits;
+        std::vector<vkz::queue> queue_bits(vkz::queue flags) {
+            std::vector<vkz::queue> bits;
 
-            const VkQueueFlagBits knownBits[] = {
-                    VK_QUEUE_GRAPHICS_BIT,
-                    VK_QUEUE_COMPUTE_BIT,
-                    VK_QUEUE_TRANSFER_BIT,
-                    VK_QUEUE_SPARSE_BINDING_BIT,
-                    VK_QUEUE_PROTECTED_BIT,
-#ifdef VK_QUEUE_VIDEO_DECODE_BIT_KHR
-                    VK_QUEUE_VIDEO_DECODE_BIT_KHR,
+            const vkz::queue knownBits[] = {
+                    vkz::queue::graphics,
+                    vkz::queue::compute,
+                    vkz::queue::transfer,
+                    vkz::queue::sparse_binding,
+                    vkz::queue::protected_memory,
+#ifdef VK_KHR_video_queue
+                    vkz::queue::video_decode,
 #endif
-#ifdef VK_QUEUE_VIDEO_ENCODE_BIT_KHR
-                    VK_QUEUE_VIDEO_ENCODE_BIT_KHR,
+#ifdef VK_KHR_video_queue
+                    vkz::queue::video_encode,
 #endif
             };
 
             for (auto bit : knownBits) {
-                if (flags & bit) {
+                if (has_flag(flags, bit)) {
                     bits.push_back(bit);
                 }
             }
@@ -239,8 +235,8 @@ namespace vkz {
         VkSurfaceKHR surface{};
         vkz::device_factory* factory{};
 
-        VkQueueFlags queue_flags{VK_QUEUE_GRAPHICS_BIT};
-        VkQueueFlags unique_queue_flags{};
+        vkz::queue queue_flags{vkz::queue::graphics};
+        vkz::queue unique_queue_flags{};
         uint32_t num_graphics_queues{1};
 
         std::vector<VkQueueFamilyProperties> queue_families;
@@ -352,9 +348,7 @@ namespace vkz {
                 impl_.device_extensions.emplace_back(VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME);
                 impl_.rebuild_pointers();
                 diagnostics.flags =
-                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV |
-                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV |
-                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_ERROR_REPORTING_BIT_NV;
+                    static_cast<VkDeviceDiagnosticsConfigFlagsNV>(vkz::device_diagnostics::crash_dump);
                 diagnostics.pNext = extension_chain_;
                 extension_chain_ = &diagnostics;
             } else {
@@ -443,12 +437,23 @@ namespace vkz {
             return true;
         }
 
-        uint32_t find_queue_family(VkPhysicalDevice physical_device, VkQueueFlagBits flag, bool unique) const {
+        uint32_t find_queue_family(VkPhysicalDevice physical_device, vkz::queue flag, bool unique) const {
             for (uint32_t i = 0; i < impl_.queue_families.size(); ++i) {
                 const auto& family = impl_.queue_families[i];
                 if (unique && impl_.selected_queue_families.contains(i)) continue;
-                if (!(family.queueFlags & flag)) continue;
-                if (impl_.surface) {
+                if (!(family.queueFlags & static_cast<VkQueueFlags>(flag))) continue;
+#ifdef VK_KHR_video_decode_h264
+                if (flag == vkz::queue::video_decode &&
+                    std::ranges::find(impl_.device_extensions, VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME) != impl_.device_extensions.end()) {
+                    VkQueueFamilyVideoPropertiesKHR video{VK_STRUCTURE_TYPE_QUEUE_FAMILY_VIDEO_PROPERTIES_KHR};
+                    std::vector<VkQueueFamilyProperties2> properties(impl_.queue_families.size(), {VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2});
+                    properties[i].pNext = &video;
+                    auto count = static_cast<uint32_t>(properties.size());
+                    vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &count, properties.data());
+                    if (!(video.videoCodecOperations & static_cast<VkVideoCodecOperationFlagsKHR>(vkz::video_codec_operation::decode_h264))) continue;
+                }
+#endif
+                if (impl_.surface && flag == vkz::queue::graphics) {
                     VkBool32 supports_present{};
                     VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(
                         physical_device, i, impl_.surface, &supports_present));
@@ -465,7 +470,7 @@ namespace vkz {
 
         uint32_t queue_count_for_family(uint32_t family_index) const {
             auto count = 1u;
-            if (impl_.queue_families[family_index].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            if (impl_.queue_families[family_index].queueFlags & static_cast<VkQueueFlags>(vkz::queue::graphics)) {
                 count = std::max(count, graphics_queue_count());
             }
             return std::min(count, impl_.queue_families[family_index].queueCount);
@@ -657,12 +662,12 @@ namespace vkz {
         return *this;
     }
 
-    builder& builder::add_queue(VkQueueFlagBits flag) {
+    builder& builder::add_queue(vkz::queue flag) {
         pimpl->queue_flags |= flag;
         return *this;
     }
 
-    builder& builder::add_unique_queue(VkQueueFlagBits flag) {
+    builder& builder::add_unique_queue(vkz::queue flag) {
         pimpl->unique_queue_flags |= flag;
         return *this;
     }
@@ -672,11 +677,11 @@ namespace vkz {
         return *this;
     }
 
-    VkQueueFlags builder::queue_flags() const {
+    vkz::queue builder::queue_flags() const {
         return pimpl->queue_flags;
     }
 
-    VkQueueFlags builder::unique_queue_flags() const {
+    vkz::queue builder::unique_queue_flags() const {
         return pimpl->unique_queue_flags;
     }
 
@@ -684,11 +689,11 @@ namespace vkz {
         return pimpl->num_graphics_queues;
     }
 
-    VkQueueFlags device_factory::queue_flags() const {
+    vkz::queue device_factory::queue_flags() const {
         return builder_->queue_flags();
     }
 
-    VkQueueFlags device_factory::unique_queue_flags() const {
+    vkz::queue device_factory::unique_queue_flags() const {
         return builder_->unique_queue_flags();
     }
 

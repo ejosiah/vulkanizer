@@ -1,6 +1,7 @@
 #pragma once
 
 #include "memory.hpp"
+#include "pipeline.hpp"
 #include "vkz.hpp"
 #include <initializer_list>
 #include <vector>
@@ -71,46 +72,34 @@ namespace vkz::barrier {
 
     void prepare_draw(VkCommandBuffer command_buffer);
 
-    void push(VkImage& image, VkImageSubresourceRange subresource_range,
-                    VkPipelineStageFlags2 src_stage_mask,VkPipelineStageFlags2 dst_stage_mask,
-                    VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask,
-                    VkImageLayout old_layout, VkImageLayout new_layout);
+    void push(VkImage &image, VkImageSubresourceRange subresource_range, vkz::pipeline::stage src_stage_mask, vkz::pipeline::stage dst_stage_mask, vkz::access src_access_mask,
+              vkz::access dst_access_mask, VkImageLayout old_layout, VkImageLayout new_layout);
 
-    void push(image& image, VkImageSubresourceRange subresource_range,
-              VkPipelineStageFlags2 src_stage_mask, VkPipelineStageFlags2 dst_stage_mask,
-              VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask, VkImageLayout new_layout);
+    void push(image &image, VkImageSubresourceRange subresource_range, vkz::pipeline::stage src_stage_mask, vkz::pipeline::stage dst_stage_mask, vkz::access src_access_mask,
+              vkz::access dst_access_mask, VkImageLayout new_layout);
 
-    void push_and_flush(VkCommandBuffer command_buffer, VkImage& image, VkImageSubresourceRange subresource_range,
-                             VkPipelineStageFlags2 src_stage_mask,VkPipelineStageFlags2 dst_stage_mask,
-                             VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask,
-                             VkImageLayout old_layout, VkImageLayout new_layout);
+    void push_and_flush(VkCommandBuffer command_buffer, VkImage &image, VkImageSubresourceRange subresource_range, vkz::pipeline::stage src_stage_mask, vkz::pipeline::stage dst_stage_mask,
+                        vkz::access src_access_mask, vkz::access dst_access_mask, VkImageLayout old_layout, VkImageLayout new_layout);
 
-    void push_and_flush(VkCommandBuffer command_buffer, image& image, VkImageSubresourceRange subresource_range,
-                        VkPipelineStageFlags2 src_stage_mask, VkPipelineStageFlags2 dst_stage_mask,
-                        VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask, VkImageLayout new_layout);
+    void push_and_flush(VkCommandBuffer command_buffer, image &image, VkImageSubresourceRange subresource_range, vkz::pipeline::stage src_stage_mask, vkz::pipeline::stage dst_stage_mask,
+                        vkz::access src_access_mask, vkz::access dst_access_mask, VkImageLayout new_layout);
 
-    void push(VkPipelineStageFlags2 src_stage_mask,VkPipelineStageFlags2 dst_stage_mask,
-                        VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask);
+    void push(vkz::pipeline::stage src_stage_mask, vkz::pipeline::stage dst_stage_mask, vkz::access src_access_mask, vkz::access dst_access_mask);
 
-    void push_and_flush(VkCommandBuffer command_buffer, VkPipelineStageFlags2 src_stage_mask,VkPipelineStageFlags2 dst_stage_mask,
-                        VkAccessFlags2 src_access_mask, VkAccessFlags2 dst_access_mask);
+    void push_and_flush(VkCommandBuffer command_buffer, vkz::pipeline::stage src_stage_mask, vkz::pipeline::stage dst_stage_mask, vkz::access src_access_mask, vkz::access dst_access_mask);
 
-    void release(VkImage& image, VkImageSubresourceRange subresource_range,
-                        VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask,
-                        VkImageLayout old_layout, VkImageLayout new_layout,
-                        uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
+    void release(VkImage &image, VkImageSubresourceRange subresource_range, vkz::pipeline::stage src_stage_mask, vkz::access src_access_mask, VkImageLayout old_layout, VkImageLayout new_layout,
+                 uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
 
     void acquire(VkImage& image, VkImageSubresourceRange subresource_range,
                         VkImageLayout old_layout, VkImageLayout new_layout,
                         uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
 
-    void release(const buffer& buffer, VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask,
-                 uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
+    void release(const buffer &buffer, vkz::pipeline::stage src_stage_mask, vkz::access src_access_mask, uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
 
-    void acquire(const buffer& buffer, VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask,
-                 uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
+    void acquire(const buffer &buffer, vkz::pipeline::stage dst_stage_mask, vkz::access dst_access_mask, uint32_t src_queue_family_index, uint32_t dst_queue_family_index);
 
-    void flush(VkCommandBuffer command_buffer, VkDependencyFlags dependency_flag = 0);
+    void flush(VkCommandBuffer command_buffer, vkz::dependency dependency_flag = vkz::dependency::none);
 
     bool flushed();
 }

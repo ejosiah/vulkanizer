@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vkz.hpp"
+#include "enum_bit_flags.hpp"
 
 #include <volk.h>
 #include <vk_mem_alloc.h>
@@ -31,6 +32,55 @@ namespace vkz {
     class staging_buffer;
 
     struct buffer {
+        using flags = vkz::buffer_flags;
+        enum class usage : VkBufferUsageFlags {
+            none = 0,
+            transfer_src = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            transfer_dst = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            uniform_texel = VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT,
+            storage_texel = VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT,
+            uniform = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            index = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            vertex = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            indirect = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+            device_address = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+            conditional_rendering = VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT,
+            transform_feedback = VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT,
+            transform_feedback_counter = VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT,
+            video_decode_src = VK_BUFFER_USAGE_VIDEO_DECODE_SRC_BIT_KHR,
+            video_decode_dst = VK_BUFFER_USAGE_VIDEO_DECODE_DST_BIT_KHR,
+            video_encode_src = VK_BUFFER_USAGE_VIDEO_ENCODE_SRC_BIT_KHR,
+            video_encode_dst = VK_BUFFER_USAGE_VIDEO_ENCODE_DST_BIT_KHR,
+            acceleration_structure_input = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+            acceleration_structure_storage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
+            shader_binding_table = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+            sampler_descriptor = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
+            resource_descriptor = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT,
+            push_descriptor = VK_BUFFER_USAGE_PUSH_DESCRIPTORS_DESCRIPTOR_BUFFER_BIT_EXT,
+            micromap_input = VK_BUFFER_USAGE_MICROMAP_BUILD_INPUT_READ_ONLY_BIT_EXT,
+            micromap_storage = VK_BUFFER_USAGE_MICROMAP_STORAGE_BIT_EXT,
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+            execution_graph_scratch = VK_BUFFER_USAGE_EXECUTION_GRAPH_SCRATCH_BIT_AMDX,
+#endif
+            // Common combinations; upload adds transfer_dst, download adds
+            // transfer_src, and transfer adds both transfer directions.
+            storage_upload = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            uniform_upload = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            indirect_storage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            storage_transfer = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            transfer = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            vertex_storage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            storage_download = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            acceleration_input = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+            acceleration_storage_input = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            index_storage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            vertex_upload = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            indirect_storage_transfer = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            vertex_storage_transfer = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            index_storage_transfer = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        };
+
         VkBuffer _{};
         VkBufferCreateInfo create_info{};
         VmaAllocation allocation{};
@@ -45,6 +95,7 @@ namespace vkz {
         void destroy();
 
         void flush(size_t offset = 0, size_t size = VK_WHOLE_SIZE);
+        void invalidate(size_t offset = 0, size_t size = VK_WHOLE_SIZE);
 
         operator VkBuffer() const {
             return _;
@@ -58,6 +109,67 @@ namespace vkz {
     };
 
     struct image {
+        using flags = vkz::image_flags;
+        enum class aspect : VkImageAspectFlags {
+            none = VK_IMAGE_ASPECT_NONE,
+            color = VK_IMAGE_ASPECT_COLOR_BIT,
+            depth = VK_IMAGE_ASPECT_DEPTH_BIT,
+            stencil = VK_IMAGE_ASPECT_STENCIL_BIT,
+            metadata = VK_IMAGE_ASPECT_METADATA_BIT,
+            plane_0 = VK_IMAGE_ASPECT_PLANE_0_BIT,
+            plane_1 = VK_IMAGE_ASPECT_PLANE_1_BIT,
+            plane_2 = VK_IMAGE_ASPECT_PLANE_2_BIT,
+            memory_plane_0 = VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT,
+            memory_plane_1 = VK_IMAGE_ASPECT_MEMORY_PLANE_1_BIT_EXT,
+            memory_plane_2 = VK_IMAGE_ASPECT_MEMORY_PLANE_2_BIT_EXT,
+            memory_plane_3 = VK_IMAGE_ASPECT_MEMORY_PLANE_3_BIT_EXT,
+            depth_stencil = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+        };
+
+        enum class usage : VkImageUsageFlags {
+            none = 0,
+            transfer_src = VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            transfer_dst = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            sampled = VK_IMAGE_USAGE_SAMPLED_BIT,
+            storage = VK_IMAGE_USAGE_STORAGE_BIT,
+            color = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            depth_stencil = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            transient = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+            input = VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+            video_decode_src = VK_IMAGE_USAGE_VIDEO_DECODE_SRC_BIT_KHR,
+            video_decode_dst = VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR,
+            video_decode_dpb = VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR,
+            video_encode_src = VK_IMAGE_USAGE_VIDEO_ENCODE_SRC_BIT_KHR,
+            video_encode_dst = VK_IMAGE_USAGE_VIDEO_ENCODE_DST_BIT_KHR,
+            video_encode_dpb = VK_IMAGE_USAGE_VIDEO_ENCODE_DPB_BIT_KHR,
+            fragment_density_map = VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT,
+            fragment_shading_rate = VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR,
+            host_transfer = VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT,
+            attachment_feedback_loop = VK_IMAGE_USAGE_ATTACHMENT_FEEDBACK_LOOP_BIT_EXT,
+            invocation_mask = VK_IMAGE_USAGE_INVOCATION_MASK_BIT_HUAWEI,
+            sample_weight = VK_IMAGE_USAGE_SAMPLE_WEIGHT_BIT_QCOM,
+            sample_block_match = VK_IMAGE_USAGE_SAMPLE_BLOCK_MATCH_BIT_QCOM,
+
+            // Common combinations; upload adds transfer_dst, download adds
+            // transfer_src, and transfer adds both transfer directions.
+            sampled_storage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+            sampled_storage_transfer = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            sampled_upload = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            color_sampled = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            color_download = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            sampled_storage_download = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            sampled_transfer = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            color_input_sampled_download = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            color_sampled_storage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+            depth_stencil_sampled = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            sampled_storage_upload = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            storage_download = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            transfer = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            color_input_sampled = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            color_sampled_upload = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            storage_transfer = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        };
+
         VkImage handle{};
         VkImageCreateInfo create_info{};
         VmaAllocation allocation{};
@@ -76,6 +188,7 @@ namespace vkz {
     };
 
     struct image_view {
+        using flags = vkz::image_view_flags;
         VkImageView handle{};
         VkImageViewCreateInfo create_info{};
         VkDevice device{};
@@ -93,7 +206,7 @@ namespace vkz {
     };
 
     struct sub_resource {
-        VkImageAspectFlags aspect_mask{VK_IMAGE_ASPECT_COLOR_BIT};
+        image::aspect aspect_mask{image::aspect::color};
         uint32_t base_mip_level{0};
         uint32_t level_count{1};
         uint32_t base_array_layer{0};
@@ -101,6 +214,7 @@ namespace vkz {
     };
 
     struct sampler {
+        using flags = vkz::sampler_flags;
         VkSampler handle{};
         VkSamplerCreateInfo create_info{};
         VkDevice device{};
@@ -171,6 +285,18 @@ namespace vkz {
 
     private:
         bool owns_allocator{};
+    };
+
+    // VMA-backed memory for objects (such as video sessions) with explicit requirements.
+    struct device_memory {
+        static device_memory allocate(vma_memory_allocator &allocator, const VkMemoryRequirements &requirements);
+        void destroy();
+
+        VkDeviceMemory handle{};
+        VkDeviceSize offset{};
+        VkDeviceSize size{};
+        VmaAllocation allocation{};
+        VmaAllocator allocator{};
     };
 
     class staging_buffer {
@@ -286,11 +412,11 @@ namespace vkz {
     public:
         explicit buffer_builder(vma_memory_allocator &allocator);
 
-        buffer_builder &flags(VkBufferCreateFlags value);
+        buffer_builder &flags(vkz::buffer::flags value);
 
         buffer_builder &size(VkDeviceSize value);
 
-        buffer_builder &usage(VkBufferUsageFlags value);
+        buffer_builder &usage(buffer::usage value);
 
         buffer_builder &sharing_mode(VkSharingMode value);
 
@@ -320,7 +446,7 @@ namespace vkz {
     public:
         explicit image_builder(vma_memory_allocator &allocator);
 
-        image_builder &flags(VkImageCreateFlags value);
+        image_builder &flags(vkz::image::flags value);
 
         image_builder &type(VkImageType value);
 
@@ -334,11 +460,11 @@ namespace vkz {
 
         image_builder &array_layers(uint32_t value);
 
-        image_builder &samples(VkSampleCountFlagBits value);
+        image_builder &samples(vkz::sample_count value);
 
         image_builder &tiling(VkImageTiling value);
 
-        image_builder &usage(VkImageUsageFlags value);
+        image_builder &usage(image::usage value);
 
         image_builder &sharing_mode(VkSharingMode value);
 
@@ -364,7 +490,7 @@ namespace vkz {
     public:
         explicit image_view_builder(vkz::device device);
 
-        image_view_builder &flags(VkImageViewCreateFlags value);
+        image_view_builder &flags(vkz::image_view::flags value);
 
         image_view_builder &image(const vkz::image &value);
 
@@ -376,7 +502,7 @@ namespace vkz {
 
         image_view_builder &subresource_range(VkImageSubresourceRange value);
 
-        image_view_builder &aspect_mask(VkImageAspectFlags value);
+        image_view_builder &aspect_mask(image::aspect value);
 
         image_view_builder &base_mip_level(uint32_t value);
 
@@ -401,7 +527,7 @@ namespace vkz {
     public:
         explicit sampler_builder(vkz::device device);
 
-        sampler_builder &flags(VkSamplerCreateFlags value);
+        sampler_builder &flags(vkz::sampler::flags value);
 
         sampler_builder &mag_filter(VkFilter value);
 
@@ -442,3 +568,15 @@ namespace vkz {
         VkSamplerCreateInfo create_info_{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     };
 }
+
+template <> struct enable_bitmask_operators<vkz::buffer::usage> {
+    static constexpr bool enable = true;
+};
+
+template <> struct enable_bitmask_operators<vkz::image::usage> {
+    static constexpr bool enable = true;
+};
+
+template <> struct enable_bitmask_operators<vkz::image::aspect> {
+    static constexpr bool enable = true;
+};

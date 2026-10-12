@@ -30,6 +30,11 @@ namespace vkz {
             return *this;
         }
 
+        compute_shader_stage_builder &entry_point(const char *name) {
+            _shader.entry = name;
+            return *this;
+        }
+
         void validate() const;
 
         void clear_stages();

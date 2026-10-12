@@ -74,7 +74,7 @@ namespace vkz {
         }
 
     protected:
-        VkPipelineCreateFlags _flags = 0;
+        vkz::pipeline::flags _flags = vkz::pipeline::flags::none;
         VkPipelineLayout _pipeline_layout{};
         VkPipelineLayout _pipeline_layout_owned{};
         std::string _name;

@@ -14,9 +14,8 @@ namespace vkz::mesh {
         }
 
         void build_barrier(VkCommandBuffer cmd) {
-            barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                                    VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR,
-                                    VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR);
+            barrier::push_and_flush(cmd, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::acceleration_structure_build, vkz::access::memory_write | vkz::access::acceleration_structure_read,
+                                    vkz::access::shader_read | vkz::access::acceleration_structure_read | vkz::access::acceleration_structure_write);
         }
     }
 
@@ -61,19 +60,19 @@ namespace vkz::mesh {
             value.storage.destroy();
         }
 
-        buffer allocate(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory = VMA_MEMORY_USAGE_GPU_ONLY) {
+        buffer allocate(VkDeviceSize size, vkz::buffer::usage usage, VmaMemoryUsage memory = VMA_MEMORY_USAGE_GPU_ONLY) {
             return buffer::builder(allocator)
-                    .size(size)
-                    .usage(usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
-                    .memory_usage(memory)
-                    .build();
+                .size(size)
+                .usage(usage | vkz::buffer::usage::device_address)
+                .memory_usage(memory)
+                .build();
         }
 
         VkAccelerationStructureBuildGeometryInfoKHR build_info(structure &value, bool is_top) {
             VkAccelerationStructureBuildGeometryInfoKHR info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR};
             info.type = is_top ? VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR : VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-            info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-            if (is_top && options.allow_instance_updates) info.flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+            info.flags = static_cast<VkBuildAccelerationStructureFlagsKHR>(vkz::acceleration_structure_build::prefer_fast_trace);
+            if (is_top && options.allow_instance_updates) info.flags |= static_cast<VkBuildAccelerationStructureFlagsKHR>(vkz::acceleration_structure_build::allow_update);
             info.geometryCount = 1;
             info.pGeometries = &value.geometry;
             info.dstAccelerationStructure = value.view.handle;
@@ -92,8 +91,10 @@ namespace vkz::mesh {
 
         void prepare_geometry(const data &scene, const geometry_buffers &buffers) {
             VKZ_ASSERT(!scene.meshes.empty() && !scene.instances.empty(), "BVH requires meshes and instances");
-            const auto usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-            VKZ_ASSERT(buffers.vertices._ && buffers.indices._ && (buffers.vertices.create_info.usage & usage) == usage && (buffers.indices.create_info.usage & usage) == usage, "BVH buffers require build-input and device-address usage");
+            const auto usage = vkz::buffer::usage::acceleration_input;
+            VKZ_ASSERT(buffers.vertices._ && buffers.indices._ && has_flag(static_cast<buffer::usage>(buffers.vertices.create_info.usage), usage) &&
+                           has_flag(static_cast<buffer::usage>(buffers.indices.create_info.usage), usage),
+                       "BVH buffers require build-input and device-address usage");
             VKZ_ASSERT(buffers.vertices.create_info.size >= scene.vertex_data.size() && buffers.indices.create_info.size >= scene.index_data.size() * sizeof(uint32_t), "BVH buffers are smaller than scene data");
             auto attribute = std::find_if(scene.streams.attributes.begin(), scene.streams.attributes.end(), [](const auto &value) { return value.location == 0; });
             VKZ_ASSERT(attribute != scene.streams.attributes.end() && attribute->format == VK_FORMAT_R32G32B32_SFLOAT, "BVH requires float3 positions at location zero");
@@ -103,7 +104,7 @@ namespace vkz::mesh {
                        "BVH requires one interleaved vertex stream with aligned float3 positions");
             VkFormatProperties format{};
             vkGetPhysicalDeviceFormatProperties(allocator.device.physical, attribute->format, &format);
-            VKZ_ASSERT(format.bufferFeatures & VK_FORMAT_FEATURE_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR, "Device does not support float3 acceleration structure vertices");
+            VKZ_ASSERT(format.bufferFeatures & static_cast<VkFormatFeatureFlags>(vkz::format_feature::acceleration_structure_vertex_buffer), "Device does not support float3 acceleration structure vertices");
 
             const auto vertices = address(device, buffers.vertices);
             const auto indices = address(device, buffers.indices);
@@ -144,7 +145,7 @@ namespace vkz::mesh {
         void create_structure(structure &value, bool is_top) {
             auto info = build_info(value, is_top);
             vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &info, &value.count, &value.sizes);
-            value.storage = allocate(value.sizes.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR);
+            value.storage = allocate(value.sizes.accelerationStructureSize, vkz::buffer::usage::acceleration_structure_storage);
             VkAccelerationStructureCreateInfoKHR create{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
             create.buffer = value.storage;
             create.size = value.sizes.accelerationStructureSize;
@@ -185,8 +186,8 @@ namespace vkz::mesh {
                 target.mask = settings_value.mask;
                 target.instanceShaderBindingTableRecordOffset = settings_value.shader_binding_table_offset;
                 target.accelerationStructureReference = bottom[source.mesh_id].view.device_address;
-                if (material.alpha_mode == alpha_mode::opaque) target.flags |= VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
-                if (material.double_sided || material.thickness_factor > 0) target.flags |= VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+                if (material.alpha_mode == alpha_mode::opaque) target.flags |= static_cast<VkGeometryInstanceFlagsKHR>(vkz::geometry_instance::force_opaque);
+                if (material.double_sided || material.thickness_factor > 0) target.flags |= static_cast<VkGeometryInstanceFlagsKHR>(vkz::geometry_instance::triangle_facing_cull_disable);
             }
             return result;
         }
@@ -196,21 +197,19 @@ namespace vkz::mesh {
             std::memcpy(mapping.as<void>(), instance_data.data(), VKZ_BYTE_SIZE(instance_data));
             instance_staging.flush();
             mapping.unmap();
-            barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+            barrier::push_and_flush(cmd, vkz::pipeline::stage::acceleration_structure_build, vkz::pipeline::stage::transfer, vkz::access::acceleration_structure_read, vkz::access::transfer_write);
             vkz::copy(cmd, instance_staging, instance_buffer);
-            barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+            barrier::push_and_flush(cmd, vkz::pipeline::stage::transfer, vkz::pipeline::stage::acceleration_structure_build, vkz::access::transfer_write, vkz::access::acceleration_structure_read);
         }
 
         void create_tlas(const data &scene, std::span<const bvh_instance_options> settings) {
             instance_data = prepare_instances(scene, settings);
             for (const auto &value : scene.instances)
                 mesh_ids.push_back(value.mesh_id);
-            instance_buffer = allocate(VKZ_BYTE_SIZE(instance_data), VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+            instance_buffer = allocate(VKZ_BYTE_SIZE(instance_data), vkz::buffer::usage::acceleration_structure_input | vkz::buffer::usage::transfer_dst);
             instance_staging = buffer::builder(allocator)
                 .size(VKZ_BYTE_SIZE(instance_data))
-                .usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+                .usage(vkz::buffer::usage::transfer_src)
                 .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
                 .build();
             top.count = VKZ_COUNT(instance_data);
@@ -226,7 +225,7 @@ namespace vkz::mesh {
             for (const auto &value : bottom)
                 size = std::max(size, value.sizes.buildScratchSize);
             const VkDeviceSize alignment = properties.minAccelerationStructureScratchOffsetAlignment;
-            scratch = allocate(size + alignment, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+            scratch = allocate(size + alignment, vkz::buffer::usage::storage);
             scratch_address = (address(device, scratch) + alignment - 1) & ~(alignment - 1);
         }
 
@@ -241,8 +240,8 @@ namespace vkz::mesh {
         }
 
         void finish_build(VkCommandBuffer cmd) {
-            barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
-                                    VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+            barrier::push_and_flush(cmd, vkz::pipeline::stage::acceleration_structure_build, vkz::pipeline::stage::all_commands, vkz::access::acceleration_structure_write,
+                                    vkz::access::acceleration_structure_read);
         }
 
         void initialize(const data &scene, const geometry_buffers &geometry, std::span<const bvh_instance_options> settings) {

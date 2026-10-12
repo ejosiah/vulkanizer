@@ -17,17 +17,17 @@ int main() try {
     auto device = context.device;
     auto allocator = vkz::vma_memory_allocator::create(context);
     auto buffer = vkz::buffer::builder(allocator)
-            .size(34 * sizeof(glm::vec4))
-            .usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-            .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
-            .build();
-    VkDescriptorSetLayoutBinding binding{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr};
+        .size(34 * sizeof(glm::vec4))
+        .usage(vkz::buffer::usage::storage)
+        .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
+        .build();
+    VkDescriptorSetLayoutBinding binding{0, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::compute), nullptr};
     VkDescriptorSetLayoutCreateInfo layout_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
     layout_info.bindingCount = 1;
     layout_info.pBindings = &binding;
     vkz::descriptor_set_layout layout{.device = device};
     VKZ_CHECK_VULKAN(vkCreateDescriptorSetLayout(device, &layout_info, nullptr, &layout.handle));
-    VkDescriptorPoolSize size{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1};
+    VkDescriptorPoolSize size{static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1};
     VkDescriptorPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
     pool_info.maxSets = 1;
     pool_info.poolSizeCount = 1;
@@ -44,16 +44,16 @@ int main() try {
     VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
     write.dstSet = set;
     write.descriptorCount = 1;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer);
     write.pBufferInfo = &info;
     vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
     auto pipeline = vkz::compute_pipeline_builder{device}.shader_stage().compute_shader(reference::shader("gltf_brdf_test.comp.spv")).layout().add_descriptor_set_layout(layout).build();
-    vkz::command_pool commands{device, app.queue_family_index(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, app.graphics_queue()};
+    vkz::command_pool commands{device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
     auto cmd = commands.create_command_buffer();
     vkz::bind_pipeline(cmd, pipeline);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.layout, 0, 1, &set, 0, nullptr);
     vkCmdDispatch(cmd, 1, 1, 1);
-    vkz::barrier::push_and_flush(cmd, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_ACCESS_2_HOST_READ_BIT);
+    vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::compute_shader, vkz::pipeline::stage::host, vkz::access::shader_write, vkz::access::host_read);
     commands.submit_and_wait(cmd);
     vmaInvalidateAllocation(buffer.allocator, buffer.allocation, 0, VK_WHOLE_SIZE);
     auto mapping = buffer.map();

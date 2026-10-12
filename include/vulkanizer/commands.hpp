@@ -20,6 +20,7 @@
 #pragma once
 
 #include "vkz.hpp"
+#include "pipeline.hpp"
 #include <volk.h>
 
 #include <cstddef>
@@ -29,19 +30,20 @@
 namespace vkz {
     constexpr uint32_t default_ring_size = 3;
 
-    [[nodiscard]] VkPipelineStageFlags make_access_mask_pipeline_stage_flags(
-        VkAccessFlags access_mask,
-        VkPipelineStageFlags supported_shader_bits =
-            VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
-            VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT |
-            VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT |
-            VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT |
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    [[nodiscard]] vkz::pipeline::stage make_access_mask_pipeline_stage_flags(vkz::access access_mask,
+                                                                             vkz::pipeline::stage supported_shader_bits = vkz::pipeline::stage::vertex_shader |
+                                                                                                                          vkz::pipeline::stage::tessellation_control_shader |
+                                                                                                                          vkz::pipeline::stage::tessellation_evaluation_shader |
+                                                                                                                          vkz::pipeline::stage::geometry_shader |
+                                                                                                                          vkz::pipeline::stage::fragment_shader | vkz::pipeline::stage::compute_shader);
 
     void cmd_begin(
         VkCommandBuffer command_buffer,
-        VkCommandBufferUsageFlags flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        vkz::command_buffer_usage flags = vkz::command_buffer_usage::one_time_submit);
+
+    void cmd_end(VkCommandBuffer command_buffer);
+
+    [[nodiscard]] VkQueue get_queue(vkz::device device, uint32_t family_index, uint32_t queue_index = 0);
 
     [[nodiscard]] VkSubmitInfo make_submit_info(
         uint32_t command_buffer_count,
@@ -51,11 +53,12 @@ namespace vkz {
 
     class command_pool {
     public:
+        using flags = vkz::command_pool_flags;
         command_pool();
         command_pool(
             vkz::device device,
             uint32_t family_index,
-            VkCommandPoolCreateFlags flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+            vkz::command_pool_flags flags = vkz::command_pool_flags::transient,
             VkQueue default_queue = VK_NULL_HANDLE);
         ~command_pool();
 
@@ -65,14 +68,14 @@ namespace vkz {
         void init(
             vkz::device device,
             uint32_t family_index,
-            VkCommandPoolCreateFlags flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+            vkz::command_pool_flags flags = vkz::command_pool_flags::transient,
             VkQueue default_queue = VK_NULL_HANDLE);
         void deinit();
 
         [[nodiscard]] VkCommandBuffer create_command_buffer(
             VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             bool begin = true,
-            VkCommandBufferUsageFlags flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            vkz::command_buffer_usage flags = vkz::command_buffer_usage::one_time_submit,
             const VkCommandBufferInheritanceInfo* inheritance_info = nullptr);
 
         void destroy(std::size_t count, const VkCommandBuffer* command_buffers);
@@ -152,7 +155,7 @@ namespace vkz {
         ring_command_pool(
             VkDevice device,
             uint32_t queue_family_index,
-            VkCommandPoolCreateFlags flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+            vkz::command_pool_flags flags = vkz::command_pool_flags::transient,
             uint32_t ring_size = default_ring_size);
         ~ring_command_pool();
 
@@ -162,7 +165,7 @@ namespace vkz {
         void init(
             VkDevice device,
             uint32_t queue_family_index,
-            VkCommandPoolCreateFlags flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+            vkz::command_pool_flags flags = vkz::command_pool_flags::transient,
             uint32_t ring_size = default_ring_size);
         void deinit();
         void reset();
@@ -171,7 +174,7 @@ namespace vkz {
         [[nodiscard]] VkCommandBuffer create_command_buffer(
             VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             bool begin = true,
-            VkCommandBufferUsageFlags flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            vkz::command_buffer_usage flags = vkz::command_buffer_usage::one_time_submit,
             const VkCommandBufferInheritanceInfo* inheritance_info = nullptr);
         [[nodiscard]] const VkCommandBuffer* create_command_buffers(VkCommandBufferLevel level, uint32_t count);
 
@@ -185,7 +188,7 @@ namespace vkz {
         uint32_t cycle_size_{};
         std::vector<entry> pools_;
         VkDevice device_{VK_NULL_HANDLE};
-        VkCommandPoolCreateFlags flags_{};
+        vkz::command_pool_flags flags_{};
         uint32_t family_index_{};
     };
 
@@ -193,14 +196,8 @@ namespace vkz {
     public:
         void enqueue(uint32_t count, const VkCommandBuffer* command_buffers);
         void enqueue(VkCommandBuffer command_buffer);
-        void enqueue_signal(
-            VkSemaphore semaphore,
-            uint64_t value = 0,
-            VkPipelineStageFlags2 stage_mask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
-        void enqueue_wait(
-            VkSemaphore semaphore,
-            uint64_t value,
-            VkPipelineStageFlags2 stage_mask);
+        void enqueue_signal(VkSemaphore semaphore, uint64_t value = 0, vkz::pipeline::stage stage_mask = vkz::pipeline::stage::all_commands);
+        void enqueue_wait(VkSemaphore semaphore, uint64_t value, vkz::pipeline::stage stage_mask);
 
         [[nodiscard]] uint32_t get_command_buffer_count() const;
 
@@ -210,7 +207,7 @@ namespace vkz {
         struct semaphore {
             VkSemaphore handle{VK_NULL_HANDLE};
             uint64_t value{};
-            VkPipelineStageFlags2 stage_mask{};
+            vkz::pipeline::stage stage_mask{};
         };
 
         std::vector<VkCommandBuffer> command_buffers_;
@@ -233,7 +230,7 @@ namespace vkz {
         void enqueue(uint32_t count, const VkCommandBuffer* command_buffers);
         void enqueue(VkCommandBuffer command_buffer);
         void enqueue_signal(VkSemaphore semaphore);
-        void enqueue_wait(VkSemaphore semaphore, VkPipelineStageFlags flags);
+        void enqueue_wait(VkSemaphore semaphore, vkz::pipeline::stage flags);
         void enqueue_batch(submission_batch batch);
         VkResult execute(VkFence fence = VK_NULL_HANDLE, uint32_t device_mask = 0);
         void wait_idle() const;
@@ -254,7 +251,7 @@ namespace vkz {
             vkz::device device,
             VkQueue queue,
             uint32_t queue_family_index,
-            VkCommandPoolCreateFlags flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+            vkz::command_pool_flags flags = vkz::command_pool_flags::transient,
             uint32_t ring_size = default_ring_size);
         ~fenced_command_pools();
 
@@ -265,7 +262,7 @@ namespace vkz {
             vkz::device device,
             VkQueue queue,
             uint32_t queue_family_index,
-            VkCommandPoolCreateFlags flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+            vkz::command_pool_flags flags = vkz::command_pool_flags::transient,
             uint32_t ring_size = default_ring_size);
         void deinit();
         void reset();
@@ -273,7 +270,7 @@ namespace vkz {
         void enqueue(uint32_t count, const VkCommandBuffer* command_buffers);
         void enqueue(VkCommandBuffer command_buffer);
         void enqueue_signal(VkSemaphore semaphore);
-        void enqueue_wait(VkSemaphore semaphore, VkPipelineStageFlags flags);
+        void enqueue_wait(VkSemaphore semaphore, vkz::pipeline::stage flags);
         void enqueue_batch(submission_batch batch);
         VkResult execute(uint32_t device_mask = 0);
         void wait_idle() const;
@@ -282,7 +279,7 @@ namespace vkz {
         [[nodiscard]] VkCommandBuffer create_command_buffer(
             VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             bool begin = true,
-            VkCommandBufferUsageFlags flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            vkz::command_buffer_usage flags = vkz::command_buffer_usage::one_time_submit,
             const VkCommandBufferInheritanceInfo* inheritance_info = nullptr);
         [[nodiscard]] const VkCommandBuffer* create_command_buffers(VkCommandBufferLevel level, uint32_t count);
 

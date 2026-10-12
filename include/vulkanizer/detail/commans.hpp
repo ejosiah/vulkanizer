@@ -19,16 +19,12 @@
 
 namespace vkz {
 
-    inline void transition_for_transfer(VkCommandBuffer command_buffer, image& image, VkImageAspectFlags aspect_mask, VkImageLayout layout,
-                                        VkAccessFlags2 access_mask) {
+    inline void transition_for_transfer(VkCommandBuffer command_buffer, image &image, vkz::image::aspect aspect_mask, VkImageLayout layout, vkz::access access_mask) {
         if (image.layout == layout) return;
         const auto undefined = image.layout == VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier::push_and_flush(command_buffer, image,
-                                {aspect_mask, 0, image.create_info.mipLevels, 0, image.create_info.arrayLayers},
-                                undefined ? VK_PIPELINE_STAGE_2_NONE : VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                undefined ? VK_ACCESS_2_NONE : VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                                access_mask, layout);
+        barrier::push_and_flush(command_buffer, image, {static_cast<VkImageAspectFlags>(aspect_mask), 0, image.create_info.mipLevels, 0, image.create_info.arrayLayers},
+                                undefined ? vkz::pipeline::stage::none : vkz::pipeline::stage::all_commands, vkz::pipeline::stage::transfer,
+                                undefined ? vkz::access::none : vkz::access::memory_read_write, access_mask, layout);
     }
 
     inline void bind_descriptor_sets(VkCommandBuffer command_buffer, const pipeline& pipeline, std::span<const descriptor_set> descriptor_sets,
@@ -52,14 +48,14 @@ namespace vkz {
     }
 
     template <typename PushConstants>
-    inline void push_constants(VkCommandBuffer command_buffer, VkPipelineLayout layout, const PushConstants& constants,
-                               VkShaderStageFlags shader_stages = VK_SHADER_STAGE_VERTEX_BIT, uint32_t offset = 0) {
-        vkCmdPushConstants(command_buffer, layout, shader_stages, offset, sizeof(PushConstants), &constants);
+    inline void push_constants(VkCommandBuffer command_buffer, VkPipelineLayout layout, const PushConstants &constants, vkz::shader_stage shader_stages = vkz::shader_stage::vertex,
+                               uint32_t offset = 0) {
+        vkCmdPushConstants(command_buffer, layout, static_cast<VkShaderStageFlags>(shader_stages), offset, sizeof(PushConstants), &constants);
     }
 
     template <typename PushConstants>
-    inline void push_constants(VkCommandBuffer command_buffer, const pipeline& pipeline, const PushConstants& constants,
-                               VkShaderStageFlags shader_stages = VK_SHADER_STAGE_VERTEX_BIT, uint32_t offset = 0) {
+    inline void push_constants(VkCommandBuffer command_buffer, const pipeline &pipeline, const PushConstants &constants, vkz::shader_stage shader_stages = vkz::shader_stage::vertex,
+                               uint32_t offset = 0) {
         push_constants(command_buffer, pipeline.layout, constants, shader_stages, offset);
     }
 
@@ -210,8 +206,7 @@ namespace vkz {
         vkCmdCopyBuffer(command_buffer, src_buffer._, dst_buffer._, 1, &region);
     }
 
-    inline void copy(VkCommandBuffer command_buffer, const buffer& src_buffer, image& dst_image,
-                     VkImageAspectFlagBits aspect = VK_IMAGE_ASPECT_COLOR_BIT) {
+    inline void copy(VkCommandBuffer command_buffer, const buffer &src_buffer, image &dst_image, vkz::image::aspect aspect = vkz::image::aspect::color) {
         VKZ_ASSERT(command_buffer != VK_NULL_HANDLE, "a valid command buffer is required");
         VKZ_ASSERT(src_buffer._ != VK_NULL_HANDLE, "a valid source buffer is required");
         VKZ_ASSERT(dst_image.handle != VK_NULL_HANDLE, "a valid destination image is required");
@@ -221,8 +216,7 @@ namespace vkz {
                    "the destination image extent must not be empty");
         VKZ_ASSERT(dst_image.create_info.arrayLayers > 0, "the destination image must have an array layer");
 
-        transition_for_transfer(command_buffer, dst_image, static_cast<VkImageAspectFlags>(aspect), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                VK_ACCESS_2_TRANSFER_WRITE_BIT);
+        transition_for_transfer(command_buffer, dst_image, aspect, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vkz::access::transfer_write);
 
         const VkBufferImageCopy region{
             .bufferOffset = 0,
@@ -266,7 +260,7 @@ namespace vkz {
             return;
         }
 
-        transition_for_transfer(command_buffer, dst_image, range.aspectMask, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+        transition_for_transfer(command_buffer, dst_image, static_cast<image::aspect>(range.aspectMask), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vkz::access::transfer_write);
 
         const auto mip_extent = [mip_level](uint32_t extent) { return std::max(1u, extent >> mip_level); };
         const VkBufferImageCopy region{
@@ -295,16 +289,14 @@ namespace vkz {
         copy(command_buffer, src_buffer, texture.image, texture.image_view);
     }
 
-    inline void copy(VkCommandBuffer command_buffer, image& src_image, const buffer& dst_buffer,
-                     VkImageAspectFlagBits aspect = VK_IMAGE_ASPECT_COLOR_BIT) {
+    inline void copy(VkCommandBuffer command_buffer, image &src_image, const buffer &dst_buffer, vkz::image::aspect aspect = vkz::image::aspect::color) {
         VKZ_ASSERT(command_buffer != VK_NULL_HANDLE, "a valid command buffer is required");
         VKZ_ASSERT(src_image.handle != VK_NULL_HANDLE, "a valid source image is required");
         VKZ_ASSERT(dst_buffer._ != VK_NULL_HANDLE, "a valid destination buffer is required");
 
         if (command_buffer == VK_NULL_HANDLE || src_image.handle == VK_NULL_HANDLE || dst_buffer._ == VK_NULL_HANDLE) return;
 
-        transition_for_transfer(command_buffer, src_image, static_cast<VkImageAspectFlags>(aspect), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                VK_ACCESS_2_TRANSFER_READ_BIT);
+        transition_for_transfer(command_buffer, src_image, aspect, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkz::access::transfer_read);
 
         const VkBufferImageCopy region{
             .imageSubresource =
@@ -336,7 +328,7 @@ namespace vkz {
             return;
         }
 
-        transition_for_transfer(command_buffer, src_image, range.aspectMask, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_2_TRANSFER_READ_BIT);
+        transition_for_transfer(command_buffer, src_image, static_cast<image::aspect>(range.aspectMask), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkz::access::transfer_read);
 
         const auto mip_extent = [mip_level](uint32_t extent) { return std::max(1u, extent >> mip_level); };
         const VkBufferImageCopy region{
@@ -368,14 +360,14 @@ namespace vkz {
         VKZ_ASSERT(source.create_info.extent.width == destination.create_info.extent.width && source.create_info.extent.height == destination.create_info.extent.height,
                    "image copy extents must match");
         VKZ_ASSERT(source.create_info.imageType == VK_IMAGE_TYPE_2D && destination.create_info.imageType == VK_IMAGE_TYPE_2D, "image copy requires 2D images");
-        VKZ_ASSERT(source.create_info.samples == VK_SAMPLE_COUNT_1_BIT && destination.create_info.samples == VK_SAMPLE_COUNT_1_BIT, "image copy requires single-sample images");
-        VKZ_ASSERT((source.create_info.usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) && (destination.create_info.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT),
+        VKZ_ASSERT(source.create_info.samples == static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1) && destination.create_info.samples == static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1), "image copy requires single-sample images");
+        VKZ_ASSERT((source.create_info.usage & static_cast<VkImageUsageFlags>(vkz::image::usage::transfer_src)) && (destination.create_info.usage & static_cast<VkImageUsageFlags>(vkz::image::usage::transfer_dst)),
                    "image copy requires transfer source/destination usage");
-        transition_for_transfer(command_buffer, source, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_2_TRANSFER_READ_BIT);
-        transition_for_transfer(command_buffer, destination, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+        transition_for_transfer(command_buffer, source, vkz::image::aspect::color, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkz::access::transfer_read);
+        transition_for_transfer(command_buffer, destination, vkz::image::aspect::color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vkz::access::transfer_write);
         const VkImageCopy region{
-            .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-            .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+            .srcSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 0, 1},
+            .dstSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 0, 1},
             .extent = source.create_info.extent,
         };
         vkCmdCopyImage(command_buffer, source.handle, source.layout, destination.handle, destination.layout, 1, &region);
@@ -403,7 +395,7 @@ namespace vkz {
     }
 
     inline VkImageSubresourceRange image_subresource_range(const sub_resource& resource) {
-        return {resource.aspect_mask, resource.base_mip_level, resource.level_count, resource.base_array_layer, resource.layer_count};
+        return {static_cast<VkImageAspectFlags>(resource.aspect_mask), resource.base_mip_level, resource.level_count, resource.base_array_layer, resource.layer_count};
     }
 
     template <typename ClearColor>
@@ -412,7 +404,7 @@ namespace vkz {
                           std::is_same_v<std::remove_cv_t<ClearColor>, VkClearDepthStencilValue>,
                       "image clear values must be VkClearColorValue or VkClearDepthStencilValue");
         const auto range = image_subresource_range(resource);
-        transition_for_transfer(command_buffer, image, resource.aspect_mask, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+        transition_for_transfer(command_buffer, image, resource.aspect_mask, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vkz::access::transfer_write);
         if constexpr (std::is_same_v<std::remove_cv_t<ClearColor>, VkClearColorValue>) {
             vkCmdClearColorImage(command_buffer, image.handle, image.layout, &clear_color, 1, &range);
         } else {
@@ -467,8 +459,8 @@ namespace vkz {
         set_scissors(command_buffer, std::span<const rect2d>{scissors.begin(), scissors.size()});
     }
 
-    inline void set_cull_mode(VkCommandBuffer command_buffer, VkCullModeFlags cullMode) {
-        vkCmdSetCullMode(command_buffer, cullMode);
+    inline void set_cull_mode(VkCommandBuffer command_buffer, vkz::cull_mode cullMode) {
+        vkCmdSetCullMode(command_buffer, static_cast<VkCullModeFlags>(cullMode));
     }
 
     inline void set_primitive_topology(VkCommandBuffer command_buffer, VkPrimitiveTopology topology) {

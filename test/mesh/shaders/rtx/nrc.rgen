@@ -1,0 +1,98 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_ray_tracing : require
+
+#include "../../../../src/reflection/shared.glsl"
+#include "nrc_payload.glsl"
+#include "nrc_bridge.glsl"
+
+layout(set = 1, binding = 4) uniform accelerationStructureEXT tlas;
+layout(location = 0) rayPayloadEXT nrc_hit payload;
+layout(push_constant) uniform pass_parameters { uint training; };
+
+uint rng_state;
+float random_value() {
+    uint state = rng_state;
+    rng_state = state * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return float((word >> 22u) ^ word) / 4294967296.0;
+}
+
+vec3 cosine_direction(vec3 normal) {
+    float radius = sqrt(random_value());
+    float angle = 2 * pi * random_value();
+    vec3 axis = abs(normal.z) < 0.99 ? vec3(0, 0, 1) : vec3(0, 1, 0);
+    vec3 tangent = normalize(cross(axis, normal));
+    return tangent * (radius * cos(angle)) + cross(normal, tangent) * (radius * sin(angle))
+        + normal * sqrt(max(1 - radius * radius, 0));
+}
+
+nrc_vertex record_vertex(vec3 direction) {
+    nrc_vertex vertex;
+    vertex.position_roughness = vec4(payload.position, payload.roughness);
+    vertex.normal_distance = vec4(payload.normal, payload.distance);
+    vertex.view_delta = vec4(-direction, 0);
+    vertex.diffuse_reflectance = vec4(payload.diffuse, 0);
+    vertex.specular_reflectance = vec4(payload.specular, 0);
+    vertex.direct_radiance = vec4(payload.direct_radiance, 0);
+    vertex.scatter_weight_pdf = vec4(payload.diffuse * (1 - payload.specular), 1);
+    vertex.throughput_valid = vec4(1);
+    vertex.emission = vec4(payload.emission, 0);
+    return vertex;
+}
+
+void main() {
+    uint index = gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x;
+    ivec2 p = min(ivec2((vec2(gl_LaunchIDEXT.xy) + 0.5) / vec2(gl_LaunchSizeEXT.xy) * vec2(resolution)), ivec2(resolution) - 1);
+    ivec2 q = source_pixel(p);
+    rng_state = index * 747796405u + frame_index * 277803737u + training * 101u + 1u;
+
+    nrc_training_path path;
+    path.terminal_radiance = vec4(0);
+    path.vertex_count = 0;
+    path.exited = 0;
+    path.reserved_0 = path.reserved_1 = 0;
+
+    nrc_vertex query_vertex;
+    query_vertex.position_roughness = vec4(0);
+    query_vertex.normal_distance = vec4(0);
+    query_vertex.view_delta = vec4(0);
+    query_vertex.diffuse_reflectance = vec4(0);
+    query_vertex.specular_reflectance = vec4(0);
+    query_vertex.direct_radiance = vec4(0);
+    query_vertex.scatter_weight_pdf = vec4(0);
+    query_vertex.throughput_valid = vec4(0);
+    query_vertex.emission = vec4(0);
+
+    if (texelFetch(scene_depth, q, 0).r < 1) {
+        // The first bounce starts at the rasterized surface; no primary camera ray.
+        vec3 position = world_at(p);
+        vec3 normal = normal_at(p);
+        vec3 direction = cosine_direction(normal);
+        for (uint bounce = 0; bounce < (training != 0 ? 4u : 1u); ++bounce) {
+            payload.valid = 0;
+            traceRayEXT(tlas, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0,
+                position + normal * 0.005, 0.01, direction, 100, 0);
+            if (payload.valid == 0) {
+                path.exited = 1;
+                break;
+            }
+            nrc_vertex vertex = record_vertex(direction);
+            if (training == 0) {
+                query_vertex = vertex;
+                break;
+            }
+            direction = cosine_direction(payload.normal);
+            vertex.scatter_weight_pdf.w = max(dot(payload.normal, direction) / pi, 1e-6);
+            nrc_training_vertices[index * 4 + bounce] = vertex;
+            ++path.vertex_count;
+            position = payload.position;
+            normal = payload.normal;
+        }
+    }
+    if (training != 0)
+        nrc_training_paths[index] = path;
+    else
+        nrc_queries[index] = query_vertex;
+}
