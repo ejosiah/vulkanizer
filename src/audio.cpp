@@ -131,8 +131,8 @@ namespace vkz::audio {
         }
 
         void load(pcm value) {
-            if (value.samples.size() % channels || value.samples.size() > size_t(sample_rate) * channels * 300 || value.delay_seconds != 0) {
-                throw std::invalid_argument("Media PCM must be stereo 48 kHz, at most 300 seconds, with no initial delay");
+            if (value.samples.size() % channels || value.delay_seconds != 0) {
+                throw std::invalid_argument("Media PCM must be stereo 48 kHz with no initial delay");
             }
             for (auto &sample : value.samples) {
                 if (!std::isfinite(sample)) {
@@ -157,8 +157,8 @@ namespace vkz::audio {
         }
 
         void seek(double seconds) {
-            if (!std::isfinite(seconds) || seconds < 0 || seconds > 300) {
-                throw std::invalid_argument("Audio seek position must be in [0, 300] seconds");
+            if (!std::isfinite(seconds) || seconds < 0 || seconds >= double(INT64_MAX) / sample_rate) {
+                throw std::invalid_argument("Audio seek position must be finite, nonnegative and representable as a sample position");
             }
             mixer_.seek(static_cast<uint64_t>(std::llround(seconds * sample_rate)));
         }
@@ -350,6 +350,9 @@ namespace vkz::audio {
         const auto input_frames = input.size() / input_channels;
         const auto output_frames = ma_calculate_frame_count_after_resampling(sample_rate, input_rate, input_frames);
         pcm result;
+        if (output_frames > result.samples.max_size() / channels) {
+            throw std::runtime_error("Resampled audio exceeds addressable PCM storage");
+        }
         result.samples.resize(output_frames * channels);
         const auto converted = ma_convert_frames(result.samples.data(), output_frames, ma_format_f32, channels, sample_rate, input.data(), input_frames, ma_format_f32, input_channels, input_rate);
         if (!converted && input_frames) {

@@ -77,6 +77,8 @@ The test clips contain 903, 1515 (cat), and 394 (squirrel) frames respectively.
 Private parser sources retain their original notices in `src/video/third_party`.
 The local H.264 parser correction respects per-slice reference-count overrides
 when reading weighted prediction tables.
+The MP4 demuxer accepts CTTS version 1 for signed composition offsets, including
+downloaded clips whose B-frame presentation timestamps precede their decode timestamps.
 
 ## Local validation
 

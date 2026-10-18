@@ -246,7 +246,7 @@ sequenceDiagram
 ```
 
 Media transport is separate from the bounded one-shot voice pool. Media is
-predecoded with a 300-second limit. `position()` is a sample clock; it does not
+predecoded into memory without a fixed duration limit. `position()` is a sample clock; it does not
 measure additional hardware output latency.
 
 ## Seeking and resuming

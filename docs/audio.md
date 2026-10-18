@@ -20,7 +20,8 @@ The independent media transport adds `load(pcm)`, `pause(bool)`, `seek(seconds)`
 the new track paused at zero. Position follows the device callback's rendered PCM sample count,
 including silent time after the audio ends. Pause freezes this clock. Seeking changes
 the sample position in the callback without allocating. Media PCM is predecoded and
-limited to 300 seconds; media transport does not consume one-shot voice capacity.
+held in memory without a fixed duration limit; media transport does not consume
+one-shot voice capacity. Stereo 48 kHz float PCM uses approximately 22 MiB per minute.
 Stop callers before destroying the engine; synchronous media loads must not run from
 the audio callback or a deferred generator.
 

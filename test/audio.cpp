@@ -230,6 +230,18 @@ namespace {
         });
         audio.load(pcm{});
         require(audio.position() == 0, "Empty media did not clear the transport");
+        audio.load(pcm{std::vector<float>(size_t(sample_rate) * channels * 301, 0.0f)});
+        audio.seek(300.5);
+        require(audio.position() == 300.5, "Long media seek was rejected or truncated");
+        audio.seek(1055.0);
+        require(audio.position() == 1055.0, "Seek beyond media EOF did not preserve the sample clock");
+        bool rejected = false;
+        try {
+            audio.seek(std::numeric_limits<double>::max());
+        } catch (const std::invalid_argument &) {
+            rejected = true;
+        }
+        require(rejected, "Unrepresentable audio seek was accepted");
     }
 
     void test_media_edits() {

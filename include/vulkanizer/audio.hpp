@@ -65,7 +65,7 @@ namespace vkz::audio {
         [[nodiscard]] statistics stats() const;
 
         // Replace the independent media transport; returns with the PCM prepared and paused.
-        // Complete tracks up to 300 seconds. submit() keeps Vista's bounded one-shot semantics.
+        // Complete tracks are held in memory. submit() keeps Vista's bounded one-shot semantics.
         void load(pcm pcm);
         void pause(bool paused);
         void seek(double seconds);

@@ -116,8 +116,9 @@ namespace vkz::audio {
                 const auto trim = static_cast<size_t>(std::min<int64_t>(std::max<int64_t>(0, -frame), length / (sizeof(float) * count)));
                 const auto begin = static_cast<uint64_t>(std::max<int64_t>(frame, 0));
                 const auto frames = length / (sizeof(float) * count) - trim;
-                if (begin + frames > uint64_t(rate) * 300) {
-                    throw std::runtime_error("Audio media exceeds 300 seconds");
+                const auto capacity = samples.max_size() / count;
+                if (begin > capacity || frames > capacity - begin) {
+                    throw std::runtime_error("Audio media exceeds addressable PCM storage");
                 }
                 samples.resize(std::max<uint64_t>(samples.size(), (begin + frames) * count), 0.0f);
                 BYTE *bytes{};
