@@ -24,6 +24,13 @@ The library currently provides:
 - Portable temporal anti-aliasing with camera motion, history rejection and configurable reconstruction filters
 - Software-paged sparse virtual shadow maps with GPU bounds culling, integer depth atomics, caching, and indirect draw integration
 
+## Documentation
+
+- [Buffers, images, image views, samplers and textures](docs/resources.md): creation, upload, flags and cleanup
+- [Pipeline builders](docs/pipelines.md): graphics, compute, ray tracing and nested state configuration
+- [Builder index](docs/builders.md): context, swapchain, descriptor-set layouts and resource/pipeline entry points
+- [Application setup](docs/application.md): the GLFW application layer
+
 See [ray-tracing pipelines and the Stanford Bunny SBT demo](docs/ray_tracing.md) for the builder DSL and test executable. The [mesh reference integration guide](docs/reference_ray_tracing.md) covers the glTF pipelines, IOR/transmission with up to eight secondary bounces, and optional environment lighting. `vulkanizer/ibl.hpp` generates environment, irradiance and specular cubemaps from HDR images; IORTestGrid enables it by default (`--no-ibl` disables it).
 
 ## Mesh file layout
