@@ -46,22 +46,22 @@ namespace vkz {
     }
 
     rasterization_state_builder &rasterization_state_builder::cull_none() {
-        _info.cullMode = static_cast<VkCullModeFlags>(vkz::cull_mode::none);
+        _info.cullMode = static_cast<VkCullModeFlags>(vkz::cull_mode_none);
         return *this;
     }
 
     rasterization_state_builder &rasterization_state_builder::cull_front_face() {
-        _info.cullMode = static_cast<VkCullModeFlags>(vkz::cull_mode::front);
+        _info.cullMode = static_cast<VkCullModeFlags>(vkz::cull_mode_front);
         return *this;
     }
 
     rasterization_state_builder &rasterization_state_builder::cull_back_face() {
-        _info.cullMode = static_cast<VkCullModeFlags>(vkz::cull_mode::back);
+        _info.cullMode = static_cast<VkCullModeFlags>(vkz::cull_mode_back);
         return *this;
     }
 
     rasterization_state_builder &rasterization_state_builder::cull_front_and_back_face() {
-        _info.cullMode = static_cast<VkCullModeFlags>(vkz::cull_mode::front_and_back);
+        _info.cullMode = static_cast<VkCullModeFlags>(vkz::cull_mode_front_and_back);
         return *this;
     }
 

@@ -16,7 +16,7 @@ namespace vkz::video {
 
     inline void reset_coding(VkCommandBuffer command) {
         VkVideoCodingControlInfoKHR info{VK_STRUCTURE_TYPE_VIDEO_CODING_CONTROL_INFO_KHR};
-        info.flags = static_cast<VkVideoCodingControlFlagsKHR>(vkz::video_coding_control::reset);
+        info.flags = static_cast<VkVideoCodingControlFlagsKHR>(vkz::video_coding_control_reset);
         vkCmdControlVideoCodingKHR(command, &info);
     }
 

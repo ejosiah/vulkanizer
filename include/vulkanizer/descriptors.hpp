@@ -72,23 +72,23 @@ namespace vkz {
        uint32_t binding{~0u};
    };
 
-   template <typename Descriptor, typename Resource> Descriptor make_descriptor(const Resource &resource, uint32_t binding) = delete;
+   template <typename Descriptor, typename Resource> Descriptor descriptor(const Resource &resource, uint32_t binding) = delete;
 
-   template <> inline buffer_descriptor make_descriptor<buffer_descriptor, buffer>(const buffer &buffer, uint32_t binding) {
+   template <> inline buffer_descriptor descriptor<buffer_descriptor, buffer>(const buffer &buffer, uint32_t binding) {
        return {
            .buffer = buffer,
            .binding = binding,
        };
    }
 
-   template <> inline ubo_descriptor make_descriptor<ubo_descriptor, buffer>(const buffer &buffer, uint32_t binding) {
+   template <> inline ubo_descriptor descriptor<ubo_descriptor, buffer>(const buffer &buffer, uint32_t binding) {
        return {
            .buffer = buffer,
            .binding = binding,
        };
    }
 
-   template <> inline image_descriptor make_descriptor<image_descriptor, texture>(const texture &texture, uint32_t binding) {
+   template <> inline image_descriptor descriptor<image_descriptor, texture>(const texture &texture, uint32_t binding) {
        return {
            .view = texture.image_view,
            .layout = texture.image.layout,
@@ -96,7 +96,7 @@ namespace vkz {
        };
    }
 
-   template <> inline input_attachment_descriptor make_descriptor<input_attachment_descriptor, texture>(const texture &texture, uint32_t binding) {
+   template <> inline input_attachment_descriptor descriptor<input_attachment_descriptor, texture>(const texture &texture, uint32_t binding) {
        return {
            .view = texture.image_view,
            .layout = texture.image.layout,
@@ -104,7 +104,7 @@ namespace vkz {
        };
    }
 
-   template <> inline texture_descriptor make_descriptor<texture_descriptor, texture>(const texture &texture, uint32_t binding) {
+   template <> inline texture_descriptor descriptor<texture_descriptor, texture>(const texture &texture, uint32_t binding) {
        return {
            .view = texture.image_view,
            .sampler = texture.sampler,
@@ -161,8 +161,12 @@ namespace vkz {
 
         descriptor_pool(device device, uint32_t max_sets,
                         std::initializer_list<VkDescriptorPoolSize> pool_sizes,
-                        vkz::descriptor_pool::flags flags = vkz::descriptor_pool::flags::none);
+                        vkz::descriptor_pool_flags flags = vkz::descriptor_pool_flags_none);
 
+#ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        descriptor_pool(device device, uint32_t max_sets, std::initializer_list<VkDescriptorPoolSize> sizes, VkDescriptorPoolCreateFlags flags)
+            : descriptor_pool(device, max_sets, sizes, static_cast<vkz::descriptor_pool_flags>(flags)) {}
+#endif
         [[nodiscard]] std::vector<descriptor_set> allocate(std::span<descriptor_set_layout> layouts);
 
         descriptor_set allocate(descriptor_set_layout layout);
@@ -210,4 +214,4 @@ namespace vkz {
     void update_descriptor(device device, descriptor_bindings bindings);
 
     void update_descriptors(device device, std::initializer_list<descriptor_bindings> bindings);
-}
+} // namespace vkz

@@ -139,10 +139,10 @@ namespace vkz {
         create_info_.imageColorSpace = surfaceFormat.colorSpace;
         create_info_.imageExtent = extent_;
         create_info_.imageArrayLayers = 1;
-        create_info_.imageUsage = static_cast<VkImageUsageFlags>(vkz::image::usage::transfer_dst);
+        create_info_.imageUsage = static_cast<VkImageUsageFlags>(vkz::image_usage_transfer_dst);
         create_info_.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         create_info_.preTransform = capabilities.currentTransform;
-        create_info_.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(vkz::composite_alpha::opaque);
+        create_info_.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(vkz::composite_alpha_opaque);
         create_info_.presentMode = choose_present_mode(presentModes);
         create_info_.clipped = VK_TRUE;
     }
@@ -159,7 +159,7 @@ namespace vkz {
         return *this;
     }
 
-    swapchain::builder_base& swapchain::builder_base::set_image_usage(vkz::image::usage usage) {
+    swapchain::builder_base& swapchain::builder_base::set_image_usage(vkz::image_usage usage) {
         create_info_.imageUsage = static_cast<VkImageUsageFlags>(usage);
         return *this;
     }

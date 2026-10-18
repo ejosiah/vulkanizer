@@ -90,7 +90,7 @@ namespace vkz::reference {
             .add()
             .layout()
             .add_descriptor_set_layouts(info.layouts)
-            .add_push_constant_range(vkz::shader_stage::vertex | vkz::shader_stage::fragment, 0, sizeof(instance_uniform));
+            .add_push_constant_range(vkz::shader_stage_vertex | vkz::shader_stage_fragment, 0, sizeof(instance_uniform));
         if (info.ibl_layout) {
             builder.layout().add_descriptor_set_layout(info.ibl_layout);
         }
@@ -108,7 +108,7 @@ namespace vkz::reference {
     std::array<VkDescriptorSetLayoutBinding, 5> ibl_bindings(vkz::shader_stage stages) {
         std::array<VkDescriptorSetLayoutBinding, 5> result{};
         for (uint32_t i = 0; i < result.size(); ++i)
-            result[i] = {i, i == 4 ? static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer) : static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1,
+            result[i] = {i, i == 4 ? static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer) : static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 1,
                          static_cast<VkShaderStageFlags>(stages), nullptr};
         return result;
     }
@@ -175,7 +175,7 @@ namespace vkz::reference {
             .cull_none()
             .polygon_mode_fill()
             .multisample_state()
-            .rasterization_samples(vkz::sample_count::x1)
+            .rasterization_samples(vkz::sample_count_x1)
             .depth_stencil_state()
             .disable_depth_test()
             .disable_depth_write()
@@ -184,7 +184,7 @@ namespace vkz::reference {
             .add()
             .layout()
             .add_descriptor_set_layout(info.layout)
-            .add_push_constant_range(vkz::shader_stage::fragment, 0, sizeof(tone_mapping_uniform))
+            .add_push_constant_range(vkz::shader_stage_fragment, 0, sizeof(tone_mapping_uniform))
             .dynamic_render_pass()
             .add_color_attachment(info.color_format)
             .name("reference_tone_mapping")

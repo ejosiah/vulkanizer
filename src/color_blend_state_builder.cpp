@@ -84,7 +84,7 @@ namespace vkz {
         _dirty = false;
         _scratchpad = VkPipelineColorBlendAttachmentState{};
         _scratchpad.colorWriteMask =
-                static_cast<VkColorComponentFlags>(vkz::color_component::rgba);
+                static_cast<VkColorComponentFlags>(vkz::color_component_rgba);
     }
 
     color_blend_attachment_state_builder &color_blend_attachment_state_builder::add() {

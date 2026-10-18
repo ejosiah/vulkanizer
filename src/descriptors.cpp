@@ -21,7 +21,7 @@ namespace vkz {
             VkDescriptorSet set{};
             uint32_t binding{};
             uint32_t array_element{};
-            vkz::descriptor::type type{};
+            vkz::descriptor_type type{};
             size_t info_offset{};
             uint32_t count{};
             bool uses_buffer_info{};
@@ -137,12 +137,12 @@ namespace vkz {
         image_infos.reserve(image_info_count);
         pending.reserve(write_count);
 
-        const auto add_buffer = [&](VkDescriptorSet set, uint32_t binding, uint32_t element, vkz::descriptor::type type, const auto &descriptor) {
+        const auto add_buffer = [&](VkDescriptorSet set, uint32_t binding, uint32_t element, vkz::descriptor_type type, const auto &descriptor) {
             const size_t offset = buffer_infos.size();
             buffer_infos.push_back({descriptor.buffer, descriptor.start, descriptor.end});
             pending.push_back({set, binding, element, type, offset, 1, true});
         };
-        const auto add_image = [&](VkDescriptorSet set, uint32_t binding, uint32_t element, vkz::descriptor::type type, const auto &descriptor) {
+        const auto add_image = [&](VkDescriptorSet set, uint32_t binding, uint32_t element, vkz::descriptor_type type, const auto &descriptor) {
             const size_t offset = image_infos.size();
             if constexpr (std::is_same_v<std::decay_t<decltype(descriptor)>, texture_descriptor>) {
                 image_infos.push_back({descriptor.sampler, descriptor.view, descriptor.layout});
@@ -157,52 +157,52 @@ namespace vkz {
             for (size_t position = 0; position < set_bindings.bindings.size(); ++position) {
                 const auto& value = set_bindings.bindings[position];
                 std::visit(overloaded{[&](const buffer_descriptor &d) {
-                                          add_buffer(set, resolve_binding(d.binding, position), 0, vkz::descriptor::type::storage_buffer, d);
+                                          add_buffer(set, resolve_binding(d.binding, position), 0, vkz::descriptor_type_storage_buffer, d);
                                       },
                                       [&](const buffer_element_descriptor &d) {
-                                          add_buffer(set, resolve_binding(d.descriptor.binding, position), d.array_element_location, vkz::descriptor::type::storage_buffer, d.descriptor);
+                                          add_buffer(set, resolve_binding(d.descriptor.binding, position), d.array_element_location, vkz::descriptor_type_storage_buffer, d.descriptor);
                                       },
                                       [&](const buffer_array_descriptor &ds) {
                                           if (ds.empty()) return;
                                           const size_t offset = buffer_infos.size();
                                           for (const auto &d : ds)
                                               buffer_infos.push_back({d.buffer, d.start, d.end});
-                                          pending.push_back({set, resolve_binding(ds.binding, position), 0, vkz::descriptor::type::storage_buffer, offset, static_cast<uint32_t>(ds.size()), true});
+                                          pending.push_back({set, resolve_binding(ds.binding, position), 0, vkz::descriptor_type_storage_buffer, offset, static_cast<uint32_t>(ds.size()), true});
                                       },
                                       [&](const ubo_descriptor &d) {
-                                          add_buffer(set, resolve_binding(d.binding, position), 0, vkz::descriptor::type::uniform_buffer, d);
+                                          add_buffer(set, resolve_binding(d.binding, position), 0, vkz::descriptor_type_uniform_buffer, d);
                                       },
                                       [&](const ubo_element_descriptor &d) {
-                                          add_buffer(set, resolve_binding(d.descriptor.binding, position), d.array_element_location, vkz::descriptor::type::uniform_buffer, d.descriptor);
+                                          add_buffer(set, resolve_binding(d.descriptor.binding, position), d.array_element_location, vkz::descriptor_type_uniform_buffer, d.descriptor);
                                       },
                                       [&](const ubo_array_descriptor &ds) {
                                           if (ds.empty()) return;
                                           const size_t offset = buffer_infos.size();
                                           for (const auto &d : ds)
                                               buffer_infos.push_back({d.buffer, d.start, d.end});
-                                          pending.push_back({set, resolve_binding(ds.binding, position), 0, vkz::descriptor::type::uniform_buffer, offset, static_cast<uint32_t>(ds.size()), true});
+                                          pending.push_back({set, resolve_binding(ds.binding, position), 0, vkz::descriptor_type_uniform_buffer, offset, static_cast<uint32_t>(ds.size()), true});
                                       },
                                       [&](const image_descriptor &d) {
-                                          add_image(set, resolve_binding(d.binding, position), 0, vkz::descriptor::type::storage_image, d);
+                                          add_image(set, resolve_binding(d.binding, position), 0, vkz::descriptor_type_storage_image, d);
                                       },
                                       [&](const input_attachment_descriptor &d) {
-                                          add_image(set, resolve_binding(d.binding, position), 0, vkz::descriptor::type::input_attachment, d);
+                                          add_image(set, resolve_binding(d.binding, position), 0, vkz::descriptor_type_input_attachment, d);
                                       },
                                       [&](const image_element_descriptor &d) {
-                                          add_image(set, resolve_binding(d.image.binding, position), d.array_element_location, vkz::descriptor::type::storage_image, d.image);
+                                          add_image(set, resolve_binding(d.image.binding, position), d.array_element_location, vkz::descriptor_type_storage_image, d.image);
                                       },
                                       [&](const image_array_descriptor &ds) {
                                           if (ds.empty()) return;
                                           const size_t offset = image_infos.size();
                                           for (const auto &d : ds)
                                               image_infos.push_back({VK_NULL_HANDLE, d.view, d.layout});
-                                          pending.push_back({set, resolve_binding(ds.binding, position), 0, vkz::descriptor::type::storage_image, offset, static_cast<uint32_t>(ds.size()), false});
+                                          pending.push_back({set, resolve_binding(ds.binding, position), 0, vkz::descriptor_type_storage_image, offset, static_cast<uint32_t>(ds.size()), false});
                                       },
                                       [&](const texture_descriptor &d) {
-                                          add_image(set, resolve_binding(d.binding, position), 0, vkz::descriptor::type::combined_image_sampler, d);
+                                          add_image(set, resolve_binding(d.binding, position), 0, vkz::descriptor_type_combined_image_sampler, d);
                                       },
                                       [&](const texture_element_descriptor &d) {
-                                          add_image(set, resolve_binding(d.texture.binding, position), d.array_element_location, vkz::descriptor::type::combined_image_sampler, d.texture);
+                                          add_image(set, resolve_binding(d.texture.binding, position), d.array_element_location, vkz::descriptor_type_combined_image_sampler, d.texture);
                                       },
                                       [&](const texture_array_descriptor &ds) {
                                           if (ds.empty()) return;
@@ -210,7 +210,7 @@ namespace vkz {
                                           for (const auto &d : ds)
                                               image_infos.push_back({d.sampler, d.view, d.layout});
                                           pending.push_back(
-                                              {set, resolve_binding(ds.binding, position), 0, vkz::descriptor::type::combined_image_sampler, offset, static_cast<uint32_t>(ds.size()), false});
+                                              {set, resolve_binding(ds.binding, position), 0, vkz::descriptor_type_combined_image_sampler, offset, static_cast<uint32_t>(ds.size()), false});
                                       }},
                            value);
             }

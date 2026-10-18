@@ -100,9 +100,9 @@ namespace rtx {
             barrier(command_buffer);
             profile_pass(command_buffer, "Query and train", [&] { VKZ_ASSERT(cache->QueryAndTrain(command_buffer, nullptr) == nrc::Status::OK, "NRC QueryAndTrain failed"); });
             barrier(command_buffer);
-            const VkImageSubresourceRange range{.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::color), .levelCount = 1, .layerCount = 1};
-            vkz::barrier::push_and_flush(command_buffer, output, range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::compute_shader, vkz::access::memory_write,
-                                         vkz::access::shader_read_write, VK_IMAGE_LAYOUT_GENERAL);
+            const VkImageSubresourceRange range{.aspectMask = static_cast<VkImageAspectFlags>(vkz::image_aspect_color), .levelCount = 1, .layerCount = 1};
+            vkz::barrier::push_and_flush(command_buffer, output, range, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_compute_shader, vkz::access_memory_write,
+                                         vkz::access_shader_read_write, VK_IMAGE_LAYOUT_GENERAL);
             profile_pass(command_buffer, "Composite", [&] { VKZ_ASSERT(cache->Resolve(command_buffer, view) == nrc::Status::OK, "NRC resolve failed"); });
         }
 
@@ -116,43 +116,43 @@ namespace rtx {
         void create_layout() {
             descriptor_layout = vkz::descriptor_set_layout_builder{device}
                                     .binding(0)
-                                    .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                    .descriptor_type(vkz::descriptor_type_storage_buffer)
                                     .descriptor_count(1)
-                                    .shader_stages(vkz::shader_stage::compute | vkz::shader_stage::raygen)
+                                    .shader_stages(vkz::shader_stage_compute | vkz::shader_stage_raygen)
                                     .binding(1)
-                                    .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                    .descriptor_type(vkz::descriptor_type_storage_buffer)
                                     .descriptor_count(1)
-                                    .shader_stages(vkz::shader_stage::compute | vkz::shader_stage::raygen)
+                                    .shader_stages(vkz::shader_stage_compute | vkz::shader_stage_raygen)
                                     .binding(2)
-                                    .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                    .descriptor_type(vkz::descriptor_type_storage_buffer)
                                     .descriptor_count(1)
-                                    .shader_stages(vkz::shader_stage::compute | vkz::shader_stage::raygen)
+                                    .shader_stages(vkz::shader_stage_compute | vkz::shader_stage_raygen)
                                     .binding(3)
-                                    .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                    .descriptor_type(vkz::descriptor_type_storage_buffer)
                                     .descriptor_count(1)
-                                    .shader_stages(vkz::shader_stage::compute | vkz::shader_stage::raygen)
+                                    .shader_stages(vkz::shader_stage_compute | vkz::shader_stage_raygen)
                                     .binding(4)
-                                    .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                    .descriptor_type(vkz::descriptor_type_storage_buffer)
                                     .descriptor_count(1)
-                                    .shader_stages(vkz::shader_stage::compute | vkz::shader_stage::raygen)
+                                    .shader_stages(vkz::shader_stage_compute | vkz::shader_stage_raygen)
                                     .binding(5)
-                                    .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                    .descriptor_type(vkz::descriptor_type_storage_buffer)
                                     .descriptor_count(1)
-                                    .shader_stages(vkz::shader_stage::compute | vkz::shader_stage::raygen)
+                                    .shader_stages(vkz::shader_stage_compute | vkz::shader_stage_raygen)
                                     .binding(6)
-                                    .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                    .descriptor_type(vkz::descriptor_type_storage_buffer)
                                     .descriptor_count(1)
-                                    .shader_stages(vkz::shader_stage::compute | vkz::shader_stage::raygen)
+                                    .shader_stages(vkz::shader_stage_compute | vkz::shader_stage_raygen)
                                     .binding(7)
-                                    .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                    .descriptor_type(vkz::descriptor_type_storage_buffer)
                                     .descriptor_count(1)
-                                    .shader_stages(vkz::shader_stage::compute | vkz::shader_stage::raygen)
+                                    .shader_stages(vkz::shader_stage_compute | vkz::shader_stage_raygen)
                                     .binding(8)
-                                    .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                    .descriptor_type(vkz::descriptor_type_storage_buffer)
                                     .descriptor_count(1)
-                                    .shader_stages(vkz::shader_stage::compute | vkz::shader_stage::raygen)
+                                    .shader_stages(vkz::shader_stage_compute | vkz::shader_stage_raygen)
                                     .create_layout();
-            descriptors = vkz::descriptor_pool(device, 1, {{.type = static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), .descriptorCount = 9}});
+            descriptors = vkz::descriptor_pool(device, 1, {{.type = static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), .descriptorCount = 9}});
             descriptor_set = descriptors.allocate(descriptor_layout);
         }
 
@@ -180,7 +180,7 @@ namespace rtx {
             for (size_t i = 0; i < buffers.size(); ++i) {
                 buffers[i] = vkz::buffer::builder(allocator)
                     .size(sizes[i])
-                    .usage(vkz::buffer::usage::storage_upload)
+                    .usage(vkz::buffer_usage_storage_upload)
                     .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                     .build();
             }
@@ -196,13 +196,13 @@ namespace rtx {
         void update_descriptors() {
             vkz::descriptor_bindings bindings{.descriptor_set = descriptor_set};
             for (uint32_t i = 0; i < buffers.size(); ++i)
-                bindings.bindings.push_back(vkz::make_descriptor<vkz::buffer_descriptor>(buffers[i], i));
+                bindings.bindings.push_back(vkz::descriptor<vkz::buffer_descriptor>(buffers[i], i));
 
             const nrc::BufferIdx shared[] = {nrc::BufferIdx::Counter, nrc::BufferIdx::QueryPathInfo,
                 nrc::BufferIdx::TrainingPathInfo, nrc::BufferIdx::TrainingPathVertices, nrc::BufferIdx::QueryRadianceParams};
             const auto *resources = cache ? cache->GetBuffers() : nullptr;
             for (uint32_t i = 0; i < std::size(shared); ++i) {
-                auto binding = vkz::make_descriptor<vkz::buffer_descriptor>(buffers[0], i + 4);
+                auto binding = vkz::descriptor<vkz::buffer_descriptor>(buffers[0], i + 4);
                 if (resources) {
                     const auto &resource = (*resources)[shared[i]];
                     binding.buffer._ = resource.resource;
@@ -214,7 +214,7 @@ namespace rtx {
         }
 
         void barrier(VkCommandBuffer command_buffer) {
-            vkz::barrier::push_and_flush(command_buffer, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::all_commands, vkz::access::memory_read_write, vkz::access::memory_read_write);
+            vkz::barrier::push_and_flush(command_buffer, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_all_commands, vkz::access_memory_read_write, vkz::access_memory_read_write);
         }
 
         struct vertex_record {

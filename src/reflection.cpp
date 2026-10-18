@@ -24,7 +24,7 @@
 
 namespace vkz {
     namespace {
-        constexpr auto shader_stages = vkz::pipeline::stage::ray_tracing_shader | vkz::pipeline::stage::compute_shader;
+        constexpr auto shader_stages = vkz::pipeline_stage_ray_tracing_shader | vkz::pipeline_stage_compute_shader;
 
         enum texture_index : size_t {
             raw_color, integrated_color, filtered_0, filtered_1,
@@ -52,7 +52,7 @@ namespace vkz {
             return {words, words + N};
         }
 
-        buffer make_buffer(vma_memory_allocator &allocator, vkz::buffer::usage usage, VkDeviceSize size, const void *data = nullptr) {
+        buffer make_buffer(vma_memory_allocator &allocator, vkz::buffer_usage usage, VkDeviceSize size, const void *data = nullptr) {
             auto result =
                 buffer::builder(allocator)
                     .size(size)
@@ -71,8 +71,8 @@ namespace vkz {
         }
 
         void synchronize(VkCommandBuffer cmd) {
-            barrier::push_and_flush(cmd, vkz::pipeline::stage::all_commands, shader_stages | vkz::pipeline::stage::transfer, vkz::access::memory_read_write,
-                                    vkz::access::shader_read | vkz::access::shader_write | vkz::access::transfer_write);
+            barrier::push_and_flush(cmd, vkz::pipeline_stage_all_commands, shader_stages | vkz::pipeline_stage_transfer, vkz::access_memory_read_write,
+                                    vkz::access_shader_read | vkz::access_shader_write | vkz::access_transfer_write);
         }
     }
 
@@ -149,16 +149,16 @@ namespace vkz {
 
     void reflection::create_buffers() {
         const auto &input = *state_->input;
-        state_->constants_buffer = make_buffer(allocator_, vkz::buffer::usage::uniform_upload, sizeof(constants));
-        state_->light_buffer = make_buffer(allocator_, vkz::buffer::usage::storage_upload, std::max(size_t(1), lights_.size()) * sizeof(reference::light_uniform));
+        state_->constants_buffer = make_buffer(allocator_, vkz::buffer_usage_uniform_upload, sizeof(constants));
+        state_->light_buffer = make_buffer(allocator_, vkz::buffer_usage_storage_upload, std::max(size_t(1), lights_.size()) * sizeof(reference::light_uniform));
         const auto instances = reference::make_ray_tracing_instances(input.scene);
-        state_->instances_buffer = make_buffer(allocator_, vkz::buffer::usage::storage, instances.size() * sizeof(instances.front()), instances.data());
+        state_->instances_buffer = make_buffer(allocator_, vkz::buffer_usage_storage, instances.size() * sizeof(instances.front()), instances.data());
         std::vector<reference::material_uniform> materials;
 
         for (const auto &material : input.scene.materials)
             materials.push_back(reference::make_material_uniform(input.scene, material));
 
-        state_->materials_buffer = make_buffer(allocator_, vkz::buffer::usage::storage, materials.size() * sizeof(materials.front()), materials.data());
+        state_->materials_buffer = make_buffer(allocator_, vkz::buffer_usage_storage, materials.size() * sizeof(materials.front()), materials.data());
         state_->input_sampler =
             sampler::builder(device_)
                 .mag_filter(VK_FILTER_NEAREST)
@@ -176,14 +176,14 @@ namespace vkz {
             value.image = image::builder(allocator_)
                 .format(format)
                 .extent(state_->data.resolution.x, state_->data.resolution.y)
-                .usage(vkz::image::usage::sampled_storage_transfer)
+                .usage(vkz::image_usage_sampled_storage_transfer)
                 .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                 .build();
 
             value.image_view = image_view::builder(device_)
                 .image(value.image)
                 .format(format)
-                .aspect_mask(vkz::image::aspect::color)
+                .aspect_mask(vkz::image_aspect_color)
                 .level_count(1)
                 .layer_count(1)
                 .build();
@@ -199,135 +199,135 @@ namespace vkz {
 
     void reflection::create_descriptor_set_layouts() {
         constexpr auto stages =
-            vkz::shader_stage::fragment | vkz::shader_stage::compute | vkz::shader_stage::raygen | vkz::shader_stage::miss | vkz::shader_stage::closest_hit | vkz::shader_stage::any_hit;
+            vkz::shader_stage_fragment | vkz::shader_stage_compute | vkz::shader_stage_raygen | vkz::shader_stage_miss | vkz::shader_stage_closest_hit | vkz::shader_stage_any_hit;
         state_->layouts[0] = descriptor_set_layout_builder{device_}
                                  .binding(0)
-                                 .descriptor_type(vkz::descriptor::type::uniform_buffer)
+                                 .descriptor_type(vkz::descriptor_type_uniform_buffer)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(1)
-                                 .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                 .descriptor_type(vkz::descriptor_type_storage_buffer)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(2)
-                                 .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                 .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(3)
-                                 .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                 .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(4)
-                                 .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                 .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(5)
-                                 .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                 .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(6)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(7)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(8)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(9)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(10)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(11)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(12)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(13)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(14)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(15)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(16)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(17)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(18)
-                                 .descriptor_type(vkz::descriptor::type::storage_image)
+                                 .descriptor_type(vkz::descriptor_type_storage_image)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .create_layout();
 
         state_->layouts[1] = descriptor_set_layout_builder{device_}
                                  .binding(0)
-                                 .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                 .descriptor_type(vkz::descriptor_type_storage_buffer)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(1)
-                                 .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                 .descriptor_type(vkz::descriptor_type_storage_buffer)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(2)
-                                 .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                 .descriptor_type(vkz::descriptor_type_storage_buffer)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(3)
-                                 .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                 .descriptor_type(vkz::descriptor_type_storage_buffer)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(4)
-                                 .descriptor_type(vkz::descriptor::type::acceleration_structure)
+                                 .descriptor_type(vkz::descriptor_type_acceleration_structure)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(5)
-                                 .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                 .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                                  .descriptor_count(uint32_t(state_->input->material_textures.size()))
                                  .shader_stages(stages)
                                  .create_layout();
 
         state_->layouts[2] = descriptor_set_layout_builder{device_}
                                  .binding(0)
-                                 .descriptor_type(vkz::descriptor::type::uniform_buffer)
+                                 .descriptor_type(vkz::descriptor_type_uniform_buffer)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(1)
-                                 .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                 .descriptor_type(vkz::descriptor_type_storage_buffer)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .create_layout();
 
         state_->layouts[3] = descriptor_set_layout_builder{device_}
                                  .binding(3)
-                                 .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                 .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(4)
-                                 .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                 .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .binding(5)
-                                 .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                 .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                                  .descriptor_count(1)
                                  .shader_stages(stages)
                                  .create_layout();
@@ -336,11 +336,11 @@ namespace vkz {
     void reflection::create_descriptor_pool() {
         state_->pool = descriptor_pool{device_,
                                        4,
-                                       {{static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 2},
-                                        {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 6},
-                                        {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), uint32_t(texture_count)},
-                                        {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), uint32_t(state_->input->material_textures.size()) + 7},
-                                        {static_cast<VkDescriptorType>(vkz::descriptor::type::acceleration_structure), 1}}};
+                                       {{static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 2},
+                                        {static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 6},
+                                        {static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), uint32_t(texture_count)},
+                                        {static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), uint32_t(state_->input->material_textures.size()) + 7},
+                                        {static_cast<VkDescriptorType>(vkz::descriptor_type_acceleration_structure), 1}}};
         const auto sets = state_->pool.allocate(state_->layouts);
         std::copy(sets.begin(), sets.end(), state_->sets.begin());
     }
@@ -349,7 +349,7 @@ namespace vkz {
         const auto &input = *state_->input;
         const auto gi = gi_.sampling_resources();
         descriptor_bindings frame{.descriptor_set = state_->sets[0],
-                                  .bindings = {make_descriptor<ubo_descriptor>(state_->constants_buffer, 0), make_descriptor<buffer_descriptor>(state_->light_buffer, 1),
+                                  .bindings = {descriptor<ubo_descriptor>(state_->constants_buffer, 0), descriptor<buffer_descriptor>(state_->light_buffer, 1),
                                                texture_descriptor{depth_buffer_.image_view, state_->input_sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 2},
                                                texture_descriptor{normal_buffer_.image_view, state_->input_sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 3},
                                                texture_descriptor{surface_buffer_.image_view, state_->input_sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 4},
@@ -363,15 +363,15 @@ namespace vkz {
         textures.binding = 5;
 
         for (const auto &value : input.material_textures)
-            textures.push_back(make_descriptor<texture_descriptor>(value, 5));
+            textures.push_back(descriptor<texture_descriptor>(value, 5));
 
         vkz::update_descriptors(
             device_, {{.descriptor_set = state_->sets[1],
-                       .bindings = {make_descriptor<buffer_descriptor>(input.geometry.vertices, 0), make_descriptor<buffer_descriptor>(input.geometry.indices, 1),
-                                    make_descriptor<buffer_descriptor>(state_->instances_buffer, 2), make_descriptor<buffer_descriptor>(state_->materials_buffer, 3), textures}},
-                      {.descriptor_set = state_->sets[2], .bindings = {make_descriptor<ubo_descriptor>(gi.constants, 0), make_descriptor<buffer_descriptor>(gi.status, 1)}},
+                       .bindings = {descriptor<buffer_descriptor>(input.geometry.vertices, 0), descriptor<buffer_descriptor>(input.geometry.indices, 1),
+                                    descriptor<buffer_descriptor>(state_->instances_buffer, 2), descriptor<buffer_descriptor>(state_->materials_buffer, 3), textures}},
+                      {.descriptor_set = state_->sets[2], .bindings = {descriptor<ubo_descriptor>(gi.constants, 0), descriptor<buffer_descriptor>(gi.status, 1)}},
                       {.descriptor_set = state_->sets[3],
-                       .bindings = {make_descriptor<texture_descriptor>(gi.irradiance, 3), make_descriptor<texture_descriptor>(gi.visibility, 4), make_descriptor<texture_descriptor>(gi.offset, 5)}}});
+                       .bindings = {descriptor<texture_descriptor>(gi.irradiance, 3), descriptor<texture_descriptor>(gi.visibility, 4), descriptor<texture_descriptor>(gi.offset, 5)}}});
 
         // Acceleration structures have no descriptor_t helper yet.
         VkWriteDescriptorSetAccelerationStructureKHR acceleration{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
@@ -381,7 +381,7 @@ namespace vkz {
         write.pNext = &acceleration;
         write.dstSet = state_->sets[1].handle;
         write.dstBinding = 4;
-        write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::acceleration_structure);
+        write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor_type_acceleration_structure);
         write.descriptorCount = 1;
         vkUpdateDescriptorSets(device_, 1, &write, 0, nullptr);
     }
@@ -416,20 +416,20 @@ namespace vkz {
                                                .add_specialization(i == 1 ? 1u : 0u, 1)
                                                .layout()
                                                .add_descriptor_set_layouts(state_->layouts)
-                                               .add_push_constant_range(vkz::shader_stage::compute, 0, sizeof(uint32_t))
+                                               .add_push_constant_range(vkz::shader_stage_compute, 0, sizeof(uint32_t))
                                                .build();
         }
     }
 
     void reflection::initialize_resources() {
         const auto &input = *state_->input;
-        command_pool uploads{device_, input.queue_family, vkz::command_pool_flags::transient, input.queue};
+        command_pool uploads{device_, input.queue_family, vkz::command_pool_flags_transient, input.queue};
         const auto cmd = uploads.create_command_buffer();
 
         for (auto &value : state_->textures) {
             clear(cmd, value.image, VkClearColorValue{}, {});
-            barrier::push_and_flush(cmd, value.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer, shader_stages,
-                                    vkz::access::transfer_write, vkz::access::shader_read_write, VK_IMAGE_LAYOUT_GENERAL);
+            barrier::push_and_flush(cmd, value.image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1}, vkz::pipeline_stage_transfer, shader_stages,
+                                    vkz::access_transfer_write, vkz::access_shader_read_write, VK_IMAGE_LAYOUT_GENERAL);
         }
 
         state_->rt_pipeline.sbt.upload(cmd);
@@ -471,7 +471,7 @@ namespace vkz {
         synchronize(cmd);
 
         if (!state_->frame.denoise) {
-            barrier::push_and_flush(cmd, shader_stages, vkz::pipeline::stage::all_commands, vkz::access::shader_write, vkz::access::shader_read);
+            barrier::push_and_flush(cmd, shader_stages, vkz::pipeline_stage_all_commands, vkz::access_shader_write, vkz::access_shader_read);
             return;
         }
 
@@ -492,12 +492,12 @@ namespace vkz {
         bind_descriptor_sets(cmd, wavelet, state_->sets);
 
         for (uint32_t i = 0; i < 5; ++i) {
-            push_constants(cmd, wavelet, i, vkz::shader_stage::compute);
+            push_constants(cmd, wavelet, i, vkz::shader_stage_compute);
             dispatch(cmd, (state_->data.resolution.x + 7) / 8, (state_->data.resolution.y + 7) / 8);
             synchronize(cmd);
         }
 
-        barrier::push_and_flush(cmd, shader_stages, vkz::pipeline::stage::fragment_shader, vkz::access::shader_write, vkz::access::shader_read);
+        barrier::push_and_flush(cmd, shader_stages, vkz::pipeline_stage_fragment_shader, vkz::access_shader_write, vkz::access_shader_read);
     }
 
     void reflection::end_frame() {

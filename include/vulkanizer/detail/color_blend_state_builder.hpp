@@ -81,6 +81,11 @@ namespace vkz {
         }
 
         color_blend_attachment_state_builder &color_write_mask(vkz::color_component flags);
+#ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        color_blend_attachment_state_builder &color_write_mask(VkColorComponentFlags flags) {
+            return color_write_mask(static_cast<vkz::color_component>(flags));
+        }
+#endif
 
         color_blend_attachment_state_builder &add();
 
@@ -112,4 +117,4 @@ namespace vkz {
         bool _dirty = false;
         color_blend_state_builder *_parent{};
     };
-}
+} // namespace vkz

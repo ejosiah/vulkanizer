@@ -30,8 +30,8 @@ namespace vkz {
             if (image.create_info.mipLevels == 0 || image.create_info.arrayLayers == 0) {
                 throw std::invalid_argument{"image must have at least one mip level and array layer"};
             }
-            if ((image.create_info.usage & static_cast<VkImageUsageFlags>(vkz::image::usage::transfer_src)) == 0 ||
-                (image.create_info.usage & static_cast<VkImageUsageFlags>(vkz::image::usage::transfer_dst)) == 0) {
+            if ((image.create_info.usage & static_cast<VkImageUsageFlags>(vkz::image_usage_transfer_src)) == 0 ||
+                (image.create_info.usage & static_cast<VkImageUsageFlags>(vkz::image_usage_transfer_dst)) == 0) {
                 throw std::invalid_argument{
                     "image requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT and VK_IMAGE_USAGE_TRANSFER_DST_BIT"};
             }
@@ -41,12 +41,12 @@ namespace vkz {
 
             const auto features = format_features(image);
             const auto required_features =
-                vkz::format_feature::blit;
+                vkz::format_feature_blit;
             if ((features & required_features) != required_features) {
                 throw std::runtime_error{"image format does not support blitting"};
             }
             if (filter == VK_FILTER_LINEAR &&
-                (features & vkz::format_feature::sampled_image_filter_linear) == vkz::format_feature::none) {
+                (features & vkz::format_feature_sampled_image_filter_linear) == vkz::format_feature_none) {
                 throw std::runtime_error{"image format does not support linear blit filtering"};
             }
         }
@@ -65,8 +65,8 @@ namespace vkz {
             return;
         }
 
-        barrier::push_and_flush(command_buffer, image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, levels, 0, layers}, vkz::pipeline::stage::all_commands,
-                                vkz::pipeline::stage::transfer, vkz::access::memory_read_write, vkz::access::transfer_write, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        barrier::push_and_flush(command_buffer, image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, levels, 0, layers}, vkz::pipeline_stage_all_commands,
+                                vkz::pipeline_stage_transfer, vkz::access_memory_read_write, vkz::access_transfer_write, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         auto width = static_cast<int32_t>(image.create_info.extent.width);
         auto height = static_cast<int32_t>(image.create_info.extent.height);
@@ -74,17 +74,17 @@ namespace vkz {
         const auto b = 2.0;
 
         for (uint32_t level = 1; level < levels; ++level) {
-            barrier::push_and_flush(command_buffer, image.handle, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), level - 1, 1, 0, layers}, vkz::pipeline::stage::transfer,
-                                    vkz::pipeline::stage::transfer, vkz::access::transfer_write, vkz::access::transfer_read, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            barrier::push_and_flush(command_buffer, image.handle, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), level - 1, 1, 0, layers}, vkz::pipeline_stage_transfer,
+                                    vkz::pipeline_stage_transfer, vkz::access_transfer_write, vkz::access_transfer_read, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
             const auto next_width = static_cast<int32_t>(std::max(std::ceil(width / b), 1.0));
             const auto next_height = static_cast<int32_t>(std::max(std::ceil(height / b), 1.0));
             const auto next_depth = static_cast<int32_t>(std::max(std::ceil(depth / b), 1.0));
             VkImageBlit blit{};
-            blit.srcSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), level - 1, 0, layers};
+            blit.srcSubresource = {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), level - 1, 0, layers};
             blit.srcOffsets[1] = {width, height, depth};
-            blit.dstSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), level, 0, layers};
+            blit.dstSubresource = {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), level, 0, layers};
             blit.dstOffsets[1] = {next_width, next_height, next_depth};
 
             vkCmdBlitImage(
@@ -93,15 +93,15 @@ namespace vkz {
                 image.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1, &blit, filter);
 
-            barrier::push_and_flush(command_buffer, image.handle, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), level - 1, 1, 0, layers}, vkz::pipeline::stage::transfer,
-                                    vkz::pipeline::stage::all_commands, vkz::access::transfer_read, vkz::access::memory_read_write, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, old_layout);
+            barrier::push_and_flush(command_buffer, image.handle, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), level - 1, 1, 0, layers}, vkz::pipeline_stage_transfer,
+                                    vkz::pipeline_stage_all_commands, vkz::access_transfer_read, vkz::access_memory_read_write, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, old_layout);
 
             width = next_width;
             height = next_height;
             depth = next_depth;
         }
 
-        barrier::push_and_flush(command_buffer, image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), levels - 1, 1, 0, layers}, vkz::pipeline::stage::transfer,
-                                vkz::pipeline::stage::all_commands, vkz::access::transfer_write, vkz::access::memory_read_write, old_layout);
+        barrier::push_and_flush(command_buffer, image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), levels - 1, 1, 0, layers}, vkz::pipeline_stage_transfer,
+                                vkz::pipeline_stage_all_commands, vkz::access_transfer_write, vkz::access_memory_read_write, old_layout);
     }
 }

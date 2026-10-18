@@ -358,6 +358,299 @@ namespace vkz {
         interlaced_separate_planes = VK_VIDEO_DECODE_H264_PICTURE_LAYOUT_INTERLACED_SEPARATE_PLANES_BIT_KHR,
     };
 
+
+    // Flat aliases retain the original enum type and bitmask operators.
+    inline constexpr queue queue_none = queue::none;
+    inline constexpr queue queue_graphics = queue::graphics;
+    inline constexpr queue queue_compute = queue::compute;
+    inline constexpr queue queue_transfer = queue::transfer;
+    inline constexpr queue queue_sparse_binding = queue::sparse_binding;
+    inline constexpr queue queue_protected_memory = queue::protected_memory;
+    inline constexpr queue queue_video_decode = queue::video_decode;
+    inline constexpr queue queue_video_encode = queue::video_encode;
+    inline constexpr queue queue_optical_flow = queue::optical_flow;
+
+    inline constexpr command_pool_flags command_pool_flags_none = command_pool_flags::none;
+    inline constexpr command_pool_flags command_pool_flags_transient = command_pool_flags::transient;
+    inline constexpr command_pool_flags command_pool_flags_reset_command_buffer = command_pool_flags::reset_command_buffer;
+    inline constexpr command_pool_flags command_pool_flags_protected_memory = command_pool_flags::protected_memory;
+
+    inline constexpr command_buffer_usage command_buffer_usage_none = command_buffer_usage::none;
+    inline constexpr command_buffer_usage command_buffer_usage_one_time_submit = command_buffer_usage::one_time_submit;
+    inline constexpr command_buffer_usage command_buffer_usage_render_pass_continue = command_buffer_usage::render_pass_continue;
+    inline constexpr command_buffer_usage command_buffer_usage_simultaneous_use = command_buffer_usage::simultaneous_use;
+
+    inline constexpr sample_count sample_count_none = sample_count::none;
+    inline constexpr sample_count sample_count_x1 = sample_count::x1;
+    inline constexpr sample_count sample_count_x2 = sample_count::x2;
+    inline constexpr sample_count sample_count_x4 = sample_count::x4;
+    inline constexpr sample_count sample_count_x8 = sample_count::x8;
+    inline constexpr sample_count sample_count_x16 = sample_count::x16;
+    inline constexpr sample_count sample_count_x32 = sample_count::x32;
+    inline constexpr sample_count sample_count_x64 = sample_count::x64;
+
+    inline constexpr cull_mode cull_mode_none = cull_mode::none;
+    inline constexpr cull_mode cull_mode_front = cull_mode::front;
+    inline constexpr cull_mode cull_mode_back = cull_mode::back;
+    inline constexpr cull_mode cull_mode_front_and_back = cull_mode::front_and_back;
+
+    inline constexpr color_component color_component_none = color_component::none;
+    inline constexpr color_component color_component_r = color_component::r;
+    inline constexpr color_component color_component_g = color_component::g;
+    inline constexpr color_component color_component_b = color_component::b;
+    inline constexpr color_component color_component_a = color_component::a;
+    inline constexpr color_component color_component_rgb = color_component::rgb;
+    inline constexpr color_component color_component_rgba = color_component::rgba;
+
+    inline constexpr buffer_flags buffer_flags_none = buffer_flags::none;
+    inline constexpr buffer_flags buffer_flags_sparse_binding = buffer_flags::sparse_binding;
+    inline constexpr buffer_flags buffer_flags_sparse_residency = buffer_flags::sparse_residency;
+    inline constexpr buffer_flags buffer_flags_sparse_aliased = buffer_flags::sparse_aliased;
+    inline constexpr buffer_flags buffer_flags_protected_memory = buffer_flags::protected_memory;
+    inline constexpr buffer_flags buffer_flags_device_address_capture_replay = buffer_flags::device_address_capture_replay;
+    inline constexpr buffer_flags buffer_flags_descriptor_buffer_capture_replay = buffer_flags::descriptor_buffer_capture_replay;
+    inline constexpr buffer_flags buffer_flags_video_profile_independent = buffer_flags::video_profile_independent;
+
+    inline constexpr image_flags image_flags_none = image_flags::none;
+    inline constexpr image_flags image_flags_sparse_binding = image_flags::sparse_binding;
+    inline constexpr image_flags image_flags_sparse_residency = image_flags::sparse_residency;
+    inline constexpr image_flags image_flags_sparse_aliased = image_flags::sparse_aliased;
+    inline constexpr image_flags image_flags_mutable_format = image_flags::mutable_format;
+    inline constexpr image_flags image_flags_cube_compatible = image_flags::cube_compatible;
+    inline constexpr image_flags image_flags_alias = image_flags::alias;
+    inline constexpr image_flags image_flags_split_instance_bind_regions = image_flags::split_instance_bind_regions;
+    inline constexpr image_flags image_flags_s2d_array_compatible = image_flags::s2d_array_compatible;
+    inline constexpr image_flags image_flags_block_texel_view_compatible = image_flags::block_texel_view_compatible;
+    inline constexpr image_flags image_flags_extended_usage = image_flags::extended_usage;
+    inline constexpr image_flags image_flags_protected_memory = image_flags::protected_memory;
+    inline constexpr image_flags image_flags_disjoint = image_flags::disjoint;
+    inline constexpr image_flags image_flags_corner_sampled = image_flags::corner_sampled;
+    inline constexpr image_flags image_flags_sample_locations_compatible_depth = image_flags::sample_locations_compatible_depth;
+    inline constexpr image_flags image_flags_subsampled = image_flags::subsampled;
+    inline constexpr image_flags image_flags_descriptor_buffer_capture_replay = image_flags::descriptor_buffer_capture_replay;
+    inline constexpr image_flags image_flags_multisampled_render_to_single_sampled = image_flags::multisampled_render_to_single_sampled;
+    inline constexpr image_flags image_flags_s2d_view_compatible = image_flags::s2d_view_compatible;
+    inline constexpr image_flags image_flags_fragment_density_map_offset = image_flags::fragment_density_map_offset;
+    inline constexpr image_flags image_flags_video_profile_independent = image_flags::video_profile_independent;
+
+    inline constexpr image_view_flags image_view_flags_none = image_view_flags::none;
+    inline constexpr image_view_flags image_view_flags_fragment_density_map_dynamic = image_view_flags::fragment_density_map_dynamic;
+    inline constexpr image_view_flags image_view_flags_descriptor_buffer_capture_replay = image_view_flags::descriptor_buffer_capture_replay;
+    inline constexpr image_view_flags image_view_flags_fragment_density_map_deferred = image_view_flags::fragment_density_map_deferred;
+
+    inline constexpr sampler_flags sampler_flags_none = sampler_flags::none;
+    inline constexpr sampler_flags sampler_flags_subsampled = sampler_flags::subsampled;
+    inline constexpr sampler_flags sampler_flags_subsampled_coarse_reconstruction = sampler_flags::subsampled_coarse_reconstruction;
+    inline constexpr sampler_flags sampler_flags_descriptor_buffer_capture_replay = sampler_flags::descriptor_buffer_capture_replay;
+    inline constexpr sampler_flags sampler_flags_non_seamless_cube_map = sampler_flags::non_seamless_cube_map;
+    inline constexpr sampler_flags sampler_flags_image_processing = sampler_flags::image_processing;
+
+    inline constexpr pipeline_flags pipeline_flags_none = pipeline_flags::none;
+    inline constexpr pipeline_flags pipeline_flags_disable_optimization = pipeline_flags::disable_optimization;
+    inline constexpr pipeline_flags pipeline_flags_allow_derivatives = pipeline_flags::allow_derivatives;
+    inline constexpr pipeline_flags pipeline_flags_derivative = pipeline_flags::derivative;
+    inline constexpr pipeline_flags pipeline_flags_view_index_from_device_index = pipeline_flags::view_index_from_device_index;
+    inline constexpr pipeline_flags pipeline_flags_dispatch_base = pipeline_flags::dispatch_base;
+    inline constexpr pipeline_flags pipeline_flags_fail_on_pipeline_compile_required = pipeline_flags::fail_on_pipeline_compile_required;
+    inline constexpr pipeline_flags pipeline_flags_early_return_on_failure = pipeline_flags::early_return_on_failure;
+    inline constexpr pipeline_flags pipeline_flags_rendering_fragment_shading_rate_attachment = pipeline_flags::rendering_fragment_shading_rate_attachment;
+    inline constexpr pipeline_flags pipeline_flags_rendering_fragment_density_map_attachment = pipeline_flags::rendering_fragment_density_map_attachment;
+    inline constexpr pipeline_flags pipeline_flags_ray_tracing_no_null_any_hit_shaders = pipeline_flags::ray_tracing_no_null_any_hit_shaders;
+    inline constexpr pipeline_flags pipeline_flags_ray_tracing_no_null_closest_hit_shaders = pipeline_flags::ray_tracing_no_null_closest_hit_shaders;
+    inline constexpr pipeline_flags pipeline_flags_ray_tracing_no_null_miss_shaders = pipeline_flags::ray_tracing_no_null_miss_shaders;
+    inline constexpr pipeline_flags pipeline_flags_ray_tracing_no_null_intersection_shaders = pipeline_flags::ray_tracing_no_null_intersection_shaders;
+    inline constexpr pipeline_flags pipeline_flags_ray_tracing_skip_triangles = pipeline_flags::ray_tracing_skip_triangles;
+    inline constexpr pipeline_flags pipeline_flags_ray_tracing_skip_aabbs = pipeline_flags::ray_tracing_skip_aabbs;
+    inline constexpr pipeline_flags pipeline_flags_ray_tracing_shader_group_handle_capture_replay = pipeline_flags::ray_tracing_shader_group_handle_capture_replay;
+    inline constexpr pipeline_flags pipeline_flags_defer_compile = pipeline_flags::defer_compile;
+    inline constexpr pipeline_flags pipeline_flags_capture_statistics = pipeline_flags::capture_statistics;
+    inline constexpr pipeline_flags pipeline_flags_capture_internal_representations = pipeline_flags::capture_internal_representations;
+    inline constexpr pipeline_flags pipeline_flags_indirect_bindable = pipeline_flags::indirect_bindable;
+    inline constexpr pipeline_flags pipeline_flags_library = pipeline_flags::library;
+    inline constexpr pipeline_flags pipeline_flags_descriptor_buffer = pipeline_flags::descriptor_buffer;
+    inline constexpr pipeline_flags pipeline_flags_retain_link_time_optimization_info = pipeline_flags::retain_link_time_optimization_info;
+    inline constexpr pipeline_flags pipeline_flags_link_time_optimization = pipeline_flags::link_time_optimization;
+    inline constexpr pipeline_flags pipeline_flags_ray_tracing_allow_motion = pipeline_flags::ray_tracing_allow_motion;
+    inline constexpr pipeline_flags pipeline_flags_color_attachment_feedback_loop = pipeline_flags::color_attachment_feedback_loop;
+    inline constexpr pipeline_flags pipeline_flags_depth_stencil_attachment_feedback_loop = pipeline_flags::depth_stencil_attachment_feedback_loop;
+    inline constexpr pipeline_flags pipeline_flags_ray_tracing_opacity_micromap = pipeline_flags::ray_tracing_opacity_micromap;
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+    inline constexpr pipeline_flags pipeline_flags_ray_tracing_displacement_micromap = pipeline_flags::ray_tracing_displacement_micromap;
+#endif
+    inline constexpr pipeline_flags pipeline_flags_no_protected_access = pipeline_flags::no_protected_access;
+    inline constexpr pipeline_flags pipeline_flags_protected_access_only = pipeline_flags::protected_access_only;
+
+    inline constexpr descriptor_pool_flags descriptor_pool_flags_none = descriptor_pool_flags::none;
+    inline constexpr descriptor_pool_flags descriptor_pool_flags_free_descriptor_set = descriptor_pool_flags::free_descriptor_set;
+    inline constexpr descriptor_pool_flags descriptor_pool_flags_update_after_bind = descriptor_pool_flags::update_after_bind;
+    inline constexpr descriptor_pool_flags descriptor_pool_flags_host_only = descriptor_pool_flags::host_only;
+    inline constexpr descriptor_pool_flags descriptor_pool_flags_allow_overallocation_sets = descriptor_pool_flags::allow_overallocation_sets;
+    inline constexpr descriptor_pool_flags descriptor_pool_flags_allow_overallocation_pools = descriptor_pool_flags::allow_overallocation_pools;
+
+    inline constexpr descriptor_layout_flags descriptor_layout_flags_none = descriptor_layout_flags::none;
+    inline constexpr descriptor_layout_flags descriptor_layout_flags_update_after_bind_pool = descriptor_layout_flags::update_after_bind_pool;
+    inline constexpr descriptor_layout_flags descriptor_layout_flags_push_descriptor = descriptor_layout_flags::push_descriptor;
+    inline constexpr descriptor_layout_flags descriptor_layout_flags_descriptor_buffer = descriptor_layout_flags::descriptor_buffer;
+    inline constexpr descriptor_layout_flags descriptor_layout_flags_embedded_immutable_samplers = descriptor_layout_flags::embedded_immutable_samplers;
+    inline constexpr descriptor_layout_flags descriptor_layout_flags_indirect_bindable = descriptor_layout_flags::indirect_bindable;
+    inline constexpr descriptor_layout_flags descriptor_layout_flags_host_only_pool = descriptor_layout_flags::host_only_pool;
+    inline constexpr descriptor_layout_flags descriptor_layout_flags_per_stage = descriptor_layout_flags::per_stage;
+
+    inline constexpr descriptor_binding_flags descriptor_binding_flags_none = descriptor_binding_flags::none;
+    inline constexpr descriptor_binding_flags descriptor_binding_flags_update_after_bind = descriptor_binding_flags::update_after_bind;
+    inline constexpr descriptor_binding_flags descriptor_binding_flags_update_unused_while_pending = descriptor_binding_flags::update_unused_while_pending;
+    inline constexpr descriptor_binding_flags descriptor_binding_flags_partially_bound = descriptor_binding_flags::partially_bound;
+    inline constexpr descriptor_binding_flags descriptor_binding_flags_variable_descriptor_count = descriptor_binding_flags::variable_descriptor_count;
+    inline constexpr descriptor_binding_flags descriptor_binding_flags_bindless = descriptor_binding_flags::bindless;
+
+    inline constexpr dependency dependency_none = dependency::none;
+    inline constexpr dependency dependency_by_region = dependency::by_region;
+    inline constexpr dependency dependency_device_group = dependency::device_group;
+    inline constexpr dependency dependency_view_local = dependency::view_local;
+    inline constexpr dependency dependency_feedback_loop = dependency::feedback_loop;
+
+    inline constexpr surface_transform surface_transform_none = surface_transform::none;
+    inline constexpr surface_transform surface_transform_identity = surface_transform::identity;
+    inline constexpr surface_transform surface_transform_rotate_90 = surface_transform::rotate_90;
+    inline constexpr surface_transform surface_transform_rotate_180 = surface_transform::rotate_180;
+    inline constexpr surface_transform surface_transform_rotate_270 = surface_transform::rotate_270;
+    inline constexpr surface_transform surface_transform_horizontal_mirror = surface_transform::horizontal_mirror;
+    inline constexpr surface_transform surface_transform_horizontal_mirror_rotate_90 = surface_transform::horizontal_mirror_rotate_90;
+    inline constexpr surface_transform surface_transform_horizontal_mirror_rotate_180 = surface_transform::horizontal_mirror_rotate_180;
+    inline constexpr surface_transform surface_transform_horizontal_mirror_rotate_270 = surface_transform::horizontal_mirror_rotate_270;
+    inline constexpr surface_transform surface_transform_inherit = surface_transform::inherit;
+
+    inline constexpr composite_alpha composite_alpha_none = composite_alpha::none;
+    inline constexpr composite_alpha composite_alpha_opaque = composite_alpha::opaque;
+    inline constexpr composite_alpha composite_alpha_pre_multiplied = composite_alpha::pre_multiplied;
+    inline constexpr composite_alpha composite_alpha_post_multiplied = composite_alpha::post_multiplied;
+    inline constexpr composite_alpha composite_alpha_inherit = composite_alpha::inherit;
+
+    inline constexpr acceleration_structure_build acceleration_structure_build_none = acceleration_structure_build::none;
+    inline constexpr acceleration_structure_build acceleration_structure_build_allow_update = acceleration_structure_build::allow_update;
+    inline constexpr acceleration_structure_build acceleration_structure_build_allow_compaction = acceleration_structure_build::allow_compaction;
+    inline constexpr acceleration_structure_build acceleration_structure_build_prefer_fast_trace = acceleration_structure_build::prefer_fast_trace;
+    inline constexpr acceleration_structure_build acceleration_structure_build_prefer_fast_build = acceleration_structure_build::prefer_fast_build;
+    inline constexpr acceleration_structure_build acceleration_structure_build_low_memory = acceleration_structure_build::low_memory;
+    inline constexpr acceleration_structure_build acceleration_structure_build_motion = acceleration_structure_build::motion;
+    inline constexpr acceleration_structure_build acceleration_structure_build_allow_opacity_micromap_update = acceleration_structure_build::allow_opacity_micromap_update;
+    inline constexpr acceleration_structure_build acceleration_structure_build_allow_disable_opacity_micromaps = acceleration_structure_build::allow_disable_opacity_micromaps;
+    inline constexpr acceleration_structure_build acceleration_structure_build_allow_opacity_micromap_data_update = acceleration_structure_build::allow_opacity_micromap_data_update;
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+    inline constexpr acceleration_structure_build acceleration_structure_build_allow_displacement_micromap_update = acceleration_structure_build::allow_displacement_micromap_update;
+#endif
+    inline constexpr acceleration_structure_build acceleration_structure_build_allow_data_access = acceleration_structure_build::allow_data_access;
+
+    inline constexpr geometry_instance geometry_instance_none = geometry_instance::none;
+    inline constexpr geometry_instance geometry_instance_triangle_facing_cull_disable = geometry_instance::triangle_facing_cull_disable;
+    inline constexpr geometry_instance geometry_instance_triangle_flip_facing = geometry_instance::triangle_flip_facing;
+    inline constexpr geometry_instance geometry_instance_force_opaque = geometry_instance::force_opaque;
+    inline constexpr geometry_instance geometry_instance_force_no_opaque = geometry_instance::force_no_opaque;
+    inline constexpr geometry_instance geometry_instance_force_opacity_micromap_2_state = geometry_instance::force_opacity_micromap_2_state;
+    inline constexpr geometry_instance geometry_instance_disable_opacity_micromaps = geometry_instance::disable_opacity_micromaps;
+
+    inline constexpr format_feature format_feature_none = format_feature::none;
+    inline constexpr format_feature format_feature_sampled_image = format_feature::sampled_image;
+    inline constexpr format_feature format_feature_storage_image = format_feature::storage_image;
+    inline constexpr format_feature format_feature_storage_image_atomic = format_feature::storage_image_atomic;
+    inline constexpr format_feature format_feature_uniform_texel_buffer = format_feature::uniform_texel_buffer;
+    inline constexpr format_feature format_feature_storage_texel_buffer = format_feature::storage_texel_buffer;
+    inline constexpr format_feature format_feature_storage_texel_buffer_atomic = format_feature::storage_texel_buffer_atomic;
+    inline constexpr format_feature format_feature_vertex_buffer = format_feature::vertex_buffer;
+    inline constexpr format_feature format_feature_color_attachment = format_feature::color_attachment;
+    inline constexpr format_feature format_feature_color_attachment_blend = format_feature::color_attachment_blend;
+    inline constexpr format_feature format_feature_depth_stencil_attachment = format_feature::depth_stencil_attachment;
+    inline constexpr format_feature format_feature_blit_src = format_feature::blit_src;
+    inline constexpr format_feature format_feature_blit_dst = format_feature::blit_dst;
+    inline constexpr format_feature format_feature_sampled_image_filter_linear = format_feature::sampled_image_filter_linear;
+    inline constexpr format_feature format_feature_transfer_src = format_feature::transfer_src;
+    inline constexpr format_feature format_feature_transfer_dst = format_feature::transfer_dst;
+    inline constexpr format_feature format_feature_midpoint_chroma_samples = format_feature::midpoint_chroma_samples;
+    inline constexpr format_feature format_feature_sampled_image_ycbcr_conversion_linear_filter = format_feature::sampled_image_ycbcr_conversion_linear_filter;
+    inline constexpr format_feature format_feature_sampled_image_ycbcr_conversion_separate_reconstruction_filter = format_feature::sampled_image_ycbcr_conversion_separate_reconstruction_filter;
+    inline constexpr format_feature format_feature_sampled_image_ycbcr_conversion_chroma_reconstruction_explicit = format_feature::sampled_image_ycbcr_conversion_chroma_reconstruction_explicit;
+    inline constexpr format_feature format_feature_sampled_image_ycbcr_conversion_chroma_reconstruction_explicit_forceable = format_feature::sampled_image_ycbcr_conversion_chroma_reconstruction_explicit_forceable;
+    inline constexpr format_feature format_feature_disjoint = format_feature::disjoint;
+    inline constexpr format_feature format_feature_cosited_chroma_samples = format_feature::cosited_chroma_samples;
+    inline constexpr format_feature format_feature_sampled_image_filter_minmax = format_feature::sampled_image_filter_minmax;
+    inline constexpr format_feature format_feature_video_decode_output = format_feature::video_decode_output;
+    inline constexpr format_feature format_feature_video_decode_dpb = format_feature::video_decode_dpb;
+    inline constexpr format_feature format_feature_acceleration_structure_vertex_buffer = format_feature::acceleration_structure_vertex_buffer;
+    inline constexpr format_feature format_feature_sampled_image_filter_cubic = format_feature::sampled_image_filter_cubic;
+    inline constexpr format_feature format_feature_fragment_density_map = format_feature::fragment_density_map;
+    inline constexpr format_feature format_feature_fragment_shading_rate_attachment = format_feature::fragment_shading_rate_attachment;
+    inline constexpr format_feature format_feature_video_encode_input = format_feature::video_encode_input;
+    inline constexpr format_feature format_feature_video_encode_dpb = format_feature::video_encode_dpb;
+    inline constexpr format_feature format_feature_blit = format_feature::blit;
+    inline constexpr format_feature format_feature_storage_atomic = format_feature::storage_atomic;
+    inline constexpr format_feature format_feature_color_sampled_blend = format_feature::color_sampled_blend;
+
+    inline constexpr debug_severity debug_severity_none = debug_severity::none;
+    inline constexpr debug_severity debug_severity_verbose = debug_severity::verbose;
+    inline constexpr debug_severity debug_severity_info = debug_severity::info;
+    inline constexpr debug_severity debug_severity_warning = debug_severity::warning;
+    inline constexpr debug_severity debug_severity_error = debug_severity::error;
+    inline constexpr debug_severity debug_severity_all = debug_severity::all;
+
+    inline constexpr debug_type debug_type_none = debug_type::none;
+    inline constexpr debug_type debug_type_general = debug_type::general;
+    inline constexpr debug_type debug_type_validation = debug_type::validation;
+    inline constexpr debug_type debug_type_performance = debug_type::performance;
+    inline constexpr debug_type debug_type_device_address_binding = debug_type::device_address_binding;
+    inline constexpr debug_type debug_type_standard = debug_type::standard;
+
+    inline constexpr device_diagnostics device_diagnostics_none = device_diagnostics::none;
+    inline constexpr device_diagnostics device_diagnostics_enable_shader_debug_info = device_diagnostics::enable_shader_debug_info;
+    inline constexpr device_diagnostics device_diagnostics_enable_resource_tracking = device_diagnostics::enable_resource_tracking;
+    inline constexpr device_diagnostics device_diagnostics_enable_automatic_checkpoints = device_diagnostics::enable_automatic_checkpoints;
+    inline constexpr device_diagnostics device_diagnostics_enable_shader_error_reporting = device_diagnostics::enable_shader_error_reporting;
+    inline constexpr device_diagnostics device_diagnostics_crash_dump = device_diagnostics::crash_dump;
+
+    inline constexpr query_result query_result_none = query_result::none;
+    inline constexpr query_result query_result_bits_64 = query_result::bits_64;
+    inline constexpr query_result query_result_wait = query_result::wait;
+    inline constexpr query_result query_result_with_availability = query_result::with_availability;
+    inline constexpr query_result query_result_partial = query_result::partial;
+    inline constexpr query_result query_result_with_status = query_result::with_status;
+    inline constexpr query_result query_result_wait_64 = query_result::wait_64;
+
+    inline constexpr resolve_mode resolve_mode_none = resolve_mode::none;
+    inline constexpr resolve_mode resolve_mode_sample_zero = resolve_mode::sample_zero;
+    inline constexpr resolve_mode resolve_mode_average = resolve_mode::average;
+    inline constexpr resolve_mode resolve_mode_min = resolve_mode::min;
+    inline constexpr resolve_mode resolve_mode_max = resolve_mode::max;
+    inline constexpr resolve_mode resolve_mode_external_format_downsample = resolve_mode::external_format_downsample;
+
+    inline constexpr video_chroma_subsampling video_chroma_subsampling_invalid = video_chroma_subsampling::invalid;
+    inline constexpr video_chroma_subsampling video_chroma_subsampling_monochrome = video_chroma_subsampling::monochrome;
+    inline constexpr video_chroma_subsampling video_chroma_subsampling_s420 = video_chroma_subsampling::s420;
+    inline constexpr video_chroma_subsampling video_chroma_subsampling_s422 = video_chroma_subsampling::s422;
+    inline constexpr video_chroma_subsampling video_chroma_subsampling_s444 = video_chroma_subsampling::s444;
+
+    inline constexpr video_codec_operation video_codec_operation_none = video_codec_operation::none;
+    inline constexpr video_codec_operation video_codec_operation_encode_h264 = video_codec_operation::encode_h264;
+    inline constexpr video_codec_operation video_codec_operation_encode_h265 = video_codec_operation::encode_h265;
+    inline constexpr video_codec_operation video_codec_operation_decode_h264 = video_codec_operation::decode_h264;
+    inline constexpr video_codec_operation video_codec_operation_decode_h265 = video_codec_operation::decode_h265;
+    inline constexpr video_codec_operation video_codec_operation_decode_av1 = video_codec_operation::decode_av1;
+
+    inline constexpr video_coding_control video_coding_control_none = video_coding_control::none;
+    inline constexpr video_coding_control video_coding_control_reset = video_coding_control::reset;
+    inline constexpr video_coding_control video_coding_control_encode_rate_control = video_coding_control::encode_rate_control;
+    inline constexpr video_coding_control video_coding_control_encode_quality_level = video_coding_control::encode_quality_level;
+
+    inline constexpr video_component_bit_depth video_component_bit_depth_invalid = video_component_bit_depth::invalid;
+    inline constexpr video_component_bit_depth video_component_bit_depth_bits_8 = video_component_bit_depth::bits_8;
+    inline constexpr video_component_bit_depth video_component_bit_depth_bits_10 = video_component_bit_depth::bits_10;
+    inline constexpr video_component_bit_depth video_component_bit_depth_bits_12 = video_component_bit_depth::bits_12;
+
+    inline constexpr video_decode_capability video_decode_capability_none = video_decode_capability::none;
+    inline constexpr video_decode_capability video_decode_capability_dpb_and_output_coincide = video_decode_capability::dpb_and_output_coincide;
+    inline constexpr video_decode_capability video_decode_capability_dpb_and_output_distinct = video_decode_capability::dpb_and_output_distinct;
+
+    inline constexpr video_decode_h264_picture_layout video_decode_h264_picture_layout_progressive = video_decode_h264_picture_layout::progressive;
+    inline constexpr video_decode_h264_picture_layout video_decode_h264_picture_layout_interlaced_interleaved_lines = video_decode_h264_picture_layout::interlaced_interleaved_lines;
+    inline constexpr video_decode_h264_picture_layout video_decode_h264_picture_layout_interlaced_separate_planes = video_decode_h264_picture_layout::interlaced_separate_planes;
 } // namespace vkz
 
 template <>

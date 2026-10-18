@@ -21,6 +21,11 @@ namespace vkz {
         }
 
         compute_pipeline_layout_builder &add_push_constant_range(vkz::shader_stage stage, uint32_t offset, uint32_t size);
+        #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        compute_pipeline_layout_builder &add_push_constant_range(VkShaderStageFlags stage, uint32_t offset, uint32_t size) {
+            return add_push_constant_range(static_cast<vkz::shader_stage >(stage), offset, size);
+        }
+        #endif
 
         compute_pipeline_layout_builder &add_push_constant_range(VkPushConstantRange range);
 
@@ -47,4 +52,4 @@ namespace vkz {
         std::vector<VkDescriptorSetLayout> _descriptorSetLayouts;
         std::vector<VkPushConstantRange> _ranges;
     };
-}
+} // namespace vkz

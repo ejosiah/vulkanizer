@@ -10,7 +10,11 @@ layout(set = 0, binding = 0, scalar) uniform shadow_constants {
     uint history_count;
     uint vertex_stride;
     uint alpha_test;
-} constants;
+    uint world_positions;
+    float directional_distance;
+}
+
+constants;
 
 struct light {
     vec4 position_range;
@@ -19,9 +23,13 @@ struct light {
     vec4 cone;
 };
 
-layout(set = 0, binding = 1, scalar) readonly buffer light_buffer { light lights[]; };
+layout(set = 0, binding = 1, scalar) readonly buffer light_buffer {
+    light lights[];
+};
+
 layout(set = 0, binding = 2) uniform sampler2D scene_depth;
 layout(set = 0, binding = 3) uniform sampler2D scene_normal;
+layout(set = 0, binding = 18) uniform sampler2D scene_world_positions;
 layout(set = 0, binding = 5, rg16f) uniform image2D motion_vector;
 layout(set = 0, binding = 6, rgba16f) uniform image3D visibility_cache;
 layout(set = 0, binding = 7, r16f) uniform image3D variation;
@@ -66,6 +74,9 @@ float depth_at(ivec2 p) {
 }
 
 vec3 world_at(ivec2 p) {
+    if (constants.world_positions != 0u) {
+        return texelFetch(scene_world_positions, source_pixel(p), 0).xyz;
+    }
     vec2 uv = (vec2(source_pixel(p)) + 0.5) / vec2(textureSize(scene_depth, 0));
     vec4 world = constants.inverse_view_projection * vec4(uv * 2 - 1, depth_at(p), 1);
     return world.xyz / world.w;
@@ -85,7 +96,9 @@ layout(set = 0, binding = 14, rgba32f) uniform image2D world_history_1;
 layout(set = 0, binding = 15, rgba16f) uniform image2D normal_history_0;
 layout(set = 0, binding = 16, rgba16f) uniform image2D normal_history_1;
 
-bool even_frame() { return (constants.frame_index & 1u) == 0u; }
+bool even_frame() {
+    return (constants.frame_index & 1u) == 0u;
+}
 
 vec4 previous_visibility(ivec3 p) {
     return even_frame() ? imageLoad(alternate_visibility_cache, bounded(p)) : imageLoad(visibility_cache, bounded(p));
@@ -104,8 +117,7 @@ void store_visibility(ivec3 p, vec4 value) {
 
 ivec2 previous_pixel(ivec2 p) {
     vec2 uv = (vec2(source_pixel(p)) + 0.5) / vec2(textureSize(scene_depth, 0));
-    return clamp(ivec2((uv - imageLoad(motion_vector, p).xy) * vec2(constants.resolution)),
-        ivec2(0), ivec2(constants.resolution) - 1);
+    return clamp(ivec2((uv - imageLoad(motion_vector, p).xy) * vec2(constants.resolution)), ivec2(0), ivec2(constants.resolution) - 1);
 }
 
 bool valid_history(ivec2 p) {

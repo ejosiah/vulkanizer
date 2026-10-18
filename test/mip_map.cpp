@@ -45,7 +45,7 @@ int main() {
     const VkDeviceSize image_bytes = pixels.size() * sizeof(pixels.front());
     auto staging = vkz::buffer::builder(allocator)
         .size(image_bytes)
-        .usage(vkz::buffer::usage::transfer_src)
+        .usage(vkz::buffer_usage_transfer_src)
         .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
         .build();
     {
@@ -58,19 +58,19 @@ int main() {
         .format(VK_FORMAT_R8G8B8A8_UNORM)
         .extent(image_size, image_size)
         .mip_levels(mip_levels)
-        .usage(vkz::image::usage::sampled_transfer)
+        .usage(vkz::image_usage_sampled_transfer)
         .build();
     auto readback = vkz::buffer::builder(allocator)
         .size(sizeof(uint32_t))
-        .usage(vkz::buffer::usage::transfer_dst)
+        .usage(vkz::buffer_usage_transfer_dst)
         .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
         .build();
 
     vkz::command_pool commands{
-        context.device, family, vkz::command_pool_flags::transient, queue};
+        context.device, family, vkz::command_pool_flags_transient, queue};
     const auto command_buffer = commands.create_command_buffer();
-    const VkImageSubresourceRange all_mips{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, mip_levels, 0, 1};
-    vkz::barrier::push_and_flush(command_buffer, image, all_mips, vkz::pipeline::stage::none, vkz::pipeline::stage::transfer, vkz::access::none, vkz::access::transfer_write,
+    const VkImageSubresourceRange all_mips{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, mip_levels, 0, 1};
+    vkz::barrier::push_and_flush(command_buffer, image, all_mips, vkz::pipeline_stage_none, vkz::pipeline_stage_transfer, vkz::access_none, vkz::access_transfer_write,
                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     vkz::copy(command_buffer, staging, image);
@@ -82,16 +82,16 @@ int main() {
 
     auto final_mip_view = vkz::image_view::builder(context.device)
         .image(image)
-        .aspect_mask(vkz::image::aspect::color)
+        .aspect_mask(vkz::image_aspect_color)
         .base_mip_level(mip_levels - 1)
         .level_count(1)
         .layer_count(1)
         .build();
-    vkz::barrier::push_and_flush(readback_command_buffer, image, all_mips, vkz::pipeline::stage::transfer, vkz::pipeline::stage::transfer, vkz::access::transfer_write, vkz::access::transfer_read,
+    vkz::barrier::push_and_flush(readback_command_buffer, image, all_mips, vkz::pipeline_stage_transfer, vkz::pipeline_stage_transfer, vkz::access_transfer_write, vkz::access_transfer_read,
                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
     vkz::copy(readback_command_buffer, image, final_mip_view, readback);
-    vkz::barrier::push_and_flush(readback_command_buffer, vkz::pipeline::stage::transfer, vkz::pipeline::stage::host, vkz::access::transfer_write, vkz::access::host_read);
+    vkz::barrier::push_and_flush(readback_command_buffer, vkz::pipeline_stage_transfer, vkz::pipeline_stage_host, vkz::access_transfer_write, vkz::access_host_read);
 
     // This reaches vkQueueWaitIdle and reproduces a device loss caused by invalid mip commands.
     commands.submit_and_wait(readback_command_buffer);

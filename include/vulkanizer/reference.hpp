@@ -74,14 +74,14 @@ namespace vkz::reference {
     static_assert(sizeof(scene_uniform) == 144 && sizeof(material_uniform) == 992 && sizeof(instance_uniform) == 128);
 
     inline constexpr std::array<VkDescriptorSetLayoutBinding, 3> scene_bindings{
-        {{0, static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), nullptr},
-         {1, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex), nullptr},
-         {2, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment), nullptr}}};
+        {{0, static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_vertex | vkz::shader_stage_fragment), nullptr},
+         {1, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_vertex), nullptr},
+         {2, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_fragment), nullptr}}};
     inline constexpr auto material_bindings = [] {
         std::array<VkDescriptorSetLayoutBinding, mesh::material_texture_count + 1> result{};
-        result[0] = {0, static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), nullptr};
+        result[0] = {0, static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_vertex | vkz::shader_stage_fragment), nullptr};
         for (uint32_t i = 1; i < result.size(); ++i)
-            result[i] = {i, static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment), nullptr};
+            result[i] = {i, static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_fragment), nullptr};
         return result;
     }();
 
@@ -103,16 +103,16 @@ namespace vkz::reference {
 
     static_assert(sizeof(ray_tracing_scene_uniform) == 256 && sizeof(ray_tracing_instance_uniform) == 16);
 
-    inline constexpr vkz::shader_stage ray_hit_stages = vkz::shader_stage::closest_hit | vkz::shader_stage::any_hit;
+    inline constexpr vkz::shader_stage ray_hit_stages = vkz::shader_stage_closest_hit | vkz::shader_stage_any_hit;
     inline constexpr std::array<VkDescriptorSetLayoutBinding, 8> ray_tracing_scene_bindings{
-        {{0, static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::raygen | vkz::shader_stage::miss | ray_hit_stages), nullptr},
-         {1, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr},
-         {2, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr},
-         {3, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr},
-         {4, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr},
-         {5, static_cast<VkDescriptorType>(vkz::descriptor::type::acceleration_structure), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::raygen), nullptr},
-         {6, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::raygen), nullptr},
-         {7, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr}}};
+        {{0, static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_raygen | vkz::shader_stage_miss | ray_hit_stages), nullptr},
+         {1, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 1, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr},
+         {2, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 1, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr},
+         {3, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 1, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr},
+         {4, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 1, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr},
+         {5, static_cast<VkDescriptorType>(vkz::descriptor_type_acceleration_structure), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_raygen), nullptr},
+         {6, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_raygen), nullptr},
+         {7, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 1, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr}}};
 
     [[nodiscard]] VkDescriptorSetLayoutBinding ray_tracing_texture_binding(uint32_t texture_count);
     [[nodiscard]] std::vector<ray_tracing_instance_uniform> make_ray_tracing_instances(const mesh::data &scene, uint32_t lod = 0);
@@ -135,7 +135,7 @@ namespace vkz::reference {
         VkExtent2D extent{};
         VkFormat color_format{VK_FORMAT_UNDEFINED};
         VkFormat depth_format{VK_FORMAT_UNDEFINED};
-        vkz::sample_count samples{vkz::sample_count::x1};
+        vkz::sample_count samples{vkz::sample_count_x1};
         bool alpha_blend{};
         bool mirrored{};
         descriptor_set_layout ibl_layout{};
@@ -149,11 +149,11 @@ namespace vkz::reference {
         VkExtent2D extent{};
         VkFormat color_format{VK_FORMAT_UNDEFINED};
         VkFormat depth_format{VK_FORMAT_UNDEFINED};
-        vkz::sample_count samples{vkz::sample_count::x1};
+        vkz::sample_count samples{vkz::sample_count_x1};
     };
 
-    inline constexpr VkDescriptorSetLayoutBinding tone_mapping_binding{0, static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1,
-                                                                       static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment), nullptr};
+    inline constexpr VkDescriptorSetLayoutBinding tone_mapping_binding{0, static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 1,
+                                                                       static_cast<VkShaderStageFlags>(vkz::shader_stage_fragment), nullptr};
 
     struct tone_mapping_uniform {
         float exposure{};

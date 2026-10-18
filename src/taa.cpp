@@ -16,7 +16,7 @@
 
 namespace vkz::taa {
     namespace {
-        constexpr VkImageSubresourceRange color_range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
+        constexpr VkImageSubresourceRange color_range{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1};
 
         struct constants {
             glm::mat4 current_view_projection{1};
@@ -42,9 +42,9 @@ namespace vkz::taa {
             const auto &c = color.image.create_info;
             const auto &d = depth.image.create_info;
             if (!color.image.handle || !color.image_view.handle || !depth.image.handle || !depth.image_view.handle || !c.extent.width || !c.extent.height || c.extent.width != d.extent.width ||
-                c.extent.height != d.extent.height || c.imageType != VK_IMAGE_TYPE_2D || d.imageType != VK_IMAGE_TYPE_2D || c.samples != static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1) || d.samples != static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1) ||
-                (c.format != VK_FORMAT_R16G16B16A16_SFLOAT && c.format != VK_FORMAT_R32G32B32A32_SFLOAT) || !(c.usage & static_cast<VkImageUsageFlags>(vkz::image::usage::sampled)) || !(c.usage & static_cast<VkImageUsageFlags>(vkz::image::usage::transfer_dst)) ||
-                !(d.usage & static_cast<VkImageUsageFlags>(vkz::image::usage::sampled)) || color.image.layout == VK_IMAGE_LAYOUT_UNDEFINED || depth.image.layout == VK_IMAGE_LAYOUT_UNDEFINED) {
+                c.extent.height != d.extent.height || c.imageType != VK_IMAGE_TYPE_2D || d.imageType != VK_IMAGE_TYPE_2D || c.samples != static_cast<VkSampleCountFlagBits>(vkz::sample_count_x1) || d.samples != static_cast<VkSampleCountFlagBits>(vkz::sample_count_x1) ||
+                (c.format != VK_FORMAT_R16G16B16A16_SFLOAT && c.format != VK_FORMAT_R32G32B32A32_SFLOAT) || !(c.usage & static_cast<VkImageUsageFlags>(vkz::image_usage_sampled)) || !(c.usage & static_cast<VkImageUsageFlags>(vkz::image_usage_transfer_dst)) ||
+                !(d.usage & static_cast<VkImageUsageFlags>(vkz::image_usage_sampled)) || color.image.layout == VK_IMAGE_LAYOUT_UNDEFINED || depth.image.layout == VK_IMAGE_LAYOUT_UNDEFINED) {
                 throw std::invalid_argument("TAA requires matching sampled 2D color/depth inputs and a transferable RGBA16F/RGBA32F color image in readable layouts");
             }
         }
@@ -86,9 +86,9 @@ namespace vkz::taa {
                                      .build();
                 auto builder = make_descriptor_set_layout_builder(params_.device);
                 for (uint32_t binding = 0; binding < 9; ++binding) {
-                    const auto type = binding == 0 ? vkz::descriptor::type::uniform_buffer
-                                                   : (binding == 5 || binding == 6 || binding == 8 ? vkz::descriptor::type::storage_image : vkz::descriptor::type::combined_image_sampler);
-                    const auto entry = builder.binding(binding).descriptor_type(type).descriptor_count(1).shader_stages(vkz::shader_stage::compute);
+                    const auto type = binding == 0 ? vkz::descriptor_type_uniform_buffer
+                                                   : (binding == 5 || binding == 6 || binding == 8 ? vkz::descriptor_type_storage_image : vkz::descriptor_type_combined_image_sampler);
+                    const auto entry = builder.binding(binding).descriptor_type(type).descriptor_count(1).shader_stages(vkz::shader_stage_compute);
                     if (binding == 8) {
                         layout_ = entry.create_layout();
                     } else {
@@ -99,15 +99,15 @@ namespace vkz::taa {
                 pool_ = descriptor_pool{params_.device,
                                         count,
                                         {
-                                            {static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), count},
-                                            {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), count * 5},
-                                            {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), count * 3},
+                                            {static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), count},
+                                            {static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), count * 5},
+                                            {static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), count * 3},
                                         }};
                 slots_.resize(params_.in_flight_frames);
                 for (auto &slot : slots_) {
                     slot.uniform = buffer::builder(params_.memory_allocator)
                         .size(sizeof(constants))
-                        .usage(vkz::buffer::usage::uniform_upload)
+                        .usage(vkz::buffer_usage_uniform_upload)
                         .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                         .build();
                     for (auto &set : slot.sets) {
@@ -175,11 +175,11 @@ namespace vkz::taa {
                                     (options.full_taa ? 0u : 8u)};
                 data.state = {history_valid_ ? 1u : 0u, params_.depth_channel, 0, 0};
                 data.tuning = {options.history_weight, options.depth_threshold, 0, 0};
-                barrier::push_and_flush(cmd, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::transfer, vkz::access::memory_read_write, vkz::access::transfer_write);
+                barrier::push_and_flush(cmd, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_transfer, vkz::access_memory_read_write, vkz::access_transfer_write);
                 vkz::update(cmd, slot.uniform, data);
-                barrier::push(vkz::pipeline::stage::transfer, vkz::pipeline::stage::compute_shader, vkz::access::transfer_write, vkz::access::uniform_read);
+                barrier::push(vkz::pipeline_stage_transfer, vkz::pipeline_stage_compute_shader, vkz::access_transfer_write, vkz::access_uniform_read);
                 for (auto *image : {&velocity_.image, &history_[0].image, &history_[1].image, &depth_history_[0].image, &depth_history_[1].image}) {
-                    barrier::push(*image, color_range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::compute_shader, vkz::access::memory_read_write, vkz::access::shader_read_write,
+                    barrier::push(*image, color_range, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_compute_shader, vkz::access_memory_read_write, vkz::access_shader_read_write,
                                   VK_IMAGE_LAYOUT_GENERAL);
                 }
                 barrier::flush(cmd);
@@ -189,15 +189,15 @@ namespace vkz::taa {
                 const auto extent = params_.color.image.create_info.extent;
                 bind_pipeline(cmd, motion_pipeline_);
                 dispatch(cmd, (extent.width + 7) / 8, (extent.height + 7) / 8, 1);
-                barrier::push_and_flush(cmd, velocity_.image, color_range, vkz::pipeline::stage::compute_shader, vkz::pipeline::stage::compute_shader, vkz::access::shader_write,
-                                        vkz::access::shader_read, VK_IMAGE_LAYOUT_GENERAL);
+                barrier::push_and_flush(cmd, velocity_.image, color_range, vkz::pipeline_stage_compute_shader, vkz::pipeline_stage_compute_shader, vkz::access_shader_write,
+                                        vkz::access_shader_read, VK_IMAGE_LAYOUT_GENERAL);
                 bind_pipeline(cmd, resolve_pipeline_);
                 dispatch(cmd, (extent.width + 7) / 8, (extent.height + 7) / 8, 1);
                 const auto color_layout = params_.color.image.layout;
                 copy(cmd, history_[write].image, params_.color.image);
-                barrier::push(params_.color.image, color_range, vkz::pipeline::stage::transfer, vkz::pipeline::stage::all_commands, vkz::access::transfer_write, vkz::access::shader_read,
+                barrier::push(params_.color.image, color_range, vkz::pipeline_stage_transfer, vkz::pipeline_stage_all_commands, vkz::access_transfer_write, vkz::access_shader_read,
                               color_layout);
-                barrier::push(history_[write].image, color_range, vkz::pipeline::stage::transfer, vkz::pipeline::stage::compute_shader, vkz::access::transfer_read, vkz::access::shader_read,
+                barrier::push(history_[write].image, color_range, vkz::pipeline_stage_transfer, vkz::pipeline_stage_compute_shader, vkz::access_transfer_read, vkz::access_shader_read,
                               VK_IMAGE_LAYOUT_GENERAL);
                 barrier::flush(cmd);
                 previous_camera_ = current_camera_;
@@ -233,7 +233,7 @@ namespace vkz::taa {
                 value.image = image::builder(params_.memory_allocator)
                     .format(format)
                     .extent(params_.color.image.create_info.extent.width, params_.color.image.create_info.extent.height)
-                    .usage(vkz::image::usage::sampled_storage_download)
+                    .usage(vkz::image_usage_sampled_storage_download)
                     .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                     .build();
                 value.image_view =
@@ -241,7 +241,7 @@ namespace vkz::taa {
                         .image(value.image)
                         .view_type(VK_IMAGE_VIEW_TYPE_2D)
                         .format(format)
-                        .aspect_mask(vkz::image::aspect::color)
+                        .aspect_mask(vkz::image_aspect_color)
                         .level_count(1)
                         .layer_count(1)
                         .build();
@@ -272,7 +272,7 @@ namespace vkz::taa {
                     for (uint32_t i = 0; i < 2; ++i) {
                         vkz::update_descriptors(params_.device, {{slot.sets[i],
                                                                   {
-                                                                      make_descriptor<ubo_descriptor>(slot.uniform, 0),
+                                                                      descriptor<ubo_descriptor>(slot.uniform, 0),
                                                                       texture_descriptor{params_.color.image_view, linear_sampler_, params_.color.image.layout, 1},
                                                                       texture_descriptor{params_.depth.image_view, point_sampler_, params_.depth.image.layout, 2},
                                                                       texture_descriptor{velocity_.image_view, point_sampler_, VK_IMAGE_LAYOUT_GENERAL, 3},

@@ -318,7 +318,7 @@ namespace vkz {
 
         buffer_ = buffer::builder(allocator)
             .size(capacity_)
-            .usage(vkz::buffer::usage::transfer_src)
+            .usage(vkz::buffer_usage_transfer_src)
             .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
             .build();
         mapping_ = buffer_.map();
@@ -480,11 +480,11 @@ namespace vkz {
     buffer_builder::buffer_builder(vma_memory_allocator& allocator)
             : allocator_{&allocator} {
         create_info_.size = 1;
-        create_info_.usage = static_cast<VkBufferUsageFlags>(vkz::buffer::usage::storage);
+        create_info_.usage = static_cast<VkBufferUsageFlags>(vkz::buffer_usage_storage);
         create_info_.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     }
 
-    buffer_builder& buffer_builder::flags(vkz::buffer::flags value) {
+    buffer_builder& buffer_builder::flags(vkz::buffer_flags value) {
         create_info_.flags = static_cast<VkBufferCreateFlags>(value);
         return *this;
     }
@@ -494,7 +494,7 @@ namespace vkz {
         return *this;
     }
 
-    buffer_builder &buffer_builder::usage(vkz::buffer::usage value) {
+    buffer_builder &buffer_builder::usage(vkz::buffer_usage value) {
         create_info_.usage = static_cast<VkBufferUsageFlags>(value);
         return *this;
     }
@@ -546,14 +546,14 @@ namespace vkz {
         create_info_.extent = {1, 1, 1};
         create_info_.mipLevels = 1;
         create_info_.arrayLayers = 1;
-        create_info_.samples = static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1);
+        create_info_.samples = static_cast<VkSampleCountFlagBits>(vkz::sample_count_x1);
         create_info_.tiling = VK_IMAGE_TILING_OPTIMAL;
-        create_info_.usage = static_cast<VkImageUsageFlags>(vkz::image::usage::sampled) | static_cast<VkImageUsageFlags>(vkz::image::usage::transfer_dst);
+        create_info_.usage = static_cast<VkImageUsageFlags>(vkz::image_usage_sampled) | static_cast<VkImageUsageFlags>(vkz::image_usage_transfer_dst);
         create_info_.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         create_info_.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     }
 
-    image_builder& image_builder::flags(vkz::image::flags value) {
+    image_builder& image_builder::flags(vkz::image_flags value) {
         create_info_.flags = static_cast<VkImageCreateFlags>(value);
         return *this;
     }
@@ -598,7 +598,7 @@ namespace vkz {
         return *this;
     }
 
-    image_builder &image_builder::usage(vkz::image::usage value) {
+    image_builder &image_builder::usage(vkz::image_usage value) {
         create_info_.usage = static_cast<VkImageUsageFlags>(value);
         return *this;
     }
@@ -642,14 +642,14 @@ namespace vkz {
             : device_{device} {
         create_info_.viewType = VK_IMAGE_VIEW_TYPE_2D;
         create_info_.format = VK_FORMAT_R8G8B8A8_UNORM;
-        create_info_.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::color);
+        create_info_.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(vkz::image_aspect_color);
         create_info_.subresourceRange.baseMipLevel = 0;
         create_info_.subresourceRange.levelCount = 1;
         create_info_.subresourceRange.baseArrayLayer = 0;
         create_info_.subresourceRange.layerCount = 1;
     }
 
-    image_view_builder& image_view_builder::flags(vkz::image_view::flags value) {
+    image_view_builder& image_view_builder::flags(vkz::image_view_flags value) {
         create_info_.flags = static_cast<VkImageViewCreateFlags>(value);
         return *this;
     }
@@ -680,7 +680,7 @@ namespace vkz {
         return *this;
     }
 
-    image_view_builder &image_view_builder::aspect_mask(vkz::image::aspect value) {
+    image_view_builder &image_view_builder::aspect_mask(vkz::image_aspect value) {
         create_info_.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(value);
         return *this;
     }
@@ -738,7 +738,7 @@ namespace vkz {
         create_info_.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     }
 
-    sampler_builder& sampler_builder::flags(vkz::sampler::flags value) {
+    sampler_builder& sampler_builder::flags(vkz::sampler_flags value) {
         create_info_.flags = static_cast<VkSamplerCreateFlags>(value);
         return *this;
     }

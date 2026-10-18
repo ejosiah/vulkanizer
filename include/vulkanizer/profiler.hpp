@@ -103,7 +103,7 @@ namespace vkz {
 
         void add_group(const std::string &name, uint32_t query_count);
 
-        template <typename Body> void profile(const std::string &name, VkCommandBuffer command_buffer, Body &&body, vkz::pipeline::stage stage = vkz::pipeline::stage::compute_shader) {
+        template <typename Body> void profile(const std::string &name, VkCommandBuffer command_buffer, Body &&body, vkz::pipeline_stage stage = vkz::pipeline_stage_compute_shader) {
             if (!is_ready()) {
                 std::invoke(std::forward<Body>(body));
                 return;

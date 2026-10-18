@@ -7,7 +7,7 @@
 
 namespace vkz {
     class shadow {
-    public:
+      public:
         struct scene_input {
             VkAccelerationStructureKHR tlas{};
             VkQueue queue{};
@@ -23,14 +23,17 @@ namespace vkz {
             glm::mat4 view_projection{1};
             glm::vec3 camera_position{};
             bool denoise{true};
+            // Optional full-resolution world positions in SHADER_READ_ONLY_OPTIMAL.
+            // Borrowed for this frame; avoids perspective-depth reconstruction error.
+            image_view world_positions{};
+            float directional_distance{100};
         };
 
         // Inputs are borrowed and must outlive this object. Keep the light span stable.
         // Depth uses Vulkan [0, 1]; normals use world-space octahedral XY encoding.
         // Requires ray queries, scalar block layout and storage image extended formats.
-        shadow(vkz::device device, vma_memory_allocator &allocator,
-               std::span<const mesh::light> lights, const texture &depth_buffer,
-               const texture &normal_buffer, glm::uvec2 screen_resolution, bool half_resolution = true);
+        shadow(vkz::device device, vma_memory_allocator &allocator, std::span<const mesh::light> lights, const texture &depth_buffer, const texture &normal_buffer, glm::uvec2 screen_resolution,
+               bool half_resolution = true);
 
         ~shadow();
 
@@ -47,7 +50,7 @@ namespace vkz {
         [[nodiscard]] const texture &visibility_texture() const;
         [[nodiscard]] const texture &penumbra_texture() const;
 
-    private:
+      private:
         void create_buffers();
         void init_textures();
         void create_descriptor_set_layouts();
@@ -66,4 +69,4 @@ namespace vkz {
         glm::uvec2 screen_resolution_;
         bool half_resolution_;
     };
-}
+} // namespace vkz

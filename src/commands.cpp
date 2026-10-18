@@ -30,55 +30,55 @@
 #include <vector>
 
 namespace vkz {
-    vkz::pipeline::stage make_access_mask_pipeline_stage_flags(vkz::access access_mask, vkz::pipeline::stage supported_shader_bits) {
+    vkz::pipeline_stage make_access_mask_pipeline_stage_flags(vkz::access access_mask, vkz::pipeline_stage supported_shader_bits) {
         struct access_stage {
             vkz::access access;
-            vkz::pipeline::stage stages;
+            vkz::pipeline_stage stages;
         };
 
         const access_stage access_stages[]{
-            {vkz::access::indirect_command_read, vkz::pipeline::stage::draw_indirect},
-            {vkz::access::index_read, vkz::pipeline::stage::vertex_input},
-            {vkz::access::vertex_attribute_read, vkz::pipeline::stage::vertex_input},
-            {vkz::access::uniform_read, supported_shader_bits},
-            {vkz::access::input_attachment_read, vkz::pipeline::stage::fragment_shader},
-            {vkz::access::shader_read, supported_shader_bits},
-            {vkz::access::shader_write, supported_shader_bits},
-            {vkz::access::shader_sampled_read, supported_shader_bits},
-            {vkz::access::shader_storage_read, supported_shader_bits},
-            {vkz::access::shader_storage_write, supported_shader_bits},
-            {vkz::access::color_attachment_read, vkz::pipeline::stage::color_attachment_output},
-            {vkz::access::color_attachment_read_noncoherent, vkz::pipeline::stage::color_attachment_output},
-            {vkz::access::color_attachment_write, vkz::pipeline::stage::color_attachment_output},
-            {vkz::access::depth_stencil_attachment_read, vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests},
-            {vkz::access::depth_stencil_attachment_write, vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests},
-            {vkz::access::transfer_read, vkz::pipeline::stage::transfer},
-            {vkz::access::transfer_write, vkz::pipeline::stage::transfer},
-            {vkz::access::host_read, vkz::pipeline::stage::host},
-            {vkz::access::host_write, vkz::pipeline::stage::host},
-            {vkz::access::memory_read, vkz::pipeline::stage::none},
-            {vkz::access::memory_write, vkz::pipeline::stage::none},
+            {vkz::access_indirect_command_read, vkz::pipeline_stage_draw_indirect},
+            {vkz::access_index_read, vkz::pipeline_stage_vertex_input},
+            {vkz::access_vertex_attribute_read, vkz::pipeline_stage_vertex_input},
+            {vkz::access_uniform_read, supported_shader_bits},
+            {vkz::access_input_attachment_read, vkz::pipeline_stage_fragment_shader},
+            {vkz::access_shader_read, supported_shader_bits},
+            {vkz::access_shader_write, supported_shader_bits},
+            {vkz::access_shader_sampled_read, supported_shader_bits},
+            {vkz::access_shader_storage_read, supported_shader_bits},
+            {vkz::access_shader_storage_write, supported_shader_bits},
+            {vkz::access_color_attachment_read, vkz::pipeline_stage_color_attachment_output},
+            {vkz::access_color_attachment_read_noncoherent, vkz::pipeline_stage_color_attachment_output},
+            {vkz::access_color_attachment_write, vkz::pipeline_stage_color_attachment_output},
+            {vkz::access_depth_stencil_attachment_read, vkz::pipeline_stage_early_fragment_tests | vkz::pipeline_stage_late_fragment_tests},
+            {vkz::access_depth_stencil_attachment_write, vkz::pipeline_stage_early_fragment_tests | vkz::pipeline_stage_late_fragment_tests},
+            {vkz::access_transfer_read, vkz::pipeline_stage_transfer},
+            {vkz::access_transfer_write, vkz::pipeline_stage_transfer},
+            {vkz::access_host_read, vkz::pipeline_stage_host},
+            {vkz::access_host_write, vkz::pipeline_stage_host},
+            {vkz::access_memory_read, vkz::pipeline_stage_none},
+            {vkz::access_memory_write, vkz::pipeline_stage_none},
 #if VK_NV_device_generated_commands
-            {vkz::access::command_preprocess_read, vkz::pipeline::stage::command_preprocess},
-            {vkz::access::command_preprocess_write, vkz::pipeline::stage::command_preprocess},
+            {vkz::access_command_preprocess_read, vkz::pipeline_stage_command_preprocess},
+            {vkz::access_command_preprocess_write, vkz::pipeline_stage_command_preprocess},
 #endif
 #if VK_NV_ray_tracing
-            {vkz::access::acceleration_structure_read, vkz::pipeline::stage::ray_tracing_shader | supported_shader_bits | vkz::pipeline::stage::acceleration_structure_build},
-            {vkz::access::acceleration_structure_write, vkz::pipeline::stage::acceleration_structure_build},
+            {vkz::access_acceleration_structure_read, vkz::pipeline_stage_ray_tracing_shader | supported_shader_bits | vkz::pipeline_stage_acceleration_structure_build},
+            {vkz::access_acceleration_structure_write, vkz::pipeline_stage_acceleration_structure_build},
 #endif
         };
 
-        if (access_mask == vkz::access::none) {
-            return vkz::pipeline::stage::top_of_pipe;
+        if (access_mask == vkz::access_none) {
+            return vkz::pipeline_stage_top_of_pipe;
         }
 
-        vkz::pipeline::stage stages{};
+        vkz::pipeline_stage stages{};
         for (const auto& mapping : access_stages) {
-            if ((mapping.access & access_mask) != vkz::access::none) {
+            if ((mapping.access & access_mask) != vkz::access_none) {
                 stages |= mapping.stages;
             }
         }
-        assert(stages != vkz::pipeline::stage::none);
+        assert(stages != vkz::pipeline_stage_none);
         return stages;
     }
 
@@ -241,7 +241,7 @@ namespace vkz {
     }
 
     scope_command_buffer::scope_command_buffer(vkz::device device, uint32_t family_index, VkQueue queue) {
-        command_pool::init(device, family_index, vkz::command_pool_flags::transient, queue);
+        command_pool::init(device, family_index, vkz::command_pool_flags_transient, queue);
         command_buffer_ = create_command_buffer();
     }
 
@@ -444,11 +444,11 @@ namespace vkz {
         command_buffers_.push_back(command_buffer);
     }
 
-    void submission_batch::enqueue_signal(VkSemaphore semaphore, uint64_t value, vkz::pipeline::stage stage_mask) {
+    void submission_batch::enqueue_signal(VkSemaphore semaphore, uint64_t value, vkz::pipeline_stage stage_mask) {
         signals_.push_back({semaphore, value, stage_mask});
     }
 
-    void submission_batch::enqueue_wait(VkSemaphore semaphore, uint64_t value, vkz::pipeline::stage stage_mask) {
+    void submission_batch::enqueue_wait(VkSemaphore semaphore, uint64_t value, vkz::pipeline_stage stage_mask) {
         waits_.push_back({semaphore, value, stage_mask});
     }
 
@@ -491,7 +491,7 @@ namespace vkz {
         signals_.push_back(semaphore);
     }
 
-    void batch_submission::enqueue_wait(VkSemaphore semaphore, vkz::pipeline::stage flags) {
+    void batch_submission::enqueue_wait(VkSemaphore semaphore, vkz::pipeline_stage flags) {
         assert(batches_.empty());
         const auto native_flags = static_cast<VkPipelineStageFlags>(flags);
         if (static_cast<VkPipelineStageFlags2>(native_flags) != static_cast<VkPipelineStageFlags2>(flags)) {
@@ -644,7 +644,7 @@ namespace vkz {
         batch_submission::enqueue_signal(semaphore);
     }
 
-    void fenced_command_pools::enqueue_wait(VkSemaphore semaphore, vkz::pipeline::stage flags) {
+    void fenced_command_pools::enqueue_wait(VkSemaphore semaphore, vkz::pipeline_stage flags) {
         batch_submission::enqueue_wait(semaphore, flags);
     }
 

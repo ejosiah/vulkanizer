@@ -78,7 +78,7 @@ VkComputePipelineCreateInfo vkz::compute_pipeline_builder::create_info() {
     info.flags = static_cast<VkPipelineCreateFlags>(_flags);
     info.stage = shader_stage;
 
-    if (has_flag(_flags, vkz::pipeline::flags::derivative)) {
+    if (has_flag(_flags, vkz::pipeline_flags_derivative)) {
         assert(_base_pipeline);
         info.basePipelineHandle = _base_pipeline;
         info.basePipelineIndex = -1;

@@ -55,18 +55,18 @@ namespace {
     public:
         fixture() : app(create_info()), allocator(vkz::vma_memory_allocator::create(app.context(), VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT)), acceleration(allocator), scene(room()) {
             glfwHideWindow(app.window());
-            const auto geometry_usage = vkz::buffer::usage::acceleration_storage_input;
+            const auto geometry_usage = vkz::buffer_usage_acceleration_storage_input;
             geometry.vertices = upload(geometry_usage, scene.vertex_data.data(), scene.vertex_data.size());
             geometry.indices = upload(geometry_usage, scene.index_data.data(), scene.index_data.size() * sizeof(uint32_t));
             depth = target(VK_FORMAT_R32_SFLOAT); normal = target(VK_FORMAT_R16G16_SFLOAT);
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
             auto cmd = commands.create_command_buffer();
             acceleration.build(cmd, scene, geometry);
             vkz::clear(cmd, depth.image, VkClearColorValue{{0.5, 0, 0, 0}}, {});
             vkz::clear(cmd, normal.image, VkClearColorValue{{0, 1, 0, 0}}, {});
             for (auto *value : {&depth, &normal})
-                vkz::barrier::push_and_flush(cmd, value->image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer,
-                                             vkz::pipeline::stage::compute_shader, vkz::access::transfer_write, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                vkz::barrier::push_and_flush(cmd, value->image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1}, vkz::pipeline_stage_transfer,
+                                             vkz::pipeline_stage_compute_shader, vkz::access_transfer_write, vkz::access_shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             commands.submit_and_wait(cmd);
             lights.push_back({.type = vkz::mesh::light_type::point, .intensity = 20, .range = 10, .position = {0, 0, 0}});
         }
@@ -92,24 +92,24 @@ namespace {
             auto readback =
                 vkz::buffer::builder(allocator)
                     .size(VkDeviceSize(extent.width) * extent.height * 8)
-                    .usage(vkz::buffer::usage::transfer_dst)
+                    .usage(vkz::buffer_usage_transfer_dst)
                     .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
                     .build();
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
             for (int frame = 0; frame < 3; ++frame) {
                 if (frame == 2) lights[0].intensity = 0;
                 gi.new_frame({glm::mat4(1), {0, 0, 1}});
                 auto cmd = commands.create_command_buffer();
                 gi.exec(cmd);
-                const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
+                const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1};
                 auto output = gi.indirect_light_texture().image;
-                vkz::barrier::push_and_flush(cmd, output, range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::transfer, vkz::access::memory_read_write, vkz::access::transfer_read,
+                vkz::barrier::push_and_flush(cmd, output, range, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_transfer, vkz::access_memory_read_write, vkz::access_transfer_read,
                                              VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
                 VkBufferImageCopy copy{};
-                copy.imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 0, 1};
+                copy.imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 0, 1};
                 copy.imageExtent = extent;
                 vkCmdCopyImageToBuffer(cmd, output, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readback, 1, &copy);
-                vkz::barrier::push_and_flush(cmd, output, range, vkz::pipeline::stage::transfer, vkz::pipeline::stage::all_commands, vkz::access::transfer_read, vkz::access::shader_read_write,
+                vkz::barrier::push_and_flush(cmd, output, range, vkz::pipeline_stage_transfer, vkz::pipeline_stage_all_commands, vkz::access_transfer_read, vkz::access_shader_read_write,
                                              VK_IMAGE_LAYOUT_GENERAL);
                 vkz::barrier::gpu_to_cpu(cmd, {readback});
                 commands.submit_and_wait(cmd);
@@ -144,11 +144,11 @@ namespace {
             auto white = target(VK_FORMAT_R8G8B8A8_UNORM);
             white.sampler = vkz::sampler::builder(allocator.device).build();
             {
-                vkz::command_pool uploads{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
+                vkz::command_pool uploads{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
                 auto cmd = uploads.create_command_buffer();
                 vkz::clear(cmd, white.image, VkClearColorValue{{1, 1, 1, 1}}, {});
-                vkz::barrier::push_and_flush(cmd, white.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer,
-                                             vkz::pipeline::stage::all_commands, vkz::access::transfer_write, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                vkz::barrier::push_and_flush(cmd, white.image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1}, vkz::pipeline_stage_transfer,
+                                             vkz::pipeline_stage_all_commands, vkz::access_transfer_write, vkz::access_shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                 if (alpha >= 0) {
                     scene.materials[0].alpha_mode = alpha == 0.5f ? vkz::mesh::alpha_mode::blend : vkz::mesh::alpha_mode::mask;
                     scene.materials[0].base_color_factor.a = alpha;
@@ -168,11 +168,11 @@ namespace {
             auto readback =
                 vkz::buffer::builder(allocator)
                     .size(VkDeviceSize(extent.width) * extent.height * 2)
-                    .usage(vkz::buffer::usage::transfer_dst)
+                    .usage(vkz::buffer_usage_transfer_dst)
                     .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
                     .build();
 
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
 
             for (int frame = 0; frame < 12; ++frame) {
                 // Move the light beyond the room ceiling; all rays must become blocked.
@@ -185,13 +185,13 @@ namespace {
                 shadows.exec(cmd);
 
                 auto output = shadows.visibility_texture().image;
-                const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
-                vkz::barrier::push_and_flush(cmd, output, range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::transfer, vkz::access::memory_read_write, vkz::access::transfer_read,
+                const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1};
+                vkz::barrier::push_and_flush(cmd, output, range, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_transfer, vkz::access_memory_read_write, vkz::access_transfer_read,
                                              VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
                 vkz::copy(cmd, output, readback);
 
-                vkz::barrier::push_and_flush(cmd, output, range, vkz::pipeline::stage::transfer, vkz::pipeline::stage::compute_shader, vkz::access::transfer_read, vkz::access::shader_read_write,
+                vkz::barrier::push_and_flush(cmd, output, range, vkz::pipeline_stage_transfer, vkz::pipeline_stage_compute_shader, vkz::access_transfer_read, vkz::access_shader_read_write,
                                              VK_IMAGE_LAYOUT_GENERAL);
                 vkz::barrier::gpu_to_cpu(cmd, {readback});
                 commands.submit_and_wait(cmd);
@@ -244,7 +244,7 @@ namespace {
                 vkz::sampler::builder(allocator.device)
                 .build();
 
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
             auto cmd = commands.create_command_buffer();
             vkz::clear(cmd, surface.image, VkClearColorValue{{0.8f, 0.8f, 0.8f, 0}}, {});
             VkClearColorValue id{};
@@ -253,8 +253,8 @@ namespace {
             vkz::clear(cmd, white.image, VkClearColorValue{{1, 1, 1, 1}}, {});
 
             for (auto *value : {&surface, &mesh_id, &white}) {
-                vkz::barrier::push_and_flush(cmd, value->image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer,
-                                             vkz::pipeline::stage::all_commands, vkz::access::transfer_write, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                vkz::barrier::push_and_flush(cmd, value->image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1}, vkz::pipeline_stage_transfer,
+                                             vkz::pipeline_stage_all_commands, vkz::access_transfer_write, vkz::access_shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }
 
             commands.submit_and_wait(cmd);
@@ -283,7 +283,7 @@ namespace {
                 auto readback =
                     vkz::buffer::builder(allocator)
                         .size(VkDeviceSize(extent.width) * extent.height * 8)
-                        .usage(vkz::buffer::usage::transfer_dst)
+                        .usage(vkz::buffer_usage_transfer_dst)
                         .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
                         .build();
 
@@ -296,8 +296,8 @@ namespace {
                     reflections.exec(cmd);
                     auto output = reflections.reflection_texture().image;
                     vkz::copy(cmd, output, readback);
-                    vkz::barrier::push_and_flush(cmd, output, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer,
-                                                 vkz::pipeline::stage::all_commands, vkz::access::transfer_read, vkz::access::shader_read_write, VK_IMAGE_LAYOUT_GENERAL);
+                    vkz::barrier::push_and_flush(cmd, output, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1}, vkz::pipeline_stage_transfer,
+                                                 vkz::pipeline_stage_all_commands, vkz::access_transfer_read, vkz::access_shader_read_write, VK_IMAGE_LAYOUT_GENERAL);
                     vkz::barrier::gpu_to_cpu(cmd, {readback});
                     commands.submit_and_wait(cmd);
                     VKZ_CHECK_VULKAN(vmaInvalidateAllocation(readback.allocator, readback.allocation, 0, VK_WHOLE_SIZE));
@@ -335,7 +335,7 @@ namespace {
         }
 
     private:
-      vkz::buffer upload(vkz::buffer::usage usage, const void *data, size_t size) {
+      vkz::buffer upload(vkz::buffer_usage usage, const void *data, size_t size) {
           auto result = vkz::buffer::builder(allocator).size(size).usage(usage).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
           auto mapping = result.map();
           std::memcpy(mapping.as<void>(), data, size);
@@ -348,12 +348,12 @@ namespace {
             result.image = vkz::image::builder(allocator)
                 .format(format)
                 .extent(17, 13)
-                .usage(vkz::image::usage::sampled_upload)
+                .usage(vkz::image_usage_sampled_upload)
                 .build();
             result.image_view = vkz::image_view::builder(allocator.device)
                 .image(result.image)
                 .format(format)
-                .aspect_mask(vkz::image::aspect::color)
+                .aspect_mask(vkz::image_aspect_color)
                 .level_count(1)
                 .layer_count(1)
                 .build();
@@ -361,7 +361,7 @@ namespace {
         }
         vkz::vulkan_app app;
         vkz::vma_memory_allocator allocator;
-        vkz::mesh::bvh acceleration;
+        vkz::bvh acceleration;
         vkz::mesh::data scene;
         vkz::mesh::geometry_buffers geometry;
         vkz::texture depth, normal;

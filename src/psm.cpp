@@ -182,7 +182,7 @@ void main() {
             render(command_buffer, render_info_[i], [&]{
                 vkz::bind_pipeline(command_buffer, pipeline_);
                 vkz::bind_descriptor_sets(command_buffer, pipeline_, {descriptor_sets[i]});
-                vkz::set_cull_mode(command_buffer, vkz::cull_mode::front);
+                vkz::set_cull_mode(command_buffer, vkz::cull_mode_front);
                 vkz::set_primitive_topology(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
                 vkz::push_constants(command_buffer, pipeline_, constants_);
                 scene(pipeline_);
@@ -197,11 +197,11 @@ void main() {
 
     private:
         void create_shadow_maps(VkCommandBuffer command_buffer) {
-            const auto usage = vkz::image::usage::depth_stencil_sampled;
+            const auto usage = vkz::image_usage_depth_stencil_sampled;
             auto img_builder =
                 image::builder(allocator_)
                     .type(VK_IMAGE_TYPE_2D)
-                    .flags(vkz::image::flags::cube_compatible)
+                    .flags(vkz::image_flags_cube_compatible)
                     .format(depth_format_)
                     .extent(resolution_.x, resolution_.y, 1)
                     .array_layers(6);
@@ -209,23 +209,23 @@ void main() {
             auto view_builder = image_view::builder(device_)
                 .view_type(VK_IMAGE_VIEW_TYPE_CUBE)
                 .format(depth_format_)
-                .aspect_mask(vkz::image::aspect::depth)
+                .aspect_mask(vkz::image_aspect_depth)
                 .layer_count(6);
 
             for(auto& shadow_map : shadow_maps_) {
-                shadow_map.color.image = img_builder.format(VK_FORMAT_R32_SFLOAT).usage(vkz::image::usage::color_sampled).build();
+                shadow_map.color.image = img_builder.format(VK_FORMAT_R32_SFLOAT).usage(vkz::image_usage_color_sampled).build();
                 shadow_map.color.image_view = image_view::builder(device_)
                     .image(shadow_map.color.image)
                     .view_type(VK_IMAGE_VIEW_TYPE_CUBE)
                     .format(VK_FORMAT_R32_SFLOAT)
-                    .aspect_mask(vkz::image::aspect::color)
+                    .aspect_mask(vkz::image_aspect_color)
                     .layer_count(6)
                     .build();
                 shadow_map.color_attachment = image_view::builder(device_)
                     .image(shadow_map.color.image)
                     .view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
                     .format(VK_FORMAT_R32_SFLOAT)
-                    .aspect_mask(vkz::image::aspect::color)
+                    .aspect_mask(vkz::image_aspect_color)
                     .layer_count(6)
                     .build();
                 img_builder.format(depth_format_);
@@ -235,12 +235,12 @@ void main() {
                     .image(shadow_map.depth.image)
                     .view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
                     .format(depth_format_)
-                    .aspect_mask(vkz::image::aspect::depth)
+                    .aspect_mask(vkz::image_aspect_depth)
                     .layer_count(6)
                     .build();
 
-                vkz::barrier::push(shadow_map.color.image, shadow_map.color.image_view.create_info.subresourceRange, vkz::pipeline::stage::none, vkz::pipeline::stage::fragment_shader,
-                                   vkz::access::none, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                vkz::barrier::push(shadow_map.color.image, shadow_map.color.image_view.create_info.subresourceRange, vkz::pipeline_stage_none, vkz::pipeline_stage_fragment_shader,
+                                   vkz::access_none, vkz::access_shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }
             vkz::barrier::flush(command_buffer);
         }
@@ -271,7 +271,7 @@ void main() {
             for(auto i = 0; i < uniforms_.size(); ++i) {
                 uniforms_[i] = buffer::builder(allocator_)
                     .name(prefix(std::format("light_matrix_{}", i)))
-                    .usage(vkz::buffer::usage::storage_upload)
+                    .usage(vkz::buffer_usage_storage_upload)
                     .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                     .size(uniforms_byte_size)
                     .build();
@@ -288,7 +288,7 @@ void main() {
             cube_.mesh.vertex_buffer =
                 buffer::builder(allocator_)
                     .name(prefix("ube_mesh_vertices"))
-                    .usage(vkz::buffer::usage::vertex_upload)
+                    .usage(vkz::buffer_usage_vertex_upload)
                     .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                     .size(vertex_byte_size)
                     .build();
@@ -296,7 +296,7 @@ void main() {
             auto index_byte_size = sizeof(indices[0]) * indices.size();
             cube_.mesh.index_buffer = buffer::builder(allocator_)
                 .name(prefix("ube_mesh_indexes"))
-                .usage(vkz::buffer::usage::index | vkz::buffer::usage::transfer_dst)
+                .usage(vkz::buffer_usage_index | vkz::buffer_usage_transfer_dst)
                 .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                 .size(sizeof(indices[0]) * indices.size())
                 .build();
@@ -315,9 +315,9 @@ void main() {
             descriptor_set_layout_ = make_descriptor_set_layout_builder(device_)
                                          .name("psm_descriptor_set_layout")
                                          .binding(0)
-                                         .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                         .descriptor_type(vkz::descriptor_type_storage_buffer)
                                          .descriptor_count(1)
-                                         .shader_stages(vkz::shader_stage::all_graphics)
+                                         .shader_stages(vkz::shader_stage_all_graphics)
                                          .create_layout();
         }
 
@@ -325,7 +325,7 @@ void main() {
             descriptor_sets = descriptor_pool_.allocate_n(descriptor_set_layout_, descriptor_sets.size());
 
             for (size_t i = 0; i < descriptor_sets.size(); ++i) {
-                update_descriptors(device_, {{.descriptor_set = descriptor_sets[i], .bindings = {make_descriptor<buffer_descriptor>(uniforms_[i], 0)}}});
+                update_descriptors(device_, {{.descriptor_set = descriptor_sets[i], .bindings = {descriptor<buffer_descriptor>(uniforms_[i], 0)}}});
             }
         }
 
@@ -376,7 +376,7 @@ void main() {
                             .cull_mode()
                             .primitive_topology()
                             .layout()
-                            .add_push_constant_range(vkz::shader_stage::vertex, 0, sizeof(push_constants))
+                            .add_push_constant_range(vkz::shader_stage_vertex, 0, sizeof(push_constants))
                             .add_descriptor_set_layout(descriptor_set_layout_)
                             .add_descriptor_set_layout(vertex_include_descriptor_set_layout_)
                             .dynamic_render_pass()

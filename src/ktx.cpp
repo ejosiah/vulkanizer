@@ -107,7 +107,7 @@ namespace {
                     VkBufferImageCopy region{};
                     region.bufferOffset = offset;
                     region.imageSubresource = {
-                        static_cast<VkImageAspectFlags>(vkz::image::aspect::color),
+                        static_cast<VkImageAspectFlags>(vkz::image_aspect_color),
                         level,
                         texture->numDimensions == 3 ? 0u
                         : texture->isCubemap        ? layer * texture->numFaces + face_slice
@@ -142,12 +142,12 @@ namespace {
     }
 
     KTX_error_code create_ktx_texture(const VkImageCreateInfo& image, ktxTexture2** texture) {
-        if(image.samples != static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1)) return KTX_INVALID_OPERATION;
+        if(image.samples != static_cast<VkSampleCountFlagBits>(vkz::sample_count_x1)) return KTX_INVALID_OPERATION;
         if(image.imageType == VK_IMAGE_TYPE_3D && image.arrayLayers != 1) return KTX_INVALID_OPERATION;
-        if((image.flags & static_cast<VkImageCreateFlags>(vkz::image::flags::cube_compatible)) &&
+        if((image.flags & static_cast<VkImageCreateFlags>(vkz::image_flags_cube_compatible)) &&
            (image.imageType != VK_IMAGE_TYPE_2D || image.arrayLayers % 6 != 0)) return KTX_INVALID_OPERATION;
 
-        const bool cubemap = image.flags & static_cast<VkImageCreateFlags>(vkz::image::flags::cube_compatible);
+        const bool cubemap = image.flags & static_cast<VkImageCreateFlags>(vkz::image_flags_cube_compatible);
         ktxTextureCreateInfo create_info{};
         create_info.vkFormat = image.format;
         create_info.baseWidth = image.extent.width;
@@ -196,7 +196,7 @@ namespace vkz {
 
         buffer staging = buffer::builder(allocator)
             .size(data_size)
-            .usage(vkz::buffer::usage::transfer_src)
+            .usage(vkz::buffer_usage_transfer_src)
             .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
             .build();
         texture result{};
@@ -207,26 +207,26 @@ namespace vkz {
             mapped.unmap();
 
             result.image = image::builder(allocator)
-                .flags(source->isCubemap ? vkz::image::flags::cube_compatible : vkz::image::flags::none)
+                .flags(source->isCubemap ? vkz::image_flags_cube_compatible : vkz::image_flags_none)
                 .type(image_type(source.get()))
                 .format(format)
                 .extent(extent)
                 .mip_levels(levels)
                 .array_layers(layers)
-                .samples(vkz::sample_count::x1)
+                .samples(vkz::sample_count_x1)
                 .tiling(VK_IMAGE_TILING_OPTIMAL)
-                .usage(vkz::image::usage::sampled_transfer)
+                .usage(vkz::image_usage_sampled_transfer)
                 .sharing_mode(VK_SHARING_MODE_EXCLUSIVE)
                 .initial_layout(VK_IMAGE_LAYOUT_UNDEFINED)
                 .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                 .build();
 
-            const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, levels, 0, layers};
+            const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, levels, 0, layers};
             command_pool commands{
-                allocator.device, upload_queue_family, vkz::command_pool_flags::transient, upload_queue};
+                allocator.device, upload_queue_family, vkz::command_pool_flags_transient, upload_queue};
             const VkCommandBuffer command_buffer = commands.create_command_buffer();
 
-            barrier::push_and_flush(command_buffer, result.image, range, vkz::pipeline::stage::none, vkz::pipeline::stage::transfer, vkz::access::none, vkz::access::transfer_write,
+            barrier::push_and_flush(command_buffer, result.image, range, vkz::pipeline_stage_none, vkz::pipeline_stage_transfer, vkz::access_none, vkz::access_transfer_write,
                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
             const auto regions = copy_regions(source.get());
@@ -234,7 +234,7 @@ namespace vkz {
                 command_buffer, staging, result.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 VKZ_COUNT(regions), regions.data());
 
-            barrier::push_and_flush(command_buffer, result.image, range, vkz::pipeline::stage::transfer, vkz::pipeline::stage::all_commands, vkz::access::transfer_write, vkz::access::shader_read,
+            barrier::push_and_flush(command_buffer, result.image, range, vkz::pipeline_stage_transfer, vkz::pipeline_stage_all_commands, vkz::access_transfer_write, vkz::access_shader_read,
                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             commands.submit_and_wait(command_buffer);
 
@@ -300,7 +300,7 @@ namespace vkz {
         texture_snapshot read(vma_memory_allocator& allocator, VkQueue queue, uint32_t queue_family_index,
                               const texture& texture) {
             const auto& image = texture.image;
-            if(!(image.create_info.usage & static_cast<VkImageUsageFlags>(vkz::image::usage::transfer_src))) {
+            if(!(image.create_info.usage & static_cast<VkImageUsageFlags>(vkz::image_usage_transfer_src))) {
                 throw std::invalid_argument{"KTX saving requires VK_IMAGE_USAGE_TRANSFER_SRC_BIT"};
             }
             ktxTexture2* raw_texture{};
@@ -313,19 +313,19 @@ namespace vkz {
             snapshot.create_info.pQueueFamilyIndices = nullptr;
             buffer staging = buffer::builder(allocator)
                 .size(data_size)
-                .usage(vkz::buffer::usage::transfer_dst)
+                .usage(vkz::buffer_usage_transfer_dst)
                 .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
                 .build();
 
             try {
-                command_pool commands{allocator.device, queue_family_index, vkz::command_pool_flags::transient, queue};
+                command_pool commands{allocator.device, queue_family_index, vkz::command_pool_flags_transient, queue};
                 const auto command_buffer = commands.create_command_buffer();
-                const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, image.create_info.mipLevels, 0, image.create_info.arrayLayers};
+                const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, image.create_info.mipLevels, 0, image.create_info.arrayLayers};
                 VkImageMemoryBarrier2 to_transfer{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-                to_transfer.srcStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline::stage::compute_shader);
-                to_transfer.srcAccessMask = static_cast<VkAccessFlags2>(vkz::access::shader_write);
-                to_transfer.dstStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline::stage::transfer);
-                to_transfer.dstAccessMask = static_cast<VkAccessFlags2>(vkz::access::transfer_read);
+                to_transfer.srcStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline_stage_compute_shader);
+                to_transfer.srcAccessMask = static_cast<VkAccessFlags2>(vkz::access_shader_write);
+                to_transfer.dstStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline_stage_transfer);
+                to_transfer.dstAccessMask = static_cast<VkAccessFlags2>(vkz::access_transfer_read);
                 to_transfer.oldLayout = image.layout;
                 to_transfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
                 to_transfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -342,10 +342,10 @@ namespace vkz {
                                        staging, VKZ_COUNT(regions), regions.data());
 
                 VkImageMemoryBarrier2 to_general{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-                to_general.srcStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline::stage::transfer);
-                to_general.srcAccessMask = static_cast<VkAccessFlags2>(vkz::access::transfer_read);
-                to_general.dstStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline::stage::compute_shader);
-                to_general.dstAccessMask = static_cast<VkAccessFlags2>(vkz::access::shader_read_write);
+                to_general.srcStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline_stage_transfer);
+                to_general.srcAccessMask = static_cast<VkAccessFlags2>(vkz::access_transfer_read);
+                to_general.dstStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline_stage_compute_shader);
+                to_general.dstAccessMask = static_cast<VkAccessFlags2>(vkz::access_shader_read_write);
                 to_general.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
                 to_general.newLayout = image.layout;
                 to_general.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;

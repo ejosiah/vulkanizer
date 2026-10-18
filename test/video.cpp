@@ -51,7 +51,7 @@ namespace {
         info.depth_testing = false;
         info.validation = true;
         info.vsync = false;
-        info.queues.push_back(vkz::queue::video_decode);
+        info.queues.push_back(vkz::queue_video_decode);
         const auto extensions = vkz::video::required_extensions();
         info.device_extensions.assign(extensions.begin(), extensions.end());
         info.extension_chain.add(VkPhysicalDeviceSamplerYcbcrConversionFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES, nullptr, VK_TRUE});
@@ -340,15 +340,15 @@ namespace {
             const auto height = decoder_->source().height();
             auto readback = vkz::buffer::builder(allocator_)
                 .size(width * height * 4)
-                .usage(vkz::buffer::usage::transfer_dst)
+                .usage(vkz::buffer_usage_transfer_dst)
                 .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
                 .build();
-            vkz::command_pool commands(device_, app_.queue_family_index(), vkz::command_pool_flags::transient, app_.graphics_queue());
+            vkz::command_pool commands(device_, app_.queue_family_index(), vkz::command_pool_flags_transient, app_.graphics_queue());
             auto command = commands.create_command_buffer();
             vkz::copy(command, output_.image, readback);
             vkz::barrier::transfer_write_to_host_read(command);
-            vkz::barrier::push_and_flush(command, output_.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer,
-                                         vkz::pipeline::stage::fragment_shader, vkz::access::transfer_read, vkz::access::shader_sampled_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            vkz::barrier::push_and_flush(command, output_.image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1}, vkz::pipeline_stage_transfer,
+                                         vkz::pipeline_stage_fragment_shader, vkz::access_transfer_read, vkz::access_shader_sampled_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             commands.submit_and_wait(command);
             auto mapping = readback.map();
             readback.invalidate();

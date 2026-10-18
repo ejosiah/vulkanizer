@@ -29,24 +29,24 @@ namespace vkz {
 
         EShLanguage glsl_stage(vkz::shader_stage stage) {
             switch (stage) {
-            case vkz::shader_stage::vertex:
+            case vkz::shader_stage_vertex:
                 return EShLangVertex;
-            case vkz::shader_stage::fragment:
+            case vkz::shader_stage_fragment:
                 return EShLangFragment;
-            case vkz::shader_stage::geometry:
+            case vkz::shader_stage_geometry:
                 return EShLangGeometry;
-            case vkz::shader_stage::tessellation_control:
+            case vkz::shader_stage_tessellation_control:
                 return EShLangTessControl;
-            case vkz::shader_stage::tessellation_evaluation:
+            case vkz::shader_stage_tessellation_evaluation:
                 return EShLangTessEvaluation;
-            case vkz::shader_stage::compute:
+            case vkz::shader_stage_compute:
                 return EShLangCompute;
 #ifdef VK_SHADER_STAGE_TASK_BIT_EXT
-            case vkz::shader_stage::task:
+            case vkz::shader_stage_task:
                 return EShLangTaskNV;
 #endif
 #ifdef VK_SHADER_STAGE_MESH_BIT_EXT
-            case vkz::shader_stage::mesh:
+            case vkz::shader_stage_mesh:
                 return EShLangMeshNV;
 #endif
                 default:
@@ -123,34 +123,34 @@ namespace vkz {
     }
 
     shader_builder &shader_stage_builder::vertex_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::vertex);
+        return add_shader(source, vkz::shader_stage_vertex);
     }
 
     shader_builder &shader_stage_builder::task_shader(const shader_source &source) {
         if (!task_shader_supported()) throw std::runtime_error{"Task Shader not supported"};
-        return add_shader(source, vkz::shader_stage::task);
+        return add_shader(source, vkz::shader_stage_task);
     }
 
     shader_builder &shader_stage_builder::mesh_shader(const shader_source &source) {
         if (!mesh_shaderSupported()) throw std::runtime_error{"Mesh Shader not supported"};
-        return add_shader(source, vkz::shader_stage::mesh);
+        return add_shader(source, vkz::shader_stage_mesh);
     }
 
     shader_builder &shader_stage_builder::fragment_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::fragment);
+        return add_shader(source, vkz::shader_stage_fragment);
     }
 
 
     shader_builder &shader_stage_builder::geometry_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::geometry);
+        return add_shader(source, vkz::shader_stage_geometry);
     }
 
     shader_builder &shader_stage_builder::tessellation_evaluation_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::tessellation_evaluation);
+        return add_shader(source, vkz::shader_stage_tessellation_evaluation);
     }
 
     shader_builder &shader_stage_builder::tessellation_control_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::tessellation_control);
+        return add_shader(source, vkz::shader_stage_tessellation_control);
     }
 
     void shader_stage_builder::validate() const {
@@ -302,19 +302,19 @@ namespace vkz {
     }
 
     bool shader_builder::is_vertex_shader() const {
-        return _shader.stage == vkz::shader_stage::vertex;
+        return _shader.stage == vkz::shader_stage_vertex;
     }
 
     bool shader_builder::is_mesh_shader() const {
-        return _shader.stage == vkz::shader_stage::mesh;
+        return _shader.stage == vkz::shader_stage_mesh;
     }
 
     bool shader_builder::is_tess_eval_shader() const {
-        return _shader.stage == vkz::shader_stage::tessellation_evaluation;
+        return _shader.stage == vkz::shader_stage_tessellation_evaluation;
     }
 
     bool shader_builder::is_tess_control_shader() const {
-        return _shader.stage == vkz::shader_stage::tessellation_control;
+        return _shader.stage == vkz::shader_stage_tessellation_control;
     }
 
     void shader_builder::copy(const shader_builder &source) {

@@ -58,7 +58,7 @@ namespace vkz {
 
         [[maybe_unused]] builder_base& set_image_format(VkFormat format, VkColorSpaceKHR colorSpace);
 
-        [[maybe_unused]] builder_base& set_image_usage(vkz::image::usage usage);
+        [[maybe_unused]] builder_base& set_image_usage(vkz::image_usage usage);
 
         [[maybe_unused]] builder_base& set_extent(uint32_t width, uint32_t height);
 

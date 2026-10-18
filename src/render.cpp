@@ -23,7 +23,7 @@ namespace vkz {
             attachment_info.imageView = view.handle;
 
             if (resolve.has_value()) {
-                attachment_info.resolveMode = static_cast<VkResolveModeFlagBits>(vkz::resolve_mode::average);
+                attachment_info.resolveMode = static_cast<VkResolveModeFlagBits>(vkz::resolve_mode_average);
                 attachment_info.resolveImageLayout = color_attachment_layout;
                 attachment_info.resolveImageView = resolve->handle;
             }
@@ -39,7 +39,7 @@ namespace vkz {
             auto [view, format, clear_value, clear]  = *render_data.depth_attachment;
 
             depth_attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-            depth_attachment_info.resolveMode = static_cast<VkResolveModeFlagBits>(vkz::resolve_mode::none);
+            depth_attachment_info.resolveMode = static_cast<VkResolveModeFlagBits>(vkz::resolve_mode_none);
             depth_attachment_info.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
             depth_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
             depth_attachment_info.clearValue.depthStencil = {clear_value.x, static_cast<uint32_t>(clear_value.y)};
@@ -53,7 +53,7 @@ namespace vkz {
             auto [view, format, clear_value, clear] = *render_data.stencil_attachment;
 
             stencil_attachment_info.imageLayout = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL;
-            stencil_attachment_info.resolveMode = static_cast<VkResolveModeFlagBits>(vkz::resolve_mode::none);
+            stencil_attachment_info.resolveMode = static_cast<VkResolveModeFlagBits>(vkz::resolve_mode_none);
             stencil_attachment_info.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
             stencil_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
             stencil_attachment_info.clearValue.depthStencil = {clear_value.x, static_cast<uint32_t>(clear_value.y)};

@@ -108,10 +108,10 @@ target_link_libraries(vulkanizer_shader_binding_table_test PRIVATE vulkanizer_sb
 target_compile_definitions(vulkanizer_shader_binding_table_test PRIVATE
     VKZ_BUNNY_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/resources/bunny/bunny.glb"
     VKZ_BUNNY_CONVERTED="${CMAKE_CURRENT_BINARY_DIR}/resources/bunny/bunny.vkmesh")
-set_tests_properties(vulkanizer_shader_binding_table_test PROPERTIES TIMEOUT 90)
+set_tests_properties(vulkanizer_shader_binding_table_test PROPERTIES TIMEOUT 90 FAIL_REGULAR_EXPRESSION "VUID-|Validation Error")
 
 vulkanizer_add_test_executable(vulkanizer_reference_ray_tracing_test reference_ray_tracing.cpp)
-set_tests_properties(vulkanizer_reference_ray_tracing_test PROPERTIES TIMEOUT 90)
+set_tests_properties(vulkanizer_reference_ray_tracing_test PROPERTIES TIMEOUT 90 FAIL_REGULAR_EXPRESSION "VUID-|Validation Error")
 
 vulkanizer_add_test_executable(vulkanizer_ddgi_test ddgi.cpp)
 set_tests_properties(vulkanizer_ddgi_test PROPERTIES TIMEOUT 90 FAIL_REGULAR_EXPRESSION "VUID-|Validation Error")

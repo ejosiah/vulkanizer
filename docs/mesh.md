@@ -342,13 +342,13 @@ descriptor pools, scene/material descriptor sets and pipeline creation.
 
 ## Mesh BVH
 
-`<vulkanizer/bvh.hpp>` exposes `vkz::mesh::bvh`. It creates one Vulkan BLAS per `data::meshes` entry and a TLAS containing `data::instances` in their original order. The instance custom index is the index in `data::instances`. All indices are `uint32_t`; vertex and index offsets and the requested LOD come from each base mesh. Positions must be float3 at location zero in one interleaved, per-vertex stream. The position offset and vertex stride come from `data::streams`.
+`<vulkanizer/bvh.hpp>` exposes `vkz::bvh`. It creates one Vulkan BLAS per `data::meshes` entry and a TLAS containing `data::instances` in their original order. The instance custom index is the index in `data::instances`. All indices are `uint32_t`; vertex and index offsets and the requested LOD come from each base mesh. Positions must be float3 at location zero in one interleaved, per-vertex stream. The position offset and vertex stride come from `data::streams`.
 
 ```cpp
 auto allocator = vkz::vma_memory_allocator::create(
     context, VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT);
-vkz::mesh::bvh acceleration{allocator};
-vkz::mesh::geometry_buffers geometry{vertex_buffer, index_buffer};
+vkz::bvh acceleration{allocator};
+vkz::geometry_buffers geometry{vertex_buffer, index_buffer};
 acceleration.build(command_buffer, scene, geometry);
 auto tlas = acceleration.tlas();
 auto first_blas = acceleration.blas(0);
@@ -358,9 +358,9 @@ Enable `bufferDeviceAddress`, `accelerationStructure`, synchronization2, `VK_KHR
 
 `build` records commands into a recording command buffer outside a render pass on a compute-capable queue. It does not submit or wait. The client owns geometry uploads, queue submissions, queue-family ownership transfers, descriptors, pipelines, and shader binding tables. Uploaded geometry must agree with the supplied CPU data. Recorded barriers cover preceding writes on the same queue, sequential scratch reuse, BLAS-to-TLAS dependencies, and subsequent acceleration-structure reads. Cross-queue dependencies remain the client's responsibility.
 
-The BVH owns its AS storage, scratch buffer, and instance upload buffer. Keep the allocator and device alive until the BVH is destroyed. Keep geometry buffers alive until builds complete. Wait for all commands using the current BVH to finish before rebuilding, updating, moving over an existing BVH, calling `destroy`, or destroying it. A rebuild replaces the AS handles; clients must refresh descriptors. Ordinary instance updates keep the TLAS handle stable.
+The BVH owns its AS storage, scratch buffer, and instance upload snapshots. Keep the allocator, devices, and geometry buffers alive until the BVH and retained generations are released. Rebuilds and move assignment retain previous resources; destruction waits for submitted GPU work. A rebuild replaces active AS handles, so refresh descriptors for subsequent recordings. Ordinary instance updates keep the TLAS handle stable. `release_completed_resources()` waits for submitted work and reclaims retired builds and large upload snapshots. Submit or discard recordings referencing those resources before cleanup/destruction, and do not subsequently resubmit them. See [BVH scenes and lifetime](bvh.md).
 
-`bvh_build_options` selects `lod` (default zero) and `allow_instance_updates` (default true). `update_instances` changes transforms, material overrides, masks, and SBT offsets. It requires the same instance count, mesh assignments, and mesh/stream layout. Geometry content changes require a full build; they are not detected by `update_instances`. Wait for any previous build/update and traversal before writing another update, because the instance upload buffer is reused. Empty scenes and meshes without indexed triangles are rejected.
+`bvh_build_options` selects `lod` (default zero) and `allow_instance_updates` (default true). `update_instances` changes transforms, material overrides, masks, and SBT offsets. It requires the same instance count, mesh assignments, and triangle geometry. The mesh adapter hashes selected index/position bytes to detect CPU geometry content changes; changes require a full build. Concrete scenes expose `content_revision` for GPU content changes. Instance uploads have separate snapshots, so multiple updates may be recorded before submission. Work accessing a shared TLAS must execute in order; synchronize submissions across queues. Empty scenes and meshes without indexed triangles are rejected.
 
 An optional `std::span<const bvh_instance_options>` provides one mask and 24-bit SBT record offset per instance. An empty span uses mask `0xff` and offset zero, including during updates. Material overrides determine opacity and double-sided culling. Opaque instances are forced opaque; masked and blended instances remain nonopaque so client shaders can decide whether to accept hits. Double-sided materials disable face culling. Instance transforms retain object-space facing, including mirrored placements, as specified by [Vulkan instance flags](https://docs.vulkan.org/refpages/latest/refpages/source/VkGeometryInstanceFlagBitsKHR.html). Single-sided culling is selected by the client's ray flags.
 

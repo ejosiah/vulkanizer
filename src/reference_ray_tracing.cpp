@@ -7,14 +7,14 @@ namespace vkz::reference {
         std::array<VkDescriptorSetLayoutBinding, 7> result;
         std::copy_n(ray_tracing_scene_bindings.begin(), result.size(), result.begin());
         for (auto &binding : result)
-            binding.stageFlags = static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment);
-        result[6] = {6, static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), texture_count, static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment), nullptr};
+            binding.stageFlags = static_cast<VkShaderStageFlags>(vkz::shader_stage_fragment);
+        result[6] = {6, static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), texture_count, static_cast<VkShaderStageFlags>(vkz::shader_stage_fragment), nullptr};
         return result;
     }
 
     VkDescriptorSetLayoutBinding ray_tracing_texture_binding(uint32_t texture_count) {
         VKZ_ASSERT(texture_count, "Reference ray tracing requires at least one texture descriptor");
-        return {0, static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), texture_count, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr};
+        return {0, static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), texture_count, static_cast<VkShaderStageFlags>(ray_hit_stages), nullptr};
     }
 
     std::vector<ray_tracing_instance_uniform> make_ray_tracing_instances(const mesh::data &scene, uint32_t lod) {

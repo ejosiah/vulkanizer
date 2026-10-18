@@ -11,10 +11,10 @@
 #include <stdexcept>
 
 namespace {
-    constexpr VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
+    constexpr VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1};
 
     void readable(VkCommandBuffer cmd, vkz::image &image) {
-        vkz::barrier::push_and_flush(cmd, image, range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::compute_shader, vkz::access::memory_read_write, vkz::access::shader_read,
+        vkz::barrier::push_and_flush(cmd, image, range, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_compute_shader, vkz::access_memory_read_write, vkz::access_shader_read,
                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
@@ -31,17 +31,17 @@ int main() {
     glfwHideWindow(app.window());
     auto &context = app.context();
     auto allocator = vkz::vma_memory_allocator::create(context);
-    vkz::command_pool commands{context.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
+    vkz::command_pool commands{context.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
     auto target = [&](VkFormat format, uint32_t width, uint32_t height) {
         vkz::texture texture{};
         texture.image = vkz::image::builder(allocator)
             .format(format)
             .extent(width, height)
-            .usage(vkz::image::usage::sampled_transfer)
+            .usage(vkz::image_usage_sampled_transfer)
             .build();
         texture.image_view = vkz::image_view::builder(context.device)
             .image(texture.image)
-            .aspect_mask(vkz::image::aspect::color)
+            .aspect_mask(vkz::image_aspect_color)
             .level_count(1)
             .layer_count(1)
             .build();
@@ -62,7 +62,7 @@ int main() {
         const auto taa = vkz::taa::create({.device = context.device, .memory_allocator = allocator, .color = color, .depth = depth});
         auto readback = vkz::buffer::builder(allocator)
             .size(17 * 11 * 16)
-            .usage(vkz::buffer::usage::transfer_dst)
+            .usage(vkz::buffer_usage_transfer_dst)
             .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
             .build();
         uint32_t frame = 0;
@@ -74,7 +74,7 @@ int main() {
             vkz::taa::resolve(taa, cmd);
             vkz::copy(cmd, color.image, readback);
             readable(cmd, color.image);
-            vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::transfer, vkz::pipeline::stage::host, vkz::access::transfer_write, vkz::access::host_read);
+            vkz::barrier::push_and_flush(cmd, vkz::pipeline_stage_transfer, vkz::pipeline_stage_host, vkz::access_transfer_write, vkz::access_host_read);
             commands.submit_and_wait(cmd);
             auto mapping = readback.map();
             const auto count = color.image.create_info.extent.width * color.image.create_info.extent.height;
@@ -108,9 +108,9 @@ int main() {
         auto motion = vkz::taa::motion_vectors(taa);
         auto cmd = commands.create_command_buffer();
         vkz::copy(cmd, motion.image, readback);
-        vkz::barrier::push_and_flush(cmd, motion.image, range, vkz::pipeline::stage::transfer, vkz::pipeline::stage::compute_shader, vkz::access::transfer_read, vkz::access::shader_read,
+        vkz::barrier::push_and_flush(cmd, motion.image, range, vkz::pipeline_stage_transfer, vkz::pipeline_stage_compute_shader, vkz::access_transfer_read, vkz::access_shader_read,
                                      VK_IMAGE_LAYOUT_GENERAL);
-        vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::transfer, vkz::pipeline::stage::host, vkz::access::transfer_write, vkz::access::host_read);
+        vkz::barrier::push_and_flush(cmd, vkz::pipeline_stage_transfer, vkz::pipeline_stage_host, vkz::access_transfer_write, vkz::access_host_read);
         commands.submit_and_wait(cmd);
         auto mapping = readback.map();
         const auto velocity = glm::unpackHalf2x16(mapping.as<const uint32_t>()[0]);

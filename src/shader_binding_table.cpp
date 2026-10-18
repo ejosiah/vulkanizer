@@ -59,7 +59,7 @@ namespace vkz {
             return;
         }
         vkz::copy(command_buffer, staging, storage);
-        barrier::push_and_flush(command_buffer, vkz::pipeline::stage::transfer, vkz::pipeline::stage::ray_tracing_shader, vkz::access::transfer_write, vkz::access::shader_read);
+        barrier::push_and_flush(command_buffer, vkz::pipeline_stage_transfer, vkz::pipeline_stage_ray_tracing_shader, vkz::access_transfer_write, vkz::access_shader_read);
         upload_pending = false;
     }
 
@@ -150,7 +150,7 @@ namespace vkz {
         }
         result.storage = buffer::builder(allocator)
             .size(size + base_alignment - 1)
-            .usage(vkz::buffer::usage::shader_binding_table | vkz::buffer::usage::device_address | vkz::buffer::usage::transfer_dst)
+            .usage(vkz::buffer_usage_shader_binding_table | vkz::buffer_usage_device_address | vkz::buffer_usage_transfer_dst)
             .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
             .build();
         VkBufferDeviceAddressInfo address_info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
@@ -161,7 +161,7 @@ namespace vkz {
         const auto padding = base - buffer_address;
         result.staging = buffer::builder(allocator)
             .size(result.storage.create_info.size)
-            .usage(vkz::buffer::usage::transfer_src)
+            .usage(vkz::buffer_usage_transfer_src)
             .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
             .build();
         auto mapping = result.staging.map();

@@ -24,6 +24,6 @@ namespace rtx {
     }
 
     inline void synchronize(VkCommandBuffer cmd) {
-        vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::all_commands, vkz::access::memory_read_write, vkz::access::memory_read_write);
+        vkz::barrier::push_and_flush(cmd, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_all_commands, vkz::access_memory_read_write, vkz::access_memory_read_write);
     }
 }

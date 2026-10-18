@@ -27,7 +27,7 @@ namespace vkz::video {
         }
 
         VkImageSubresourceRange range(uint32_t layer = 0) {
-            return {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, layer, 1};
+            return {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, layer, 1};
         }
     } // namespace
 
@@ -46,7 +46,7 @@ namespace vkz::video {
         }
         vkGetPhysicalDeviceQueueFamilyProperties2(device, &count, properties.data());
         for (uint32_t i = 0; i < count; ++i) {
-            if ((properties[i].queueFamilyProperties.queueFlags & static_cast<VkQueueFlags>(vkz::queue::video_decode)) && (video[i].videoCodecOperations & static_cast<VkVideoCodecOperationFlagsKHR>(vkz::video_codec_operation::decode_h264))) {
+            if ((properties[i].queueFamilyProperties.queueFlags & static_cast<VkQueueFlags>(vkz::queue_video_decode)) && (video[i].videoCodecOperations & static_cast<VkVideoCodecOperationFlagsKHR>(vkz::video_codec_operation_decode_h264))) {
                 return i;
             }
         }
@@ -118,12 +118,12 @@ namespace vkz::video {
             require(vkCreateVideoSessionKHR && vkCmdDecodeVideoKHR, "Vulkan Video decode extensions were not enabled");
             const auto &data = *source.impl_;
             h264_profile.stdProfileIdc = static_cast<StdVideoH264ProfileIdc>(data.sps[data.sps_ids.front()].profile_idc);
-            h264_profile.pictureLayout = static_cast<VkVideoDecodeH264PictureLayoutFlagBitsKHR>(vkz::video_decode_h264_picture_layout::progressive);
+            h264_profile.pictureLayout = static_cast<VkVideoDecodeH264PictureLayoutFlagBitsKHR>(vkz::video_decode_h264_picture_layout_progressive);
             profile.pNext = &h264_profile;
-            profile.videoCodecOperation = static_cast<VkVideoCodecOperationFlagBitsKHR>(vkz::video_codec_operation::decode_h264);
-            profile.chromaSubsampling = static_cast<VkVideoChromaSubsamplingFlagsKHR>(vkz::video_chroma_subsampling::s420);
-            profile.lumaBitDepth = static_cast<VkVideoComponentBitDepthFlagsKHR>(vkz::video_component_bit_depth::bits_8);
-            profile.chromaBitDepth = static_cast<VkVideoComponentBitDepthFlagsKHR>(vkz::video_component_bit_depth::bits_8);
+            profile.videoCodecOperation = static_cast<VkVideoCodecOperationFlagBitsKHR>(vkz::video_codec_operation_decode_h264);
+            profile.chromaSubsampling = static_cast<VkVideoChromaSubsamplingFlagsKHR>(vkz::video_chroma_subsampling_s420);
+            profile.lumaBitDepth = static_cast<VkVideoComponentBitDepthFlagsKHR>(vkz::video_component_bit_depth_bits_8);
+            profile.chromaBitDepth = static_cast<VkVideoComponentBitDepthFlagsKHR>(vkz::video_component_bit_depth_bits_8);
             profiles.profileCount = 1;
             profiles.pProfiles = &profile;
             capabilities.pNext = &decode_capabilities;
@@ -135,20 +135,20 @@ namespace vkz::video {
             require(extent.width >= capabilities.minCodedExtent.width && extent.height >= capabilities.minCodedExtent.height && extent.width <= capabilities.maxCodedExtent.width &&
                         extent.height <= capabilities.maxCodedExtent.height,
                     "Video coded extent is unsupported");
-            coincide = (decode_capabilities.flags & static_cast<VkVideoDecodeCapabilityFlagsKHR>(vkz::video_decode_capability::dpb_and_output_coincide)) != 0;
-            require(coincide || (decode_capabilities.flags & static_cast<VkVideoDecodeCapabilityFlagsKHR>(vkz::video_decode_capability::dpb_and_output_distinct)), "Device supports no usable decode output mode");
-            dpb_format = choose_format(vkz::image::usage::video_decode_dpb | (coincide ? vkz::image::usage::video_decode_dst | vkz::image::usage::sampled : vkz::image::usage::none));
-            output_format = coincide ? dpb_format : choose_format(vkz::image::usage::video_decode_dst | vkz::image::usage::sampled);
+            coincide = (decode_capabilities.flags & static_cast<VkVideoDecodeCapabilityFlagsKHR>(vkz::video_decode_capability_dpb_and_output_coincide)) != 0;
+            require(coincide || (decode_capabilities.flags & static_cast<VkVideoDecodeCapabilityFlagsKHR>(vkz::video_decode_capability_dpb_and_output_distinct)), "Device supports no usable decode output mode");
+            dpb_format = choose_format(vkz::image_usage_video_decode_dpb | (coincide ? vkz::image_usage_video_decode_dst | vkz::image_usage_sampled : vkz::image_usage_none));
+            output_format = coincide ? dpb_format : choose_format(vkz::image_usage_video_decode_dst | vkz::image_usage_sampled);
             create_session();
             create_parameters();
             create_resources();
-            decode_pool.init(device, params.decode_queue_family, vkz::command_pool_flags::transient, params.decode_queue);
-            graphics_pool.init(device, params.graphics_queue_family, vkz::command_pool_flags::transient, params.graphics_queue);
+            decode_pool.init(device, params.decode_queue_family, vkz::command_pool_flags_transient, params.decode_queue);
+            graphics_pool.init(device, params.graphics_queue_family, vkz::command_pool_flags_transient, params.graphics_queue);
             decoded_semaphore = create_semaphore(device);
             resolved_semaphore = create_semaphore(device);
         }
 
-        VkVideoFormatPropertiesKHR choose_format(vkz::image::usage usage) {
+        VkVideoFormatPropertiesKHR choose_format(vkz::image_usage usage) {
             VkPhysicalDeviceVideoFormatInfoKHR info{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VIDEO_FORMAT_INFO_KHR};
             info.pNext = &profiles;
             info.imageUsage = static_cast<VkImageUsageFlags>(usage);
@@ -242,9 +242,9 @@ namespace vkz::video {
             VKZ_CHECK_VULKAN(vkCreateVideoSessionParametersKHR(device, &info, nullptr, &parameters));
         }
 
-        image make_decode_image(const VkVideoFormatPropertiesKHR &format, vkz::image::usage usage, uint32_t layers) {
+        image make_decode_image(const VkVideoFormatPropertiesKHR &format, vkz::image_usage usage, uint32_t layers) {
             auto builder = image::builder(*params.allocator);
-            builder.flags(static_cast<vkz::image::flags>(format.imageCreateFlags))
+            builder.flags(static_cast<vkz::image_flags>(format.imageCreateFlags))
                 .type(format.imageType)
                 .format(format.format)
                 .extent(extent.width, extent.height)
@@ -270,7 +270,7 @@ namespace vkz::video {
             }
             bitstream = buffer::builder(*params.allocator)
                 .size(stream_size)
-                .usage(vkz::buffer::usage::video_decode_src)
+                .usage(vkz::buffer_usage_video_decode_src)
                 .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
                 .next(&profiles)
                 .build();
@@ -282,12 +282,12 @@ namespace vkz::video {
             }
             bitstream.flush();
             mapping.unmap();
-            dpb = make_decode_image(dpb_format, vkz::image::usage::video_decode_dpb | (coincide ? vkz::image::usage::video_decode_dst | vkz::image::usage::sampled : vkz::image::usage::none),
+            dpb = make_decode_image(dpb_format, vkz::image_usage_video_decode_dpb | (coincide ? vkz::image_usage_video_decode_dst | vkz::image_usage_sampled : vkz::image_usage_none),
                                     slot_count);
             if (!coincide) {
-                distinct = make_decode_image(output_format, vkz::image::usage::video_decode_dst | vkz::image::usage::sampled, 1);
+                distinct = make_decode_image(output_format, vkz::image_usage_video_decode_dst | vkz::image_usage_sampled, 1);
                 VkImageViewUsageCreateInfo usage{VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO};
-                usage.usage = static_cast<VkImageUsageFlags>(vkz::image::usage::video_decode_dst);
+                usage.usage = static_cast<VkImageUsageFlags>(vkz::image_usage_video_decode_dst);
                 distinct_view = image_view::builder(device).image(distinct).next(&usage).build();
             }
 
@@ -301,9 +301,9 @@ namespace vkz::video {
                 sps.vui.colour_description_present_flag && sps.vui.matrix_coefficients == 1 ? VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_709 : VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_601;
             conversion_info.ycbcrRange = sps.vui.video_full_range_flag ? VK_SAMPLER_YCBCR_RANGE_ITU_FULL : VK_SAMPLER_YCBCR_RANGE_ITU_NARROW;
             conversion_info.components = output_format.componentMapping;
-            conversion_info.xChromaOffset = (features & static_cast<VkFormatFeatureFlags>(vkz::format_feature::cosited_chroma_samples)) ? VK_CHROMA_LOCATION_COSITED_EVEN : VK_CHROMA_LOCATION_MIDPOINT;
-            conversion_info.yChromaOffset = (features & static_cast<VkFormatFeatureFlags>(vkz::format_feature::midpoint_chroma_samples)) ? VK_CHROMA_LOCATION_MIDPOINT : VK_CHROMA_LOCATION_COSITED_EVEN;
-            conversion_info.chromaFilter = (features & static_cast<VkFormatFeatureFlags>(vkz::format_feature::sampled_image_ycbcr_conversion_linear_filter)) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+            conversion_info.xChromaOffset = (features & static_cast<VkFormatFeatureFlags>(vkz::format_feature_cosited_chroma_samples)) ? VK_CHROMA_LOCATION_COSITED_EVEN : VK_CHROMA_LOCATION_MIDPOINT;
+            conversion_info.yChromaOffset = (features & static_cast<VkFormatFeatureFlags>(vkz::format_feature_midpoint_chroma_samples)) ? VK_CHROMA_LOCATION_MIDPOINT : VK_CHROMA_LOCATION_COSITED_EVEN;
+            conversion_info.chromaFilter = (features & static_cast<VkFormatFeatureFlags>(vkz::format_feature_sampled_image_ycbcr_conversion_linear_filter)) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
             VKZ_CHECK_VULKAN(vkCreateSamplerYcbcrConversion(device, &conversion_info, nullptr, &conversion));
             VkSamplerYcbcrConversionInfo conversion_next{VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO};
             conversion_next.conversion = conversion;
@@ -315,7 +315,7 @@ namespace vkz::video {
                               .build();
             for (uint32_t i = 0; i < slot_count; ++i) {
                 VkImageViewUsageCreateInfo usage{VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO};
-                usage.usage = static_cast<VkImageUsageFlags>(vkz::image::usage::video_decode_dpb) | (coincide ? static_cast<VkImageUsageFlags>(vkz::image::usage::video_decode_dst) : 0);
+                usage.usage = static_cast<VkImageUsageFlags>(vkz::image_usage_video_decode_dpb) | (coincide ? static_cast<VkImageUsageFlags>(vkz::image_usage_video_decode_dst) : 0);
                 dpb_views.push_back(image_view::builder(device).image(dpb).base_array_layer(i).layer_count(1).next(&usage).build());
                 if (coincide) {
                     yuv_views.push_back(image_view::builder(device).image(dpb).base_array_layer(i).layer_count(1).next(&conversion_next).build());
@@ -326,14 +326,14 @@ namespace vkz::video {
             }
             layout = make_descriptor_set_layout_builder(device)
                          .binding(0)
-                         .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                         .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                          .descriptor_count(1)
-                         .shader_stages(vkz::shader_stage::compute)
+                         .shader_stages(vkz::shader_stage_compute)
                          .immutable_sampler(yuv_sampler)
                          .binding(1)
-                         .descriptor_type(vkz::descriptor::type::storage_image)
+                         .descriptor_type(vkz::descriptor_type_storage_image)
                          .descriptor_count(1)
-                         .shader_stages(vkz::shader_stage::compute)
+                         .shader_stages(vkz::shader_stage_compute)
                          .create_layout();
             VkSamplerYcbcrConversionImageFormatProperties conversion_properties{VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_IMAGE_FORMAT_PROPERTIES};
             VkImageFormatProperties2 image_properties{VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2};
@@ -343,20 +343,20 @@ namespace vkz::video {
             image_info.format = output_format.format;
             image_info.type = VK_IMAGE_TYPE_2D;
             image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-            image_info.usage = static_cast<VkImageUsageFlags>(vkz::image::usage::sampled) | static_cast<VkImageUsageFlags>(vkz::image::usage::video_decode_dst) | (coincide ? static_cast<VkImageUsageFlags>(vkz::image::usage::video_decode_dpb) : 0);
+            image_info.usage = static_cast<VkImageUsageFlags>(vkz::image_usage_sampled) | static_cast<VkImageUsageFlags>(vkz::image_usage_video_decode_dst) | (coincide ? static_cast<VkImageUsageFlags>(vkz::image_usage_video_decode_dpb) : 0);
             image_info.flags = output_format.imageCreateFlags;
             VKZ_CHECK_VULKAN(vkGetPhysicalDeviceImageFormatProperties2(device.physical, &image_info, &image_properties));
             // A converted combined image sampler may consume multiple descriptors.
             pool = descriptor_pool{device,
                                    64,
-                                   {{static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 64 * conversion_properties.combinedImageSamplerDescriptorCount},
-                                    {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), 64}}};
+                                   {{static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 64 * conversion_properties.combinedImageSamplerDescriptorCount},
+                                    {static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), 64}}};
             pipeline = make_compute_pipeline_builder(device)
                            .shader_stage()
                            .compute_shader(std::vector<uint32_t>(std::begin(video_resolve), std::end(video_resolve)))
                            .layout()
                            .add_descriptor_set_layout(layout)
-                           .add_push_constant_range(vkz::shader_stage::compute, 0, sizeof(glm::ivec4))
+                           .add_push_constant_range(vkz::shader_stage_compute, 0, sizeof(glm::ivec4))
                            .build();
             slot_layouts.resize(slot_count, VK_IMAGE_LAYOUT_UNDEFINED);
             frame_numbers.resize(slot_count);
@@ -370,7 +370,7 @@ namespace vkz::video {
             output.rgb.image = image::builder(*params.allocator)
                 .format(VK_FORMAT_R8G8B8A8_UNORM)
                 .extent(source.width(), source.height())
-                .usage(vkz::image::usage::sampled_storage_download)
+                .usage(vkz::image_usage_sampled_storage_download)
                 .build();
             output.rgb.image_view = image_view::build(device, output.rgb.image);
             output.rgb.sampler = sampler::builder(device).min_filter(VK_FILTER_LINEAR).mag_filter(VK_FILTER_LINEAR).address_mode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE).build();
@@ -419,15 +419,15 @@ namespace vkz::video {
             auto command = decode_pool.create_command_buffer();
             // Resolve's semaphore protects any layer returning from shader reads.
             for (auto i : references) {
-                barrier::push(dpb.handle, range(i), vkz::pipeline::stage::video_decode, vkz::pipeline::stage::video_decode, vkz::access::video_decode_read_write, vkz::access::video_decode_read,
+                barrier::push(dpb.handle, range(i), vkz::pipeline_stage_video_decode, vkz::pipeline_stage_video_decode, vkz::access_video_decode_read_write, vkz::access_video_decode_read,
                               slot_layouts[i], VK_IMAGE_LAYOUT_VIDEO_DECODE_DPB_KHR);
                 slot_layouts[i] = VK_IMAGE_LAYOUT_VIDEO_DECODE_DPB_KHR;
             }
-            barrier::push(dpb.handle, range(slot), vkz::pipeline::stage::video_decode, vkz::pipeline::stage::video_decode, vkz::access::video_decode_read_write, vkz::access::video_decode_write,
+            barrier::push(dpb.handle, range(slot), vkz::pipeline_stage_video_decode, vkz::pipeline_stage_video_decode, vkz::access_video_decode_read_write, vkz::access_video_decode_write,
                           slot_layouts[slot], VK_IMAGE_LAYOUT_VIDEO_DECODE_DPB_KHR);
             slot_layouts[slot] = VK_IMAGE_LAYOUT_VIDEO_DECODE_DPB_KHR;
             if (!coincide) {
-                barrier::push(distinct, range(), vkz::pipeline::stage::none, vkz::pipeline::stage::video_decode, vkz::access::none, vkz::access::video_decode_write,
+                barrier::push(distinct, range(), vkz::pipeline_stage_none, vkz::pipeline_stage_video_decode, vkz::access_none, vkz::access_video_decode_write,
                               VK_IMAGE_LAYOUT_VIDEO_DECODE_DST_KHR);
             }
             barrier::flush(command);
@@ -467,7 +467,7 @@ namespace vkz::video {
             submission_batch batch;
             batch.enqueue(1, &command);
             if (resolve_pending) {
-                batch.enqueue_wait(resolved_semaphore, 0, vkz::pipeline::stage::all_commands);
+                batch.enqueue_wait(resolved_semaphore, 0, vkz::pipeline_stage_all_commands);
             }
             batch.enqueue_signal(decoded_semaphore);
             batch_submission submit{params.decode_queue};
@@ -485,27 +485,27 @@ namespace vkz::video {
             auto resolve = graphics_pool.create_command_buffer();
             auto &decoded = coincide ? dpb : distinct;
             const auto old_layout = coincide ? slot_layouts[slot] : distinct.layout;
-            barrier::push(decoded.handle, range(coincide ? slot : 0), vkz::pipeline::stage::none, vkz::pipeline::stage::compute_shader, vkz::access::none, vkz::access::shader_sampled_read, old_layout,
+            barrier::push(decoded.handle, range(coincide ? slot : 0), vkz::pipeline_stage_none, vkz::pipeline_stage_compute_shader, vkz::access_none, vkz::access_shader_sampled_read, old_layout,
                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             if (coincide) {
                 slot_layouts[slot] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             } else {
                 distinct.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             }
-            barrier::push(output.rgb.image, range(), vkz::pipeline::stage::all_commands, vkz::pipeline::stage::compute_shader, vkz::access::shader_sampled_read, vkz::access::shader_storage_write,
+            barrier::push(output.rgb.image, range(), vkz::pipeline_stage_all_commands, vkz::pipeline_stage_compute_shader, vkz::access_shader_sampled_read, vkz::access_shader_storage_write,
                           VK_IMAGE_LAYOUT_GENERAL);
             barrier::flush(resolve);
             bind_pipeline(resolve, pipeline);
             bind_descriptor_sets(resolve, pipeline, {output.resolve_set});
             const glm::ivec4 dimensions{source.width(), source.height(), extent.width, extent.height};
-            push_constants(resolve, pipeline, dimensions, vkz::shader_stage::compute);
+            push_constants(resolve, pipeline, dimensions, vkz::shader_stage_compute);
             dispatch(resolve, (source.width() + 15) / 16, (source.height() + 15) / 16);
-            barrier::push_and_flush(resolve, output.rgb.image, range(), vkz::pipeline::stage::compute_shader, vkz::pipeline::stage::all_commands, vkz::access::shader_storage_write,
-                                    vkz::access::shader_sampled_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            barrier::push_and_flush(resolve, output.rgb.image, range(), vkz::pipeline_stage_compute_shader, vkz::pipeline_stage_all_commands, vkz::access_shader_storage_write,
+                                    vkz::access_shader_sampled_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             cmd_end(resolve);
             submission_batch graphics_batch;
             graphics_batch.enqueue(1, &resolve);
-            graphics_batch.enqueue_wait(decoded_semaphore, 0, vkz::pipeline::stage::all_commands);
+            graphics_batch.enqueue_wait(decoded_semaphore, 0, vkz::pipeline_stage_all_commands);
             graphics_batch.enqueue_signal(resolved_semaphore);
             batch_submission graphics_submit{params.graphics_queue};
             graphics_submit.enqueue_batch(std::move(graphics_batch));

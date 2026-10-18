@@ -115,12 +115,12 @@ namespace rtx {
             result.image = vkz::image::builder(allocator)
                 .format(format)
                 .extent((width + downsample - 1) / downsample, (height + downsample - 1) / downsample)
-                .usage(vkz::image::usage::sampled_storage_download)
+                .usage(vkz::image_usage_sampled_storage_download)
                 .build();
             result.image_view = vkz::image_view::builder(device)
                 .image(result.image)
                 .format(format)
-                .aspect_mask(vkz::image::aspect::color)
+                .aspect_mask(vkz::image_aspect_color)
                 .level_count(1)
                 .layer_count(1)
                 .build();
@@ -140,7 +140,7 @@ namespace rtx {
             }
             constants = vkz::buffer::builder(allocator)
                 .size(description->constantBufferMaxDataSize)
-                .usage(vkz::buffer::usage::uniform_upload)
+                .usage(vkz::buffer_usage_uniform_upload)
                 .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                 .build();
         }
@@ -151,7 +151,7 @@ namespace rtx {
             auto current = std::make_unique<binding_builder>(builder.binding(bindings.front().binding));
             for (size_t i = 0; i < bindings.size(); ++i) {
                 const auto &binding = bindings[i];
-                current->descriptor_type(static_cast<vkz::descriptor::type>(binding.descriptorType))
+                current->descriptor_type(static_cast<vkz::descriptor_type>(binding.descriptorType))
                     .descriptor_count(binding.descriptorCount)
                     .shader_stages(static_cast<vkz::shader_stage>(binding.stageFlags));
                 if (binding.pImmutableSamplers)
@@ -166,10 +166,10 @@ namespace rtx {
             std::vector<VkDescriptorSetLayoutBinding> bindings;
             for (uint32_t i = 0; i < description->descriptorPoolDesc.perSetTexturesMaxNum; ++i)
                 bindings.push_back(
-                    {offsets.textureOffset + i, static_cast<VkDescriptorType>(vkz::descriptor::type::sampled_image), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::compute), nullptr});
+                    {offsets.textureOffset + i, static_cast<VkDescriptorType>(vkz::descriptor_type_sampled_image), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_compute), nullptr});
             for (uint32_t i = 0; i < description->descriptorPoolDesc.perSetStorageTexturesMaxNum; ++i)
-                bindings.push_back({offsets.storageTextureAndBufferOffset + i, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), 1,
-                                    static_cast<VkShaderStageFlags>(vkz::shader_stage::compute), nullptr});
+                bindings.push_back({offsets.storageTextureAndBufferOffset + i, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), 1,
+                                    static_cast<VkShaderStageFlags>(vkz::shader_stage_compute), nullptr});
             layouts[0] = create_layout(bindings);
 
             bindings.clear();
@@ -182,26 +182,26 @@ namespace rtx {
                         .address_mode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
                     .build();
                 bindings.push_back(
-                    {offsets.samplerOffset + i, static_cast<VkDescriptorType>(vkz::descriptor::type::sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::compute), &samplers[i].handle});
+                    {offsets.samplerOffset + i, static_cast<VkDescriptorType>(vkz::descriptor_type_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_compute), &samplers[i].handle});
             }
             bindings.push_back(
-                {offsets.constantBufferOffset, static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::compute), nullptr});
+                {offsets.constantBufferOffset, static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_compute), nullptr});
             layouts[1] = create_layout(bindings);
 
             bindings.clear();
             for (uint32_t i = 0; i < images.size(); ++i)
-                bindings.push_back({i, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::compute), nullptr});
+                bindings.push_back({i, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_compute), nullptr});
             bridge_layout = create_layout(bindings);
             descriptors = vkz::descriptor_pool{device,
                                                1024,
-                                               {{static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), 8192},
-                                                {static_cast<VkDescriptorType>(vkz::descriptor::type::sampled_image), 16384},
-                                                {static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 2},
-                                                {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 6},
-                                                {static_cast<VkDescriptorType>(vkz::descriptor::type::sampler), 2}}};
+                                               {{static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), 8192},
+                                                {static_cast<VkDescriptorType>(vkz::descriptor_type_sampled_image), 16384},
+                                                {static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 2},
+                                                {static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 6},
+                                                {static_cast<VkDescriptorType>(vkz::descriptor_type_sampler), 2}}};
             constants_set = descriptors.allocate(layouts[1]);
             bridge_set = descriptors.allocate(bridge_layout);
-            vkz::update_descriptor(device, {.descriptor_set = constants_set, .bindings = {vkz::make_descriptor<vkz::ubo_descriptor>(constants, offsets.constantBufferOffset)}});
+            vkz::update_descriptor(device, {.descriptor_set = constants_set, .bindings = {vkz::descriptor<vkz::ubo_descriptor>(constants, offsets.constantBufferOffset)}});
 
             vkz::descriptor_bindings image_bindings{.descriptor_set = bridge_set};
             for (uint32_t i = 0; i < images.size(); ++i)
@@ -212,10 +212,10 @@ namespace rtx {
         void create_input_descriptors(const input &inputs) {
             std::vector<VkDescriptorSetLayoutBinding> bindings;
             for (uint32_t i = 0; i < 6; ++i)
-                bindings.push_back({i, static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::compute), nullptr});
+                bindings.push_back({i, static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_compute), nullptr});
             for (uint32_t i = 6; i < 9; ++i)
-                bindings.push_back({i, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::compute), nullptr});
-            bindings.push_back({9, static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::compute), nullptr});
+                bindings.push_back({i, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_compute), nullptr});
+            bindings.push_back({9, static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_compute), nullptr});
             input_layout = create_layout(bindings);
             input_set = descriptors.allocate(input_layout);
             input_sampler =
@@ -227,7 +227,7 @@ namespace rtx {
                 .build();
             frame_buffer = vkz::buffer::builder(allocator)
                 .size(sizeof(frame_data))
-                .usage(vkz::buffer::usage::uniform_upload)
+                .usage(vkz::buffer_usage_uniform_upload)
                 .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
                 .build();
             update_input_descriptors(inputs);
@@ -240,10 +240,10 @@ namespace rtx {
             for (uint32_t i = 0; i < textures.size(); ++i)
                 bindings.bindings.push_back(vkz::texture_descriptor{textures[i]->image_view, input_sampler,
                     i < 3 ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL, i});
-            bindings.bindings.push_back(vkz::make_descriptor<vkz::image_descriptor>(inputs.diffuse_output, 6));
-            bindings.bindings.push_back(vkz::make_descriptor<vkz::image_descriptor>(inputs.specular_output, 7));
-            bindings.bindings.push_back(vkz::make_descriptor<vkz::image_descriptor>(inputs.shadow_output, 8));
-            bindings.bindings.push_back(vkz::make_descriptor<vkz::ubo_descriptor>(frame_buffer, 9));
+            bindings.bindings.push_back(vkz::descriptor<vkz::image_descriptor>(inputs.diffuse_output, 6));
+            bindings.bindings.push_back(vkz::descriptor<vkz::image_descriptor>(inputs.specular_output, 7));
+            bindings.bindings.push_back(vkz::descriptor<vkz::image_descriptor>(inputs.shadow_output, 8));
+            bindings.bindings.push_back(vkz::descriptor<vkz::ubo_descriptor>(frame_buffer, 9));
             vkz::update_descriptor(device, std::move(bindings));
         }
 
@@ -326,7 +326,7 @@ namespace rtx {
                                            .dstBinding = writable ? storage++ : sampled++,
                                            .descriptorCount = 1,
                                            .descriptorType =
-                                               writable ? static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image) : static_cast<VkDescriptorType>(vkz::descriptor::type::sampled_image),
+                                               writable ? static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image) : static_cast<VkDescriptorType>(vkz::descriptor_type_sampled_image),
                                            .pImageInfo = &image};
                 vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
             }
@@ -335,9 +335,9 @@ namespace rtx {
         }
 
         void transition(VkCommandBuffer command_buffer, vkz::texture &texture) {
-            const VkImageSubresourceRange range{.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::color), .levelCount = 1, .layerCount = 1};
-            vkz::barrier::push_and_flush(command_buffer, texture.image, range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::all_commands, vkz::access::memory_read_write,
-                                         vkz::access::memory_read_write, VK_IMAGE_LAYOUT_GENERAL);
+            const VkImageSubresourceRange range{.aspectMask = static_cast<VkImageAspectFlags>(vkz::image_aspect_color), .levelCount = 1, .layerCount = 1};
+            vkz::barrier::push_and_flush(command_buffer, texture.image, range, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_all_commands, vkz::access_memory_read_write,
+                                         vkz::access_memory_read_write, VK_IMAGE_LAYOUT_GENERAL);
         }
 
         void prepare(VkCommandBuffer command_buffer) {
@@ -389,9 +389,9 @@ namespace rtx {
                     for (uint32_t j = 0; j < dispatch.resourcesNum; ++j)
                         transition(command_buffer, resource(dispatch.resources[j]));
                     if (dispatch.constantBufferDataSize) {
-                        vkz::barrier::push_and_flush(command_buffer, vkz::pipeline::stage::compute_shader, vkz::pipeline::stage::transfer, vkz::access::uniform_read, vkz::access::transfer_write);
+                        vkz::barrier::push_and_flush(command_buffer, vkz::pipeline_stage_compute_shader, vkz::pipeline_stage_transfer, vkz::access_uniform_read, vkz::access_transfer_write);
                         vkz::update(command_buffer, constants, dispatch.constantBufferDataSize, const_cast<uint8_t *>(dispatch.constantBufferData));
-                        vkz::barrier::push_and_flush(command_buffer, vkz::pipeline::stage::transfer, vkz::pipeline::stage::compute_shader, vkz::access::transfer_write, vkz::access::uniform_read);
+                        vkz::barrier::push_and_flush(command_buffer, vkz::pipeline_stage_transfer, vkz::pipeline_stage_compute_shader, vkz::access_transfer_write, vkz::access_uniform_read);
                     }
                     auto &pipeline = pipelines[dispatch.pipelineIndex];
                     vkz::bind_pipeline(command_buffer, pipeline);

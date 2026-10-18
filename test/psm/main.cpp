@@ -87,18 +87,18 @@ public:
 
         scene_layout = vkz::make_descriptor_set_layout_builder(device_)
                            .binding(0)
-                           .descriptor_type(vkz::descriptor::type::storage_buffer)
+                           .descriptor_type(vkz::descriptor_type_storage_buffer)
                            .descriptor_count(1)
-                           .shader_stages(vkz::shader_stage::vertex | vkz::shader_stage::fragment)
+                           .shader_stages(vkz::shader_stage_vertex | vkz::shader_stage_fragment)
                            .binding(1)
-                           .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                           .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                            .descriptor_count(1)
-                           .shader_stages(vkz::shader_stage::fragment)
+                           .shader_stages(vkz::shader_stage_fragment)
                            .create_layout();
 
         scene_buffer = vkz::buffer::builder(allocator_)
             .size(sizeof(scene_constants))
-            .usage(vkz::buffer::usage::storage)
+            .usage(vkz::buffer_usage_storage)
             .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
             .build();
         shadow_sampler = vkz::sampler::builder(device_).mag_filter(VK_FILTER_LINEAR).min_filter(VK_FILTER_LINEAR)
@@ -106,7 +106,7 @@ public:
         scene_set = descriptor_pool.allocate(scene_layout);
         const auto shadow = vkz::psm::get_shadow_map(psm_id, 0);
         vkz::update_descriptors(device_, {{.descriptor_set = scene_set,
-                                           .bindings = {vkz::make_descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
+                                           .bindings = {vkz::descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
                                                         vkz::texture_descriptor{shadow.image_view, shadow_sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1}}}});
     }
 
@@ -124,7 +124,7 @@ public:
 
     void create_descriptor_pool() {
         descriptor_pool = {
-            context_.device, 100, {{static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 100}, {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 100}}};
+            context_.device, 100, {{static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 100}, {static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 100}}};
     }
 
     void load_mesh() {
@@ -147,14 +147,14 @@ public:
         mesh_buffers.vertex_buffer = vkz::buffer::builder(allocator_)
             .size(byte_size(mesh.vertex_data))
             .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
-            .usage(vkz::buffer::usage::vertex_upload)
+            .usage(vkz::buffer_usage_vertex_upload)
             .build();
 
         mesh_buffers.index_buffer =
             vkz::buffer::builder(allocator_)
                 .size(byte_size(mesh.index_data))
                 .memory_usage(VMA_MEMORY_USAGE_GPU_ONLY)
-                .usage(vkz::buffer::usage::index | vkz::buffer::usage::transfer_dst)
+                .usage(vkz::buffer_usage_index | vkz::buffer_usage_transfer_dst)
                 .build();
 
         {
@@ -203,7 +203,7 @@ public:
                               .depth_attachment(depth_format())
                               .layout()
                               .add_descriptor_set_layout(scene_layout)
-                              .add_push_constant_range(vkz::shader_stage::vertex, 0, sizeof(render_constants))
+                              .add_push_constant_range(vkz::shader_stage_vertex, 0, sizeof(render_constants))
                               .name("psm_render")
                               .build();
     }

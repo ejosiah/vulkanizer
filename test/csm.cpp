@@ -85,11 +85,11 @@ namespace {
             properties.limits.framebufferColorSampleCounts &
             properties.limits.framebufferDepthSampleCounts;
 
-        if (supported & static_cast<VkSampleCountFlags>(vkz::sample_count::x4)) {
-            return vkz::sample_count::x4;
+        if (supported & static_cast<VkSampleCountFlags>(vkz::sample_count_x4)) {
+            return vkz::sample_count_x4;
         }
-        if (supported & static_cast<VkSampleCountFlags>(vkz::sample_count::x2)) {
-            return vkz::sample_count::x2;
+        if (supported & static_cast<VkSampleCountFlags>(vkz::sample_count_x2)) {
+            return vkz::sample_count_x2;
         }
         VKZ_THROW("The CSM demo requires multisampled color and depth attachments")
     }
@@ -117,7 +117,7 @@ namespace {
         attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         attachments[2].format = color_format;
-        attachments[2].samples = static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1);
+        attachments[2].samples = static_cast<VkSampleCountFlagBits>(vkz::sample_count_x1);
         attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         attachments[2].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -202,7 +202,7 @@ namespace {
 
     vkz::buffer create_vertex_buffer(vkz::vma_memory_allocator& allocator, const std::vector<vertex>& vertices) {
         auto buffer = vkz::buffer::builder(allocator)
-            .usage(vkz::buffer::usage::vertex)
+            .usage(vkz::buffer_usage_vertex)
             .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
             .size(sizeof(vertex) * vertices.size())
             .build();
@@ -238,7 +238,7 @@ int main(int argc, char **argv) {
         context.device,
         graphics_queue,
         queue_family_index,
-        vkz::command_pool_flags::transient,
+        vkz::command_pool_flags_transient,
         1,
     };
 
@@ -246,13 +246,13 @@ int main(int argc, char **argv) {
         .format(swapchain->format())
         .extent(swapchain->width(), swapchain->height())
         .samples(sample_count)
-        .usage(vkz::image::usage::color)
+        .usage(vkz::image_usage_color)
         .build();
     auto color_view = vkz::image_view::builder(context.device)
         .image(color_image)
         .view_type(VK_IMAGE_VIEW_TYPE_2D)
         .format(swapchain->format())
-        .aspect_mask(vkz::image::aspect::color)
+        .aspect_mask(vkz::image_aspect_color)
         .level_count(1)
         .layer_count(1)
         .build();
@@ -261,14 +261,14 @@ int main(int argc, char **argv) {
         .format(depth_format)
         .extent(swapchain->width(), swapchain->height())
         .samples(sample_count)
-        .usage(vkz::image::usage::depth_stencil)
+        .usage(vkz::image_usage_depth_stencil)
         .build();
     auto depth_view =
         vkz::image_view::builder(context.device)
             .image(depth_image)
             .view_type(VK_IMAGE_VIEW_TYPE_2D)
             .format(depth_format)
-            .aspect_mask(vkz::image::aspect::depth)
+            .aspect_mask(vkz::image_aspect_depth)
             .level_count(1)
             .layer_count(1)
             .build();
@@ -284,8 +284,8 @@ int main(int argc, char **argv) {
         swapchain->height());
 
     VkDescriptorPoolSize descriptor_pool_sizes[] = {
-        {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 16},
-        {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 32},
+        {static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 16},
+        {static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 32},
     };
     VkDescriptorPoolCreateInfo descriptor_pool_create_info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
     descriptor_pool_create_info.maxSets = 16;
@@ -373,21 +373,21 @@ mat4 get_model_matrix() {
     auto scene_descriptor_set_layout = vkz::descriptor_set_layout_builder{context.device}
                                            .name("csm_test_scene_descriptor_set_layout")
                                            .binding(0)
-                                           .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                           .descriptor_type(vkz::descriptor_type_storage_buffer)
                                            .descriptor_count(1)
-                                           .shader_stages(vkz::shader_stage::vertex | vkz::shader_stage::fragment)
+                                           .shader_stages(vkz::shader_stage_vertex | vkz::shader_stage_fragment)
                                            .binding(1)
-                                           .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                           .descriptor_type(vkz::descriptor_type_storage_buffer)
                                            .descriptor_count(1)
-                                           .shader_stages(vkz::shader_stage::fragment)
+                                           .shader_stages(vkz::shader_stage_fragment)
                                            .binding(2)
-                                           .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                           .descriptor_type(vkz::descriptor_type_storage_buffer)
                                            .descriptor_count(1)
-                                           .shader_stages(vkz::shader_stage::fragment)
+                                           .shader_stages(vkz::shader_stage_fragment)
                                            .create_layout();
 
     auto scene_buffer = vkz::buffer::builder(allocator)
-        .usage(vkz::buffer::usage::storage)
+        .usage(vkz::buffer_usage_storage)
         .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
         .size(sizeof(scene_data))
         .build();
@@ -396,7 +396,7 @@ mat4 get_model_matrix() {
 
     std::vector<float> split_depth(vkz::csm::cascade_count(csm_id));
     auto split_buffer = vkz::buffer::builder(allocator)
-        .usage(vkz::buffer::usage::storage)
+        .usage(vkz::buffer_usage_storage)
         .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
         .size(sizeof(float) * split_depth.size())
         .build();
@@ -415,9 +415,9 @@ mat4 get_model_matrix() {
                                                .descriptor_set = {scene_descriptor_set},
                                                .bindings =
                                                    {
-                                                       vkz::make_descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
-                                                       vkz::make_descriptor<vkz::buffer_descriptor>(vkz::csm::cascade_view_projection(csm_id), 1),
-                                                       vkz::make_descriptor<vkz::buffer_descriptor>(split_buffer, 2),
+                                                       vkz::descriptor<vkz::buffer_descriptor>(scene_buffer, 0),
+                                                       vkz::descriptor<vkz::buffer_descriptor>(vkz::csm::cascade_view_projection(csm_id), 1),
+                                                       vkz::descriptor<vkz::buffer_descriptor>(split_buffer, 2),
                                                    },
                                            });
 
@@ -456,7 +456,7 @@ mat4 get_model_matrix() {
                               .layout()
                               .add_descriptor_set_layout({vkz::csm::descriptor_set_layout(csm_id), context.device})
                               .add_descriptor_set_layout(scene_descriptor_set_layout)
-                              .add_push_constant_range(vkz::shader_stage::vertex, 0, sizeof(render_push_constants))
+                              .add_push_constant_range(vkz::shader_stage_vertex, 0, sizeof(render_push_constants))
                               .render_pass(render_pass)
                               .name("csm_test_scene")
                               .build();
@@ -484,10 +484,10 @@ mat4 get_model_matrix() {
     double previous_time = glfwGetTime();
 
     constexpr std::array<cull_mode_option, 4> shadow_cull_modes{{
-        {"None", vkz::cull_mode::none},
-        {"Front", vkz::cull_mode::front},
-        {"Back", vkz::cull_mode::back},
-        {"Front and back", vkz::cull_mode::front_and_back},
+        {"None", vkz::cull_mode_none},
+        {"Front", vkz::cull_mode_front},
+        {"Back", vkz::cull_mode_back},
+        {"Front and back", vkz::cull_mode_front_and_back},
     }};
 
     while (!app.should_close() && !timeout.expired()) {
@@ -627,7 +627,7 @@ mat4 get_model_matrix() {
 
         VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
         commands.enqueue(command_buffer);
-        commands.enqueue_wait(image_available, vkz::pipeline::stage::color_attachment_output);
+        commands.enqueue_wait(image_available, vkz::pipeline_stage_color_attachment_output);
         commands.enqueue_signal(render_finished);
         VKZ_CHECK_VULKAN(commands.execute());
 

@@ -26,11 +26,11 @@ namespace vkz {
                                  ? std::string_view{callbackData->pMessage}
                                  : std::string_view{};
 
-            if (has_flag(severity, vkz::debug_severity::error)) {
+            if (has_flag(severity, vkz::debug_severity_error)) {
                 error(message);
-            } else if (has_flag(severity, vkz::debug_severity::warning)) {
+            } else if (has_flag(severity, vkz::debug_severity_warning)) {
                 warn(message);
-            } else if (has_flag(severity, vkz::debug_severity::info)) {
+            } else if (has_flag(severity, vkz::debug_severity_info)) {
                 info(message);
             } else {
                 debug(message);
@@ -43,9 +43,9 @@ namespace vkz {
             VkDebugUtilsMessengerCreateInfoEXT create_info{};
             create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
             create_info.messageSeverity =
-                    static_cast<VkDebugUtilsMessageSeverityFlagsEXT>(vkz::debug_severity::all);
+                    static_cast<VkDebugUtilsMessageSeverityFlagsEXT>(vkz::debug_severity_all);
             create_info.messageType =
-                    static_cast<VkDebugUtilsMessageTypeFlagsEXT>(vkz::debug_type::standard);
+                    static_cast<VkDebugUtilsMessageTypeFlagsEXT>(vkz::debug_type_standard);
             create_info.pfnUserCallback = debug_callback;
             return create_info;
         }
@@ -75,16 +75,16 @@ namespace vkz {
             std::vector<vkz::queue> bits;
 
             const vkz::queue knownBits[] = {
-                    vkz::queue::graphics,
-                    vkz::queue::compute,
-                    vkz::queue::transfer,
-                    vkz::queue::sparse_binding,
-                    vkz::queue::protected_memory,
+                    vkz::queue_graphics,
+                    vkz::queue_compute,
+                    vkz::queue_transfer,
+                    vkz::queue_sparse_binding,
+                    vkz::queue_protected_memory,
 #ifdef VK_KHR_video_queue
-                    vkz::queue::video_decode,
+                    vkz::queue_video_decode,
 #endif
 #ifdef VK_KHR_video_queue
-                    vkz::queue::video_encode,
+                    vkz::queue_video_encode,
 #endif
             };
 
@@ -235,7 +235,7 @@ namespace vkz {
         VkSurfaceKHR surface{};
         vkz::device_factory* factory{};
 
-        vkz::queue queue_flags{vkz::queue::graphics};
+        vkz::queue queue_flags{vkz::queue_graphics};
         vkz::queue unique_queue_flags{};
         uint32_t num_graphics_queues{1};
 
@@ -348,7 +348,7 @@ namespace vkz {
                 impl_.device_extensions.emplace_back(VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME);
                 impl_.rebuild_pointers();
                 diagnostics.flags =
-                    static_cast<VkDeviceDiagnosticsConfigFlagsNV>(vkz::device_diagnostics::crash_dump);
+                    static_cast<VkDeviceDiagnosticsConfigFlagsNV>(vkz::device_diagnostics_crash_dump);
                 diagnostics.pNext = extension_chain_;
                 extension_chain_ = &diagnostics;
             } else {
@@ -443,17 +443,17 @@ namespace vkz {
                 if (unique && impl_.selected_queue_families.contains(i)) continue;
                 if (!(family.queueFlags & static_cast<VkQueueFlags>(flag))) continue;
 #ifdef VK_KHR_video_decode_h264
-                if (flag == vkz::queue::video_decode &&
+                if (flag == vkz::queue_video_decode &&
                     std::ranges::find(impl_.device_extensions, VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME) != impl_.device_extensions.end()) {
                     VkQueueFamilyVideoPropertiesKHR video{VK_STRUCTURE_TYPE_QUEUE_FAMILY_VIDEO_PROPERTIES_KHR};
                     std::vector<VkQueueFamilyProperties2> properties(impl_.queue_families.size(), {VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2});
                     properties[i].pNext = &video;
                     auto count = static_cast<uint32_t>(properties.size());
                     vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &count, properties.data());
-                    if (!(video.videoCodecOperations & static_cast<VkVideoCodecOperationFlagsKHR>(vkz::video_codec_operation::decode_h264))) continue;
+                    if (!(video.videoCodecOperations & static_cast<VkVideoCodecOperationFlagsKHR>(vkz::video_codec_operation_decode_h264))) continue;
                 }
 #endif
-                if (impl_.surface && flag == vkz::queue::graphics) {
+                if (impl_.surface && flag == vkz::queue_graphics) {
                     VkBool32 supports_present{};
                     VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(
                         physical_device, i, impl_.surface, &supports_present));
@@ -470,7 +470,7 @@ namespace vkz {
 
         uint32_t queue_count_for_family(uint32_t family_index) const {
             auto count = 1u;
-            if (impl_.queue_families[family_index].queueFlags & static_cast<VkQueueFlags>(vkz::queue::graphics)) {
+            if (impl_.queue_families[family_index].queueFlags & static_cast<VkQueueFlags>(vkz::queue_graphics)) {
                 count = std::max(count, graphics_queue_count());
             }
             return std::min(count, impl_.queue_families[family_index].queueCount);

@@ -34,7 +34,7 @@ namespace vkz {
         std::vector<const char*> device_extensions;
         device::features enabled_features{};
         device_extension_chain extension_chain{};
-        // Additional queue capabilities, e.g. vkz::queue::video_decode.
+        // Additional queue capabilities, e.g. vkz::queue_video_decode.
         std::vector<vkz::queue> queues;
     };
 
@@ -90,7 +90,7 @@ namespace vkz {
         void wait_for_drawable_window() const;
 
         [[nodiscard]]
-        std::unique_ptr<vkz::swapchain> create_swapchain(vkz::image::usage image_usage = vkz::image::usage::color) const;
+        std::unique_ptr<vkz::swapchain> create_swapchain(vkz::image_usage image_usage = vkz::image_usage_color) const;
 
     private:
         glfw_runtime runtime_;
@@ -107,7 +107,7 @@ namespace vkz {
     VkCommandPool create_command_pool(
         VkDevice device,
         uint32_t queue_family_index,
-        vkz::command_pool_flags flags = vkz::command_pool_flags::transient);
+        vkz::command_pool_flags flags = vkz::command_pool_flags_transient);
 
     VkCommandBuffer begin_command_buffer(VkDevice device, VkCommandPool command_pool);
 

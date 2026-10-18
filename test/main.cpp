@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
         context.device,
         graphics_queue,
         queue_family_index,
-        vkz::command_pool_flags::transient,
+        vkz::command_pool_flags_transient,
         1,
     };
     VkSemaphore image_available = vkz::create_semaphore(context.device.logical);
@@ -143,11 +143,11 @@ int main(int argc, char **argv) {
         auto command_buffer = commands.create_command_buffer();
         auto image = swapchain->get_image(image_index);
         VkImageSubresourceRange range{};
-        range.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::color);
+        range.aspectMask = static_cast<VkImageAspectFlags>(vkz::image_aspect_color);
         range.levelCount = 1;
         range.layerCount = 1;
 
-        vkz::barrier::push_and_flush(command_buffer, image, range, vkz::pipeline::stage::none, vkz::pipeline::stage::color_attachment_output, vkz::access::none, vkz::access::color_attachment_write,
+        vkz::barrier::push_and_flush(command_buffer, image, range, vkz::pipeline_stage_none, vkz::pipeline_stage_color_attachment_output, vkz::access_none, vkz::access_color_attachment_write,
                                      VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
         vkz::render_info render_info{};
@@ -162,12 +162,12 @@ int main(int argc, char **argv) {
             vkz::imgui::render(command_buffer);
         });
 
-        vkz::barrier::push_and_flush(command_buffer, image, range, vkz::pipeline::stage::color_attachment_output, vkz::pipeline::stage::none, vkz::access::color_attachment_write, vkz::access::none,
+        vkz::barrier::push_and_flush(command_buffer, image, range, vkz::pipeline_stage_color_attachment_output, vkz::pipeline_stage_none, vkz::access_color_attachment_write, vkz::access_none,
                                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
         VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
         commands.enqueue(command_buffer);
-        commands.enqueue_wait(image_available, vkz::pipeline::stage::color_attachment_output);
+        commands.enqueue_wait(image_available, vkz::pipeline_stage_color_attachment_output);
         commands.enqueue_signal(render_finished);
         VKZ_CHECK_VULKAN(commands.execute());
 

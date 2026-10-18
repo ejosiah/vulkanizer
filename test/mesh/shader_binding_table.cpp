@@ -17,7 +17,7 @@ CMRC_DECLARE(sbt_shaders);
 namespace {
     constexpr uint32_t width = 960;
     constexpr uint32_t height = 640;
-    constexpr vkz::shader_stage ray_stages = vkz::shader_stage::raygen | vkz::shader_stage::closest_hit;
+    constexpr vkz::shader_stage ray_stages = vkz::shader_stage_raygen | vkz::shader_stage_closest_hit;
     const std::array<glm::vec4, 8> colors{{{1, 0, 0, 1}, {1, 0.5f, 0, 1}, {0, 1, 0, 1}, {0, 1, 1, 1}, {0, 0, 1, 1}, {1, 0, 1, 1}, {1, 1, 0, 1}, {1, 1, 1, 1}}};
     const std::array<glm::vec4, 2> backgrounds{{{0.025f, 0.035f, 0.055f, 1}, {0.1f, 0.08f, 0.12f, 1}}};
 
@@ -207,7 +207,7 @@ namespace {
             constants.index_offset = scene.meshes.front().index_offset + scene.meshes.front().lod_offset[0];
         }
 
-        vkz::buffer upload(const void *data, VkDeviceSize size, vkz::buffer::usage usage) {
+        vkz::buffer upload(const void *data, VkDeviceSize size, vkz::buffer_usage usage) {
             auto result = vkz::buffer::builder(ray_allocator)
                     .size(size)
                     .usage(usage)
@@ -222,7 +222,7 @@ namespace {
         }
 
         void create_geometry_buffers() {
-            constexpr auto usage = vkz::buffer::usage::acceleration_storage_input;
+            constexpr auto usage = vkz::buffer_usage_acceleration_storage_input;
             vertices = upload(scene.vertex_data.data(), VKZ_BYTE_SIZE(scene.vertex_data), usage);
             indices = upload(scene.index_data.data(), VKZ_BYTE_SIZE(scene.index_data), usage);
         }
@@ -231,13 +231,13 @@ namespace {
             display.image = vkz::image::builder(ray_allocator)
                 .format(VK_FORMAT_R32G32B32A32_SFLOAT)
                 .extent(width, height)
-                .usage(vkz::image::usage::sampled_storage_download)
+                .usage(vkz::image_usage_sampled_storage_download)
                 .build();
             display.image_view =
                 vkz::image_view::builder(device_)
                     .image(display.image)
                     .format(VK_FORMAT_R32G32B32A32_SFLOAT)
-                    .aspect_mask(vkz::image::aspect::color)
+                    .aspect_mask(vkz::image_aspect_color)
                     .level_count(1)
                     .layer_count(1)
                     .build();
@@ -246,7 +246,7 @@ namespace {
             display_set = vkz::imgui::add_texture(display.sampler, display.image_view);
             readback = vkz::buffer::builder(ray_allocator)
                 .size(width * height * sizeof(glm::vec4))
-                .usage(vkz::buffer::usage::transfer_dst)
+                .usage(vkz::buffer_usage_transfer_dst)
                 .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
                 .build();
         }
@@ -262,7 +262,7 @@ namespace {
             initializer.perspective(45, float(width) / height, 0.01f, 100);
             controller = std::make_unique<vkz::camera::controller>(camera, vkz::camera::movement_type::orbit, input.get_device());
             const std::array<glm::mat4, 2> data{glm::mat4{1}, glm::mat4{1}};
-            camera_buffer = upload(data.data(), sizeof(data), vkz::buffer::usage::uniform);
+            camera_buffer = upload(data.data(), sizeof(data), vkz::buffer_usage_uniform);
             update_camera();
         }
 
@@ -291,32 +291,32 @@ namespace {
         void create_descriptors() {
             layout = vkz::descriptor_set_layout_builder{device_}
                          .binding(0)
-                         .descriptor_type(vkz::descriptor::type::acceleration_structure)
+                         .descriptor_type(vkz::descriptor_type_acceleration_structure)
                          .descriptor_count(1)
-                         .shader_stages(vkz::shader_stage::raygen)
+                         .shader_stages(vkz::shader_stage_raygen)
                          .binding(1)
-                         .descriptor_type(vkz::descriptor::type::storage_image)
+                         .descriptor_type(vkz::descriptor_type_storage_image)
                          .descriptor_count(1)
-                         .shader_stages(vkz::shader_stage::raygen)
+                         .shader_stages(vkz::shader_stage_raygen)
                          .binding(2)
-                         .descriptor_type(vkz::descriptor::type::uniform_buffer)
+                         .descriptor_type(vkz::descriptor_type_uniform_buffer)
                          .descriptor_count(1)
-                         .shader_stages(vkz::shader_stage::raygen)
+                         .shader_stages(vkz::shader_stage_raygen)
                          .binding(3)
-                         .descriptor_type(vkz::descriptor::type::storage_buffer)
+                         .descriptor_type(vkz::descriptor_type_storage_buffer)
                          .descriptor_count(1)
-                         .shader_stages(vkz::shader_stage::closest_hit)
+                         .shader_stages(vkz::shader_stage_closest_hit)
                          .binding(4)
-                         .descriptor_type(vkz::descriptor::type::storage_buffer)
+                         .descriptor_type(vkz::descriptor_type_storage_buffer)
                          .descriptor_count(1)
-                         .shader_stages(vkz::shader_stage::closest_hit)
+                         .shader_stages(vkz::shader_stage_closest_hit)
                          .create_layout();
             descriptors = vkz::descriptor_pool{device_,
                                                1,
-                                               {{static_cast<VkDescriptorType>(vkz::descriptor::type::acceleration_structure), 1},
-                                                {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), 1},
-                                                {static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1},
-                                                {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 2}}};
+                                               {{static_cast<VkDescriptorType>(vkz::descriptor_type_acceleration_structure), 1},
+                                                {static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), 1},
+                                                {static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 1},
+                                                {static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 2}}};
             descriptor_set = descriptors.allocate(layout);
         }
 
@@ -355,7 +355,7 @@ namespace {
         void build_acceleration() {
             for (size_t i = 0; i < instance_options.size(); ++i)
                 instance_options[i] = {static_cast<uint8_t>(1u << i), static_cast<uint32_t>(offsets[i])};
-            vkz::command_pool commands{device_, app_.queue_family_index(), vkz::command_pool_flags::transient, app_.graphics_queue()};
+            vkz::command_pool commands{device_, app_.queue_family_index(), vkz::command_pool_flags_transient, app_.graphics_queue()};
             auto command_buffer = commands.create_command_buffer();
             acceleration.build(command_buffer, scene, {vertices, indices}, {}, instance_options);
             commands.submit_and_wait(command_buffer);
@@ -370,7 +370,7 @@ namespace {
             write.pNext = &acceleration_info;
             write.dstSet = descriptor_set.handle;
             write.dstBinding = 0;
-            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::acceleration_structure);
+            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor_type_acceleration_structure);
             write.descriptorCount = 1;
             vkUpdateDescriptorSets(device_, 1, &write, 0, nullptr);
             vkz::update_descriptor(device_, {descriptor_set,
@@ -387,9 +387,9 @@ namespace {
         }
 
         void trace(VkCommandBuffer command_buffer) {
-            const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
-            vkz::barrier::push_and_flush(command_buffer, display.image, range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::ray_tracing_shader, vkz::access::memory_read_write,
-                                         vkz::access::shader_write, VK_IMAGE_LAYOUT_GENERAL);
+            const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1};
+            vkz::barrier::push_and_flush(command_buffer, display.image, range, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_ray_tracing_shader, vkz::access_memory_read_write,
+                                         vkz::access_shader_write, VK_IMAGE_LAYOUT_GENERAL);
             constants.cull_mask = static_cast<uint32_t>(cull_mask);
             constants.ray_offset = static_cast<uint32_t>(ray_offset);
             constants.ray_stride = static_cast<uint32_t>(ray_stride);
@@ -399,8 +399,8 @@ namespace {
             vkCmdBindDescriptorSets(command_buffer, pipeline.bind_point, pipeline.layout, 0, 1, &descriptor_set.handle, 0, nullptr);
             vkCmdPushConstants(command_buffer, pipeline.layout, static_cast<VkShaderStageFlags>(ray_stages), 0, sizeof(constants), &constants);
             vkz::trace_ray(command_buffer, pipeline, width, height, alternate_ray_generation ? "dimmer" : "primary");
-            vkz::barrier::push_and_flush(command_buffer, display.image, range, vkz::pipeline::stage::ray_tracing_shader, vkz::pipeline::stage::fragment_shader, vkz::access::shader_write,
-                                         vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            vkz::barrier::push_and_flush(command_buffer, display.image, range, vkz::pipeline_stage_ray_tracing_shader, vkz::pipeline_stage_fragment_shader, vkz::access_shader_write,
+                                         vkz::access_shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
 
         void verify_camera_input() {
@@ -442,17 +442,17 @@ namespace {
         }
 
         void verify_case(std::initializer_list<int> expected, float exposure, const char *name) {
-            vkz::command_pool commands{device_, app_.queue_family_index(), vkz::command_pool_flags::transient, app_.graphics_queue()};
+            vkz::command_pool commands{device_, app_.queue_family_index(), vkz::command_pool_flags_transient, app_.graphics_queue()};
             auto command_buffer = commands.create_command_buffer();
             app_logic(command_buffer);
-            const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
-            vkz::barrier::push_and_flush(command_buffer, display.image, range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::transfer, vkz::access::memory_read_write,
-                                         vkz::access::transfer_read, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1};
+            vkz::barrier::push_and_flush(command_buffer, display.image, range, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_transfer, vkz::access_memory_read_write,
+                                         vkz::access_transfer_read, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             VkBufferImageCopy copy{};
-            copy.imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 0, 1};
+            copy.imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 0, 1};
             copy.imageExtent = {width, height, 1};
             vkCmdCopyImageToBuffer(command_buffer, display.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readback, 1, &copy);
-            vkz::barrier::push_and_flush(command_buffer, vkz::pipeline::stage::transfer, vkz::pipeline::stage::host, vkz::access::transfer_write, vkz::access::host_read);
+            vkz::barrier::push_and_flush(command_buffer, vkz::pipeline_stage_transfer, vkz::pipeline_stage_host, vkz::access_transfer_write, vkz::access_host_read);
             commands.submit_and_wait(command_buffer);
             VKZ_CHECK_VULKAN(vmaInvalidateAllocation(readback.allocator, readback.allocation, 0, VK_WHOLE_SIZE));
             auto mapping = readback.map();
@@ -487,7 +487,7 @@ namespace {
         const test_timeout &timeout;
         vkz::vma_memory_allocator ray_allocator;
         vkz::mesh::data scene;
-        vkz::mesh::bvh acceleration;
+        vkz::bvh acceleration;
         vkz::buffer vertices;
         vkz::buffer indices;
         vkz::buffer camera_buffer;
@@ -498,7 +498,7 @@ namespace {
         vkz::descriptor_pool descriptors;
         vkz::descriptor_set descriptor_set{};
         vkz::ray_tracing_pipeline pipeline;
-        std::array<vkz::mesh::bvh_instance_options, 3> instance_options{};
+        std::array<vkz::bvh_instance_options, 3> instance_options{};
         std::array<int, 3> offsets{0, 2, 4};
         int cull_mask{7};
         int ray_offset{};

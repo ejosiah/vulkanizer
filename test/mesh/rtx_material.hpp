@@ -56,17 +56,17 @@ namespace vkz::rtx {
     static_assert(sizeof(scene_uniform) == 136 && sizeof(material_uniform) == 992 && sizeof(instance_uniform) == 128);
 
     inline constexpr std::array<VkDescriptorSetLayoutBinding, 5> scene_bindings{
-        {{0, static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), nullptr},
-         {1, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex), nullptr},
-         {2, static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment), nullptr},
-         {3, static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment), nullptr},
-         {4, static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment), nullptr}}};
+        {{0, static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_vertex | vkz::shader_stage_fragment), nullptr},
+         {1, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_vertex), nullptr},
+         {2, static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_fragment), nullptr},
+         {3, static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_fragment), nullptr},
+         {4, static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_fragment), nullptr}}};
 
     inline constexpr auto material_bindings = [] {
         std::array<VkDescriptorSetLayoutBinding, mesh::material_texture_count + 1> result{};
-        result[0] = {0, static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), nullptr};
+        result[0] = {0, static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_vertex | vkz::shader_stage_fragment), nullptr};
         for (uint32_t i = 1; i < result.size(); ++i)
-            result[i] = {i, static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment), nullptr};
+            result[i] = {i, static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 1, static_cast<VkShaderStageFlags>(vkz::shader_stage_fragment), nullptr};
         return result;
     }();
 

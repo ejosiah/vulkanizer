@@ -86,27 +86,27 @@ namespace vkz {
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::ray_generation_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::raygen);
+        return add_shader(source, vkz::shader_stage_raygen);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::miss_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::miss);
+        return add_shader(source, vkz::shader_stage_miss);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::closest_hit_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::closest_hit);
+        return add_shader(source, vkz::shader_stage_closest_hit);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::any_hit_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::any_hit);
+        return add_shader(source, vkz::shader_stage_any_hit);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::intersection_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::intersection);
+        return add_shader(source, vkz::shader_stage_intersection);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::callable_shader(const shader_source &source) {
-        return add_shader(source, vkz::shader_stage::callable);
+        return add_shader(source, vkz::shader_stage_callable);
     }
 
     ray_tracing_shader_group_builder &ray_tracing_shader_group_builder::entry_point(std::string value) {
@@ -166,21 +166,21 @@ namespace vkz {
                 stages |= shader.type;
             switch (group->type) {
             case shader_group_type::ray_generation:
-                VKZ_ASSERT(stages == vkz::shader_stage::raygen, "Ray generation group requires exactly one ray generation shader");
+                VKZ_ASSERT(stages == vkz::shader_stage_raygen, "Ray generation group requires exactly one ray generation shader");
                 ray_generation = true;
                 break;
             case shader_group_type::miss:
-                VKZ_ASSERT(stages == vkz::shader_stage::miss, "Miss group requires exactly one miss shader");
+                VKZ_ASSERT(stages == vkz::shader_stage_miss, "Miss group requires exactly one miss shader");
                 break;
             case shader_group_type::callable:
-                VKZ_ASSERT(stages == vkz::shader_stage::callable, "Callable group requires exactly one callable shader");
+                VKZ_ASSERT(stages == vkz::shader_stage_callable, "Callable group requires exactly one callable shader");
                 break;
             case shader_group_type::triangles_hit:
-                VKZ_ASSERT((stages & ~(vkz::shader_stage::closest_hit | vkz::shader_stage::any_hit)) == vkz::shader_stage::none, "Triangle group has an invalid shader stage");
+                VKZ_ASSERT((stages & ~(vkz::shader_stage_closest_hit | vkz::shader_stage_any_hit)) == vkz::shader_stage_none, "Triangle group has an invalid shader stage");
                 break;
             case shader_group_type::procedural_hit:
-                VKZ_ASSERT((stages & vkz::shader_stage::intersection) != vkz::shader_stage::none &&
-                               (stages & ~(vkz::shader_stage::closest_hit | vkz::shader_stage::any_hit | vkz::shader_stage::intersection)) == vkz::shader_stage::none,
+                VKZ_ASSERT((stages & vkz::shader_stage_intersection) != vkz::shader_stage_none &&
+                               (stages & ~(vkz::shader_stage_closest_hit | vkz::shader_stage_any_hit | vkz::shader_stage_intersection)) == vkz::shader_stage_none,
                            "Procedural group requires an intersection shader");
                 break;
             }
@@ -240,11 +240,11 @@ namespace vkz {
                 stage.pName = shader.entry.c_str();
                 stage.pSpecializationInfo = shader.entries.empty() ? nullptr : &specialization;
                 stages.push_back(stage);
-                if (shader.type == vkz::shader_stage::closest_hit)
+                if (shader.type == vkz::shader_stage_closest_hit)
                     description.closestHitShader = index;
-                else if (shader.type == vkz::shader_stage::any_hit)
+                else if (shader.type == vkz::shader_stage_any_hit)
                     description.anyHitShader = index;
-                else if (shader.type == vkz::shader_stage::intersection)
+                else if (shader.type == vkz::shader_stage_intersection)
                     description.intersectionShader = index;
                 else
                     description.generalShader = index;

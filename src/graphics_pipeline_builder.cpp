@@ -78,12 +78,12 @@ namespace vkz {
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::allow_derivatives() {
-        _flags |= vkz::pipeline::flags::allow_derivatives;
+        _flags |= vkz::pipeline_flags_allow_derivatives;
         return *this;
     }
 
     graphics_pipeline_builder &graphics_pipeline_builder::set_derivatives() {
-        _flags |= vkz::pipeline::flags::derivative;
+        _flags |= vkz::pipeline_flags_derivative;
         return *this;
     }
 
@@ -171,7 +171,7 @@ namespace vkz {
         info.pColorBlendState = &color_blend_state;
         info.pDynamicState = &dynamic_state;
 
-        if (has_flag(_flags, vkz::pipeline::flags::derivative)) {
+        if (has_flag(_flags, vkz::pipeline_flags_derivative)) {
             assert(_base_pipeline);
             info.basePipelineHandle = _base_pipeline;
             info.basePipelineIndex = -1;

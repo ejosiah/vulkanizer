@@ -28,27 +28,27 @@ namespace rtx {
 
         parameters_ = vkz::buffer::builder(allocator_)
             .size(sizeof(data_))
-            .usage(vkz::buffer::usage::uniform)
+            .usage(vkz::buffer_usage_uniform)
             .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
             .build();
 
         filter_layout_ = vkz::descriptor_set_layout_builder{device_}
                              .binding(0)
-                             .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                             .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                              .descriptor_count(1)
-                             .shader_stages(vkz::shader_stage::compute)
+                             .shader_stages(vkz::shader_stage_compute)
                              .binding(1)
-                             .descriptor_type(vkz::descriptor::type::storage_image)
+                             .descriptor_type(vkz::descriptor_type_storage_image)
                              .descriptor_count(1)
-                             .shader_stages(vkz::shader_stage::compute)
+                             .shader_stages(vkz::shader_stage_compute)
                              .binding(2)
-                             .descriptor_type(vkz::descriptor::type::storage_image)
+                             .descriptor_type(vkz::descriptor_type_storage_image)
                              .descriptor_count(1)
-                             .shader_stages(vkz::shader_stage::compute)
+                             .shader_stages(vkz::shader_stage_compute)
                              .create_layout();
 
         filter_pool_ = vkz::descriptor_pool{
-            device_, 1, {{static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), 1}, {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), 2}}};
+            device_, 1, {{static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), 1}, {static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), 2}}};
         filter_set_ = filter_pool_.allocate(filter_layout_);
 
         filter_pipeline_ = vkz::compute_pipeline_builder{device_}
@@ -56,7 +56,7 @@ namespace rtx {
                                .compute_shader(std::vector<uint32_t>(filter_shader.begin(), filter_shader.end()))
                                .layout()
                                .add_descriptor_set_layout(filter_layout_)
-                               .add_push_constant_range(vkz::shader_stage::compute, 0, sizeof(int))
+                               .add_push_constant_range(vkz::shader_stage_compute, 0, sizeof(int))
                                .build();
 
         const auto frames = clip.frames();
@@ -96,14 +96,14 @@ namespace rtx {
             .format(VK_FORMAT_R16G16B16A16_SFLOAT)
             .extent(width, height)
             .array_layers(layers)
-            .usage(vkz::image::usage::sampled_storage_transfer)
+            .usage(vkz::image_usage_sampled_storage_transfer)
             .build();
 
         result.image_view = vkz::image_view::builder(device_)
                                 .image(result.image)
                                 .format(VK_FORMAT_R16G16B16A16_SFLOAT)
                                 .view_type(layers == 1 ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY)
-                                .subresource_range({static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, layers})
+                                .subresource_range({static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, layers})
                                 .build();
 
         result.sampler =
@@ -126,7 +126,7 @@ namespace rtx {
 
         auto staging = vkz::buffer::builder(allocator_)
             .size(half_values.size() * sizeof(uint16_t))
-            .usage(vkz::buffer::usage::transfer_src)
+            .usage(vkz::buffer_usage_transfer_src)
             .memory_usage(VMA_MEMORY_USAGE_CPU_ONLY)
             .build();
 
@@ -135,11 +135,11 @@ namespace rtx {
         staging.flush();
         mapping.unmap();
 
-        vkz::command_pool uploads{device_, queue_family_, vkz::command_pool_flags::transient, queue_};
+        vkz::command_pool uploads{device_, queue_family_, vkz::command_pool_flags_transient, queue_};
         const auto cmd = uploads.create_command_buffer();
         vkz::copy(cmd, staging, result.image);
-        vkz::barrier::push_and_flush(cmd, result.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer, vkz::pipeline::stage::all_commands,
-                                     vkz::access::transfer_write, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        vkz::barrier::push_and_flush(cmd, result.image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1}, vkz::pipeline_stage_transfer, vkz::pipeline_stage_all_commands,
+                                     vkz::access_transfer_write, vkz::access_shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         uploads.submit_and_wait(cmd);
         staging.destroy();
         return result;
@@ -255,15 +255,15 @@ namespace rtx {
             const auto count = size_t(extent.width) * extent.height * target->image.create_info.arrayLayers;
             auto readback = vkz::buffer::builder(allocator_)
                 .size(count * 4 * sizeof(uint16_t))
-                .usage(vkz::buffer::usage::transfer_dst)
+                .usage(vkz::buffer_usage_transfer_dst)
                 .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
                 .build();
 
-            vkz::command_pool commands{device_, queue_family_, vkz::command_pool_flags::transient, queue_};
+            vkz::command_pool commands{device_, queue_family_, vkz::command_pool_flags_transient, queue_};
             const auto cmd = commands.create_command_buffer();
             vkz::copy(cmd, *target, readback);
-            vkz::barrier::push_and_flush(cmd, target->image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, target->image.create_info.arrayLayers},
-                                         vkz::pipeline::stage::transfer, vkz::pipeline::stage::all_commands, vkz::access::transfer_read, vkz::access::shader_read,
+            vkz::barrier::push_and_flush(cmd, target->image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, target->image.create_info.arrayLayers},
+                                         vkz::pipeline_stage_transfer, vkz::pipeline_stage_all_commands, vkz::access_transfer_read, vkz::access_shader_read,
                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             vkz::barrier::gpu_to_cpu(cmd);
             commands.submit_and_wait(cmd);
@@ -299,34 +299,34 @@ namespace rtx {
 
     void tv_light::filter_frame(const vkz::texture &frame) {
         vkz::update_descriptor(device_, {.descriptor_set = filter_set_,
-                                         .bindings = {vkz::make_descriptor<vkz::texture_descriptor>(frame, 0), vkz::image_descriptor{screen_.image_view, VK_IMAGE_LAYOUT_GENERAL, 1},
+                                         .bindings = {vkz::descriptor<vkz::texture_descriptor>(frame, 0), vkz::image_descriptor{screen_.image_view, VK_IMAGE_LAYOUT_GENERAL, 1},
                                                       vkz::image_descriptor{filtered_.image_view, VK_IMAGE_LAYOUT_GENERAL, 2}}});
 
-        vkz::command_pool commands{device_, queue_family_, vkz::command_pool_flags::transient, queue_};
+        vkz::command_pool commands{device_, queue_family_, vkz::command_pool_flags_transient, queue_};
         const auto cmd = commands.create_command_buffer();
 
         for (auto *target : {&screen_, &filtered_}) {
-            vkz::barrier::push_and_flush(cmd, target->image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, target->image.create_info.arrayLayers},
-                                         vkz::pipeline::stage::all_commands, vkz::pipeline::stage::compute_shader, vkz::access::shader_read, vkz::access::shader_write, VK_IMAGE_LAYOUT_GENERAL);
+            vkz::barrier::push_and_flush(cmd, target->image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, target->image.create_info.arrayLayers},
+                                         vkz::pipeline_stage_all_commands, vkz::pipeline_stage_compute_shader, vkz::access_shader_read, vkz::access_shader_write, VK_IMAGE_LAYOUT_GENERAL);
         }
 
         vkz::bind_pipeline(cmd, filter_pipeline_);
         vkz::bind_descriptor_sets(cmd, filter_pipeline_, {filter_set_});
-        vkz::push_constants(cmd, filter_pipeline_, 0, vkz::shader_stage::compute);
+        vkz::push_constants(cmd, filter_pipeline_, 0, vkz::shader_stage_compute);
         vkz::dispatch(cmd, (screen_.image.create_info.extent.width + 7) / 8,
             (screen_.image.create_info.extent.height + 7) / 8, 1);
 
         for (auto *target : {&screen_, &filtered_}) {
-            vkz::barrier::push_and_flush(cmd, target->image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, target->image.create_info.arrayLayers},
-                                         vkz::pipeline::stage::compute_shader, vkz::pipeline::stage::compute_shader, vkz::access::shader_write, vkz::access::shader_write, VK_IMAGE_LAYOUT_GENERAL);
+            vkz::barrier::push_and_flush(cmd, target->image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, target->image.create_info.arrayLayers},
+                                         vkz::pipeline_stage_compute_shader, vkz::pipeline_stage_compute_shader, vkz::access_shader_write, vkz::access_shader_write, VK_IMAGE_LAYOUT_GENERAL);
         }
 
-        vkz::push_constants(cmd, filter_pipeline_, 1, vkz::shader_stage::compute);
+        vkz::push_constants(cmd, filter_pipeline_, 1, vkz::shader_stage_compute);
         vkz::dispatch(cmd, 32, 32, 11);
 
         for (auto *target : {&screen_, &filtered_}) {
-            vkz::barrier::push_and_flush(cmd, target->image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, target->image.create_info.arrayLayers},
-                                         vkz::pipeline::stage::compute_shader, vkz::pipeline::stage::all_commands, vkz::access::shader_write, vkz::access::shader_read,
+            vkz::barrier::push_and_flush(cmd, target->image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, target->image.create_info.arrayLayers},
+                                         vkz::pipeline_stage_compute_shader, vkz::pipeline_stage_all_commands, vkz::access_shader_write, vkz::access_shader_read,
                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
 
@@ -339,16 +339,16 @@ namespace rtx {
         const auto count = size_t(extent.width) * extent.height * 4;
         auto readback = vkz::buffer::builder(allocator_)
             .size(count * sizeof(uint16_t))
-            .usage(vkz::buffer::usage::transfer_dst)
+            .usage(vkz::buffer_usage_transfer_dst)
             .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
             .build();
 
         const auto capture = [&] {
-            vkz::command_pool commands{device_, queue_family_, vkz::command_pool_flags::transient, queue_};
+            vkz::command_pool commands{device_, queue_family_, vkz::command_pool_flags_transient, queue_};
             const auto cmd = commands.create_command_buffer();
             vkz::copy(cmd, color, readback);
-            vkz::barrier::push_and_flush(cmd, color.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer, vkz::pipeline::stage::all_commands,
-                                         vkz::access::transfer_read, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            vkz::barrier::push_and_flush(cmd, color.image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1}, vkz::pipeline_stage_transfer, vkz::pipeline_stage_all_commands,
+                                         vkz::access_transfer_read, vkz::access_shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             vkz::barrier::gpu_to_cpu(cmd);
             commands.submit_and_wait(cmd);
             readback.invalidate();
@@ -366,7 +366,7 @@ namespace rtx {
         const auto lit = capture();
         update_strength(0);
         {
-            vkz::command_pool commands{device_, queue_family_, vkz::command_pool_flags::transient, queue_};
+            vkz::command_pool commands{device_, queue_family_, vkz::command_pool_flags_transient, queue_};
             const auto cmd = commands.create_command_buffer();
             render(cmd);
             commands.submit_and_wait(cmd);

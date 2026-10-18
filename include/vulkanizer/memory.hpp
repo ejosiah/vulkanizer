@@ -101,6 +101,52 @@ namespace vkz {
             return _;
         }
     };
+    // Flat aliases retain the original enum type and bitmask operators.
+    using buffer_usage = buffer::usage;
+    inline constexpr buffer_usage buffer_usage_none = buffer::usage::none;
+    inline constexpr buffer_usage buffer_usage_transfer_src = buffer::usage::transfer_src;
+    inline constexpr buffer_usage buffer_usage_transfer_dst = buffer::usage::transfer_dst;
+    inline constexpr buffer_usage buffer_usage_uniform_texel = buffer::usage::uniform_texel;
+    inline constexpr buffer_usage buffer_usage_storage_texel = buffer::usage::storage_texel;
+    inline constexpr buffer_usage buffer_usage_uniform = buffer::usage::uniform;
+    inline constexpr buffer_usage buffer_usage_storage = buffer::usage::storage;
+    inline constexpr buffer_usage buffer_usage_index = buffer::usage::index;
+    inline constexpr buffer_usage buffer_usage_vertex = buffer::usage::vertex;
+    inline constexpr buffer_usage buffer_usage_indirect = buffer::usage::indirect;
+    inline constexpr buffer_usage buffer_usage_device_address = buffer::usage::device_address;
+    inline constexpr buffer_usage buffer_usage_conditional_rendering = buffer::usage::conditional_rendering;
+    inline constexpr buffer_usage buffer_usage_transform_feedback = buffer::usage::transform_feedback;
+    inline constexpr buffer_usage buffer_usage_transform_feedback_counter = buffer::usage::transform_feedback_counter;
+    inline constexpr buffer_usage buffer_usage_video_decode_src = buffer::usage::video_decode_src;
+    inline constexpr buffer_usage buffer_usage_video_decode_dst = buffer::usage::video_decode_dst;
+    inline constexpr buffer_usage buffer_usage_video_encode_src = buffer::usage::video_encode_src;
+    inline constexpr buffer_usage buffer_usage_video_encode_dst = buffer::usage::video_encode_dst;
+    inline constexpr buffer_usage buffer_usage_acceleration_structure_input = buffer::usage::acceleration_structure_input;
+    inline constexpr buffer_usage buffer_usage_acceleration_structure_storage = buffer::usage::acceleration_structure_storage;
+    inline constexpr buffer_usage buffer_usage_shader_binding_table = buffer::usage::shader_binding_table;
+    inline constexpr buffer_usage buffer_usage_sampler_descriptor = buffer::usage::sampler_descriptor;
+    inline constexpr buffer_usage buffer_usage_resource_descriptor = buffer::usage::resource_descriptor;
+    inline constexpr buffer_usage buffer_usage_push_descriptor = buffer::usage::push_descriptor;
+    inline constexpr buffer_usage buffer_usage_micromap_input = buffer::usage::micromap_input;
+    inline constexpr buffer_usage buffer_usage_micromap_storage = buffer::usage::micromap_storage;
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+    inline constexpr buffer_usage buffer_usage_execution_graph_scratch = buffer::usage::execution_graph_scratch;
+#endif
+    inline constexpr buffer_usage buffer_usage_storage_upload = buffer::usage::storage_upload;
+    inline constexpr buffer_usage buffer_usage_uniform_upload = buffer::usage::uniform_upload;
+    inline constexpr buffer_usage buffer_usage_indirect_storage = buffer::usage::indirect_storage;
+    inline constexpr buffer_usage buffer_usage_storage_transfer = buffer::usage::storage_transfer;
+    inline constexpr buffer_usage buffer_usage_transfer = buffer::usage::transfer;
+    inline constexpr buffer_usage buffer_usage_vertex_storage = buffer::usage::vertex_storage;
+    inline constexpr buffer_usage buffer_usage_storage_download = buffer::usage::storage_download;
+    inline constexpr buffer_usage buffer_usage_acceleration_input = buffer::usage::acceleration_input;
+    inline constexpr buffer_usage buffer_usage_acceleration_storage_input = buffer::usage::acceleration_storage_input;
+    inline constexpr buffer_usage buffer_usage_index_storage = buffer::usage::index_storage;
+    inline constexpr buffer_usage buffer_usage_vertex_upload = buffer::usage::vertex_upload;
+    inline constexpr buffer_usage buffer_usage_indirect_storage_transfer = buffer::usage::indirect_storage_transfer;
+    inline constexpr buffer_usage buffer_usage_vertex_storage_transfer = buffer::usage::vertex_storage_transfer;
+    inline constexpr buffer_usage buffer_usage_index_storage_transfer = buffer::usage::index_storage_transfer;
+
 
     struct mesh_buffers {
         buffer vertex_buffer;
@@ -186,6 +232,62 @@ namespace vkz {
             return handle;
         }
     };
+    // Flat aliases retain the original enum type and bitmask operators.
+    using image_usage = image::usage;
+    inline constexpr image_usage image_usage_none = image::usage::none;
+    inline constexpr image_usage image_usage_transfer_src = image::usage::transfer_src;
+    inline constexpr image_usage image_usage_transfer_dst = image::usage::transfer_dst;
+    inline constexpr image_usage image_usage_sampled = image::usage::sampled;
+    inline constexpr image_usage image_usage_storage = image::usage::storage;
+    inline constexpr image_usage image_usage_color = image::usage::color;
+    inline constexpr image_usage image_usage_depth_stencil = image::usage::depth_stencil;
+    inline constexpr image_usage image_usage_transient = image::usage::transient;
+    inline constexpr image_usage image_usage_input = image::usage::input;
+    inline constexpr image_usage image_usage_video_decode_src = image::usage::video_decode_src;
+    inline constexpr image_usage image_usage_video_decode_dst = image::usage::video_decode_dst;
+    inline constexpr image_usage image_usage_video_decode_dpb = image::usage::video_decode_dpb;
+    inline constexpr image_usage image_usage_video_encode_src = image::usage::video_encode_src;
+    inline constexpr image_usage image_usage_video_encode_dst = image::usage::video_encode_dst;
+    inline constexpr image_usage image_usage_video_encode_dpb = image::usage::video_encode_dpb;
+    inline constexpr image_usage image_usage_fragment_density_map = image::usage::fragment_density_map;
+    inline constexpr image_usage image_usage_fragment_shading_rate = image::usage::fragment_shading_rate;
+    inline constexpr image_usage image_usage_host_transfer = image::usage::host_transfer;
+    inline constexpr image_usage image_usage_attachment_feedback_loop = image::usage::attachment_feedback_loop;
+    inline constexpr image_usage image_usage_invocation_mask = image::usage::invocation_mask;
+    inline constexpr image_usage image_usage_sample_weight = image::usage::sample_weight;
+    inline constexpr image_usage image_usage_sample_block_match = image::usage::sample_block_match;
+    inline constexpr image_usage image_usage_sampled_storage = image::usage::sampled_storage;
+    inline constexpr image_usage image_usage_sampled_storage_transfer = image::usage::sampled_storage_transfer;
+    inline constexpr image_usage image_usage_sampled_upload = image::usage::sampled_upload;
+    inline constexpr image_usage image_usage_color_sampled = image::usage::color_sampled;
+    inline constexpr image_usage image_usage_color_download = image::usage::color_download;
+    inline constexpr image_usage image_usage_sampled_storage_download = image::usage::sampled_storage_download;
+    inline constexpr image_usage image_usage_sampled_transfer = image::usage::sampled_transfer;
+    inline constexpr image_usage image_usage_color_input_sampled_download = image::usage::color_input_sampled_download;
+    inline constexpr image_usage image_usage_color_sampled_storage = image::usage::color_sampled_storage;
+    inline constexpr image_usage image_usage_depth_stencil_sampled = image::usage::depth_stencil_sampled;
+    inline constexpr image_usage image_usage_sampled_storage_upload = image::usage::sampled_storage_upload;
+    inline constexpr image_usage image_usage_storage_download = image::usage::storage_download;
+    inline constexpr image_usage image_usage_transfer = image::usage::transfer;
+    inline constexpr image_usage image_usage_color_input_sampled = image::usage::color_input_sampled;
+    inline constexpr image_usage image_usage_color_sampled_upload = image::usage::color_sampled_upload;
+    inline constexpr image_usage image_usage_storage_transfer = image::usage::storage_transfer;
+
+    using image_aspect = image::aspect;
+    inline constexpr image_aspect image_aspect_none = image::aspect::none;
+    inline constexpr image_aspect image_aspect_color = image::aspect::color;
+    inline constexpr image_aspect image_aspect_depth = image::aspect::depth;
+    inline constexpr image_aspect image_aspect_stencil = image::aspect::stencil;
+    inline constexpr image_aspect image_aspect_metadata = image::aspect::metadata;
+    inline constexpr image_aspect image_aspect_plane_0 = image::aspect::plane_0;
+    inline constexpr image_aspect image_aspect_plane_1 = image::aspect::plane_1;
+    inline constexpr image_aspect image_aspect_plane_2 = image::aspect::plane_2;
+    inline constexpr image_aspect image_aspect_memory_plane_0 = image::aspect::memory_plane_0;
+    inline constexpr image_aspect image_aspect_memory_plane_1 = image::aspect::memory_plane_1;
+    inline constexpr image_aspect image_aspect_memory_plane_2 = image::aspect::memory_plane_2;
+    inline constexpr image_aspect image_aspect_memory_plane_3 = image::aspect::memory_plane_3;
+    inline constexpr image_aspect image_aspect_depth_stencil = image::aspect::depth_stencil;
+
 
     struct image_view {
         using flags = vkz::image_view_flags;
@@ -206,7 +308,7 @@ namespace vkz {
     };
 
     struct sub_resource {
-        image::aspect aspect_mask{image::aspect::color};
+        vkz::image_aspect aspect_mask{vkz::image_aspect_color};
         uint32_t base_mip_level{0};
         uint32_t level_count{1};
         uint32_t base_array_layer{0};
@@ -412,11 +514,21 @@ namespace vkz {
     public:
         explicit buffer_builder(vma_memory_allocator &allocator);
 
-        buffer_builder &flags(vkz::buffer::flags value);
+        buffer_builder &flags(vkz::buffer_flags value);
+        #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        buffer_builder &flags(VkBufferCreateFlags value) {
+            return flags(static_cast<vkz::buffer_flags >(value));
+        }
+        #endif
 
         buffer_builder &size(VkDeviceSize value);
 
-        buffer_builder &usage(buffer::usage value);
+        buffer_builder &usage(vkz::buffer_usage value);
+        #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        buffer_builder &usage(VkBufferUsageFlags value) {
+            return usage(static_cast<vkz::buffer_usage >(value));
+        }
+        #endif
 
         buffer_builder &sharing_mode(VkSharingMode value);
 
@@ -446,7 +558,12 @@ namespace vkz {
     public:
         explicit image_builder(vma_memory_allocator &allocator);
 
-        image_builder &flags(vkz::image::flags value);
+        image_builder &flags(vkz::image_flags value);
+        #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        image_builder &flags(VkImageCreateFlags value) {
+            return flags(static_cast<vkz::image_flags >(value));
+        }
+        #endif
 
         image_builder &type(VkImageType value);
 
@@ -461,10 +578,20 @@ namespace vkz {
         image_builder &array_layers(uint32_t value);
 
         image_builder &samples(vkz::sample_count value);
+        #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        image_builder &samples(VkSampleCountFlags value) {
+            return samples(static_cast<vkz::sample_count >(value));
+        }
+        #endif
 
         image_builder &tiling(VkImageTiling value);
 
-        image_builder &usage(image::usage value);
+        image_builder &usage(vkz::image_usage value);
+        #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        image_builder &usage(VkImageUsageFlags value) {
+            return usage(static_cast<vkz::image_usage >(value));
+        }
+        #endif
 
         image_builder &sharing_mode(VkSharingMode value);
 
@@ -490,7 +617,12 @@ namespace vkz {
     public:
         explicit image_view_builder(vkz::device device);
 
-        image_view_builder &flags(vkz::image_view::flags value);
+        image_view_builder &flags(vkz::image_view_flags value);
+        #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        image_view_builder &flags(VkImageViewCreateFlags value) {
+            return flags(static_cast<vkz::image_view_flags >(value));
+        }
+        #endif
 
         image_view_builder &image(const vkz::image &value);
 
@@ -502,7 +634,12 @@ namespace vkz {
 
         image_view_builder &subresource_range(VkImageSubresourceRange value);
 
-        image_view_builder &aspect_mask(image::aspect value);
+        image_view_builder &aspect_mask(vkz::image_aspect value);
+        #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        image_view_builder &aspect_mask(VkImageAspectFlags value) {
+            return aspect_mask(static_cast<vkz::image_aspect >(value));
+        }
+        #endif
 
         image_view_builder &base_mip_level(uint32_t value);
 
@@ -527,7 +664,12 @@ namespace vkz {
     public:
         explicit sampler_builder(vkz::device device);
 
-        sampler_builder &flags(vkz::sampler::flags value);
+        sampler_builder &flags(vkz::sampler_flags value);
+        #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        sampler_builder &flags(VkSamplerCreateFlags value) {
+            return flags(static_cast<vkz::sampler_flags >(value));
+        }
+        #endif
 
         sampler_builder &mag_filter(VkFilter value);
 
@@ -567,7 +709,7 @@ namespace vkz {
         vkz::device device_{};
         VkSamplerCreateInfo create_info_{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     };
-}
+} // namespace vkz
 
 template <> struct enable_bitmask_operators<vkz::buffer::usage> {
     static constexpr bool enable = true;

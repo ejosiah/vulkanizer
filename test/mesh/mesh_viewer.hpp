@@ -70,8 +70,8 @@ namespace reference_test {
             VkPhysicalDeviceProperties properties{};
             vkGetPhysicalDeviceProperties(device, &properties);
             VkImageFormatProperties color{}, depth{};
-            VKZ_CHECK_VULKAN(vkGetPhysicalDeviceImageFormatProperties(device, color_format, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL, static_cast<VkImageUsageFlags>(vkz::image::usage::color), 0, &color));
-            VKZ_CHECK_VULKAN(vkGetPhysicalDeviceImageFormatProperties(device, depth_format, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL, static_cast<VkImageUsageFlags>(vkz::image::usage::depth_stencil), 0, &depth));
+            VKZ_CHECK_VULKAN(vkGetPhysicalDeviceImageFormatProperties(device, color_format, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL, static_cast<VkImageUsageFlags>(vkz::image_usage_color), 0, &color));
+            VKZ_CHECK_VULKAN(vkGetPhysicalDeviceImageFormatProperties(device, depth_format, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL, static_cast<VkImageUsageFlags>(vkz::image_usage_depth_stencil), 0, &depth));
             const auto supported = properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts & color.sampleCounts & depth.sampleCounts;
             uint32_t selected = requested;
             while (selected > 1 && !(supported & selected))
@@ -82,7 +82,7 @@ namespace reference_test {
             return static_cast<vkz::sample_count>(selected);
         }
 
-        vkz::buffer upload(vkz::vma_memory_allocator &allocator, vkz::buffer::usage usage, const void *bytes, size_t size) {
+        vkz::buffer upload(vkz::vma_memory_allocator &allocator, vkz::buffer_usage usage, const void *bytes, size_t size) {
             auto result = vkz::buffer::builder(allocator)
                 .usage(usage)
                 .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
@@ -157,33 +157,33 @@ namespace reference_test {
         const auto device = context.device;
         const auto queue = app.graphics_queue();
         auto allocator = vkz::vma_memory_allocator::create(context, (ray_traced || ray_query) ? VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT : 0);
-        auto swapchain = app.create_swapchain(vkz::image::usage::color_download);
+        auto swapchain = app.create_swapchain(vkz::image_usage_color_download);
         auto views = vkz::create_swapchain_image_views(device, *swapchain);
         const auto width = swapchain->width(), height = swapchain->height();
-        const vkz::buffer::usage ray_usage = (ray_traced || ray_query) ? vkz::buffer::usage::acceleration_input : vkz::buffer::usage::none;
-        auto vertices = upload(allocator, vkz::buffer::usage::vertex_storage | ray_usage, scene.vertex_data.data(), scene.vertex_data.size());
-        auto indices = upload(allocator, vkz::buffer::usage::index_storage | ray_usage, scene.index_data.data(), scene.index_data.size() * sizeof(uint32_t));
+        const vkz::buffer_usage ray_usage = (ray_traced || ray_query) ? vkz::buffer_usage_acceleration_input : vkz::buffer_usage_none;
+        auto vertices = upload(allocator, vkz::buffer_usage_vertex_storage | ray_usage, scene.vertex_data.data(), scene.vertex_data.size());
+        auto indices = upload(allocator, vkz::buffer_usage_index_storage | ray_usage, scene.index_data.data(), scene.index_data.size() * sizeof(uint32_t));
         const auto depth_format = vkz::pick_depth_format(context.device.physical);
         const auto raster_samples =
-            ray_traced ? vkz::sample_count::x1 : select_samples(device.physical, wireframe ? swapchain->format() : VK_FORMAT_R32G32B32A32_SFLOAT, depth_format, samples_set ? samples : 1);
-        auto wireframe_color = make_multisample_color(allocator, {width, height}, swapchain->format(), wireframe ? raster_samples : vkz::sample_count::x1);
+            ray_traced ? vkz::sample_count_x1 : select_samples(device.physical, wireframe ? swapchain->format() : VK_FORMAT_R32G32B32A32_SFLOAT, depth_format, samples_set ? samples : 1);
+        auto wireframe_color = make_multisample_color(allocator, {width, height}, swapchain->format(), wireframe ? raster_samples : vkz::sample_count_x1);
         auto depth = vkz::image::builder(allocator)
             .format(depth_format)
             .extent(width, height)
             .samples(raster_samples)
-            .usage(vkz::image::usage::depth_stencil)
+            .usage(vkz::image_usage_depth_stencil)
             .build();
         auto depth_view =
             vkz::image_view::builder(device)
                 .image(depth)
                 .view_type(VK_IMAGE_VIEW_TYPE_2D)
                 .format(depth_format)
-                .aspect_mask(vkz::image::aspect::depth)
+                .aspect_mask(vkz::image_aspect_depth)
                 .level_count(1)
                 .layer_count(1)
                 .build();
         auto readback = vkz::buffer::builder(allocator)
-            .usage(vkz::buffer::usage::transfer_dst)
+            .usage(vkz::buffer_usage_transfer_dst)
             .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
             .size(VkDeviceSize(width) * height * 4)
             .build();
@@ -223,7 +223,7 @@ namespace reference_test {
                            .attachment()
                            .add()
                            .layout()
-                           .add_push_constant_range(vkz::shader_stage::vertex, 0, sizeof(push_constants))
+                           .add_push_constant_range(vkz::shader_stage_vertex, 0, sizeof(push_constants))
                            .dynamic_render_pass()
                            .add_color_attachment(swapchain->format())
                            .depth_attachment(depth_format)
@@ -264,7 +264,7 @@ namespace reference_test {
             initializer.perspective(65, float(width) / height, 0.05f, 1000);
         }
         vkz::camera::controller controller(camera, options.orbit ? vkz::camera::movement_type::orbit : vkz::camera::movement_type::first_person, input.get_device());
-        vkz::fenced_command_pools commands{device, queue, app.queue_family_index(), vkz::command_pool_flags::transient, 1};
+        vkz::fenced_command_pools commands{device, queue, app.queue_family_index(), vkz::command_pool_flags_transient, 1};
         auto available = vkz::create_semaphore(device);
         std::vector<VkSemaphore> finished(swapchain->image_count());
         for (auto &semaphore : finished)
@@ -291,32 +291,32 @@ namespace reference_test {
             if (result != VK_SUBOPTIMAL_KHR) VKZ_CHECK_VULKAN(result);
             auto cmd = commands.create_command_buffer();
             VkImage color = swapchain->get_image(index);
-            VkImageSubresourceRange color_range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
-            VkImageSubresourceRange depth_range{static_cast<VkImageAspectFlags>(vkz::image::aspect::depth), 0, 1, 0, 1};
-            const auto output_stage = vkz::pipeline::stage::color_attachment_output;
-            const auto output_access = vkz::access::color_attachment_write;
+            VkImageSubresourceRange color_range{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1};
+            VkImageSubresourceRange depth_range{static_cast<VkImageAspectFlags>(vkz::image_aspect_depth), 0, 1, 0, 1};
+            const auto output_stage = vkz::pipeline_stage_color_attachment_output;
+            const auto output_access = vkz::access_color_attachment_write;
             const auto output_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            vkz::barrier::push_and_flush(cmd, color, color_range, output_stage, output_stage, vkz::access::none, output_access, VK_IMAGE_LAYOUT_UNDEFINED, output_layout);
+            vkz::barrier::push_and_flush(cmd, color, color_range, output_stage, output_stage, vkz::access_none, output_access, VK_IMAGE_LAYOUT_UNDEFINED, output_layout);
             if (ray_traced) {
                 reference_renderer->trace(cmd);
             } else {
-                const auto depth_stages = vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests;
+                const auto depth_stages = vkz::pipeline_stage_early_fragment_tests | vkz::pipeline_stage_late_fragment_tests;
                 const bool initialized = depth.layout != VK_IMAGE_LAYOUT_UNDEFINED;
-                vkz::barrier::push_and_flush(cmd, depth, depth_range, initialized ? depth_stages : vkz::pipeline::stage::none, depth_stages,
-                                             initialized ? vkz::access::depth_stencil_attachment_write : vkz::access::none, vkz::access::depth_stencil_attachment_read_write,
+                vkz::barrier::push_and_flush(cmd, depth, depth_range, initialized ? depth_stages : vkz::pipeline_stage_none, depth_stages,
+                                             initialized ? vkz::access_depth_stencil_attachment_write : vkz::access_none, vkz::access_depth_stencil_attachment_read_write,
                                              VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
                 if (reference_renderer) reference_renderer->prepare_color(cmd);
-                if (wireframe && raster_samples != vkz::sample_count::x1)
-                    vkz::barrier::push_and_flush(cmd, wireframe_color.image, color_range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::color_attachment_output,
-                                                 vkz::access::memory_read_write, vkz::access::color_attachment_write, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                if (wireframe && raster_samples != vkz::sample_count_x1)
+                    vkz::barrier::push_and_flush(cmd, wireframe_color.image, color_range, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_color_attachment_output,
+                                                 vkz::access_memory_read_write, vkz::access_color_attachment_write, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
                 vkz::render_info rendering{};
                 rendering.color_attachments.push_back({.view = reference_renderer                        ? reference_renderer->color_view()
-                                                               : raster_samples != vkz::sample_count::x1 ? wireframe_color.image_view
+                                                               : raster_samples != vkz::sample_count_x1 ? wireframe_color.image_view
                                                                                                          : views[index],
                                                        .format = reference_renderer ? VK_FORMAT_R32G32B32A32_SFLOAT : swapchain->format(),
                                                        .clear_value = {0, 0, 1, 1},
                                                        .resolve = reference_renderer                        ? reference_renderer->resolve_view()
-                                                                  : raster_samples != vkz::sample_count::x1 ? std::optional{views[index]}
+                                                                  : raster_samples != vkz::sample_count_x1 ? std::optional{views[index]}
                                                                                                             : std::nullopt});
                 rendering.depth_attachment = vkz::depth_stencil_attachment{.view = depth_view, .format = depth_format, .clear_value = {1, 0}};
                 rendering.render_area = {width, height};
@@ -331,7 +331,7 @@ namespace reference_test {
                     else
                         for (const auto &instance : scene.instances) {
                             const auto &mesh = scene.meshes.at(instance.mesh_id);
-                            vkz::push_constants(cmd, pipeline, push_constants{instance.model, camera.projection * camera.view}, vkz::shader_stage::vertex);
+                            vkz::push_constants(cmd, pipeline, push_constants{instance.model, camera.projection * camera.view}, vkz::shader_stage_vertex);
                             vkCmdDrawIndexed(cmd, mesh.get_lod_indices_count(0), 1, mesh.index_offset + mesh.lod_offset[0], static_cast<int32_t>(mesh.vertex_offset), 0);
                         }
                 });
@@ -346,28 +346,28 @@ namespace reference_test {
                 });
             }
             if (!screenshot.empty()) {
-                vkz::barrier::push_and_flush(cmd, color, color_range, output_stage, vkz::pipeline::stage::transfer, output_access, vkz::access::transfer_read, output_layout,
+                vkz::barrier::push_and_flush(cmd, color, color_range, output_stage, vkz::pipeline_stage_transfer, output_access, vkz::access_transfer_read, output_layout,
                                              VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
                 VkBufferImageCopy copy{};
-                copy.imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 0, 1};
+                copy.imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 0, 1};
                 copy.imageExtent = {width, height, 1};
                 vkCmdCopyImageToBuffer(cmd, color, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readback, 1, &copy);
                 VkMemoryBarrier2 host_barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
-                host_barrier.srcStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline::stage::transfer);
-                host_barrier.srcAccessMask = static_cast<VkAccessFlags2>(vkz::access::transfer_write);
-                host_barrier.dstStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline::stage::host);
-                host_barrier.dstAccessMask = static_cast<VkAccessFlags2>(vkz::access::host_read);
+                host_barrier.srcStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline_stage_transfer);
+                host_barrier.srcAccessMask = static_cast<VkAccessFlags2>(vkz::access_transfer_write);
+                host_barrier.dstStageMask = static_cast<VkPipelineStageFlags2>(vkz::pipeline_stage_host);
+                host_barrier.dstAccessMask = static_cast<VkAccessFlags2>(vkz::access_host_read);
                 VkDependencyInfo dependency{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
                 dependency.memoryBarrierCount = 1;
                 dependency.pMemoryBarriers = &host_barrier;
                 vkCmdPipelineBarrier2(cmd, &dependency);
             }
-            vkz::barrier::push_and_flush(cmd, color, color_range, screenshot.empty() ? output_stage : vkz::pipeline::stage::transfer, vkz::pipeline::stage::none,
-                                         screenshot.empty() ? output_access : vkz::access::transfer_read, vkz::access::none, screenshot.empty() ? output_layout : VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            vkz::barrier::push_and_flush(cmd, color, color_range, screenshot.empty() ? output_stage : vkz::pipeline_stage_transfer, vkz::pipeline_stage_none,
+                                         screenshot.empty() ? output_access : vkz::access_transfer_read, vkz::access_none, screenshot.empty() ? output_layout : VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
             VKZ_CHECK_VULKAN(vkEndCommandBuffer(cmd));
             commands.enqueue(cmd);
-            commands.enqueue_wait(available, vkz::pipeline::stage::color_attachment_output);
+            commands.enqueue_wait(available, vkz::pipeline_stage_color_attachment_output);
             commands.enqueue_signal(finished[index]);
             VKZ_CHECK_VULKAN(commands.execute());
             const auto handle = swapchain->handle();

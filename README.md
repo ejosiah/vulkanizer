@@ -86,7 +86,7 @@ To create the Conan package locally:
 conan create . --build=missing
 ```
 
-This repository currently produces `vulkanizer/1.0.0`.
+This repository currently produces `vulkanizer/1.1.0`. See [release notes](CHANGELOG.md).
 
 ### CLion Debug and Release build directories
 

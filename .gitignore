@@ -136,3 +136,13 @@ doc
 /test/mesh/resources/**/*.vkmesh
 /test/mesh/resources/**/*.vkmat
 /test/mesh/resources/**/*.vkbounds
+
+# Generated Obsidian vault
+/graphify-out
+
+# NRC runtime log
+/nrc_session_log.txt
+
+# Local Codex configuration
+/.codex/
+/AGENTS.md

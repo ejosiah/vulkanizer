@@ -7,6 +7,11 @@ namespace vkz {
         multisample_state_builder(vkz::device device, graphics_pipeline_builder *parent);
 
         multisample_state_builder &rasterization_samples(vkz::sample_count flags);
+        #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+        multisample_state_builder &rasterization_samples(VkSampleCountFlags flags) {
+            return rasterization_samples(static_cast<vkz::sample_count >(flags));
+        }
+        #endif
 
         multisample_state_builder &enable_sample_shading();
 
@@ -29,4 +34,4 @@ namespace vkz {
     private:
         VkPipelineMultisampleStateCreateInfo _info;
     };
-}
+} // namespace vkz

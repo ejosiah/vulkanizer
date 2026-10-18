@@ -274,7 +274,7 @@ namespace vkz {
         }
     }
 
-    std::unique_ptr<vkz::swapchain> vulkan_app::create_swapchain(vkz::image::usage image_usage) const {
+    std::unique_ptr<vkz::swapchain> vulkan_app::create_swapchain(vkz::image_usage image_usage) const {
         auto builder = vkz::swapchain::builder(context_);
         builder.set_image_usage(image_usage);
         if (!vsync_) {
@@ -302,7 +302,7 @@ namespace vkz {
         for (uint32_t i = 0; i < queue_families.size(); ++i) {
             VkBool32 present_supported{};
             VKZ_CHECK_VULKAN(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &present_supported));
-            if ((queue_families[i].queueFlags & static_cast<VkQueueFlags>(vkz::queue::graphics)) && present_supported) {
+            if ((queue_families[i].queueFlags & static_cast<VkQueueFlags>(vkz::queue_graphics)) && present_supported) {
                 return i;
             }
         }
@@ -330,7 +330,7 @@ namespace vkz {
         VKZ_CHECK_VULKAN(vkAllocateCommandBuffers(device, &allocate_info, &command_buffer));
 
         VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        begin_info.flags = static_cast<VkCommandBufferUsageFlags>(vkz::command_buffer_usage::one_time_submit);
+        begin_info.flags = static_cast<VkCommandBufferUsageFlags>(vkz::command_buffer_usage_one_time_submit);
         VKZ_CHECK_VULKAN(vkBeginCommandBuffer(command_buffer, &begin_info));
         return command_buffer;
     }
@@ -345,7 +345,7 @@ namespace vkz {
             VkFence fence) {
         VKZ_CHECK_VULKAN(vkEndCommandBuffer(command_buffer));
 
-        const VkPipelineStageFlags wait_stage = static_cast<VkPipelineStageFlags>(vkz::pipeline::stage::color_attachment_output);
+        const VkPipelineStageFlags wait_stage = static_cast<VkPipelineStageFlags>(vkz::pipeline_stage_color_attachment_output);
         VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
         submit_info.waitSemaphoreCount = wait_semaphore ? 1u : 0u;
         submit_info.pWaitSemaphores = wait_semaphore ? &wait_semaphore : nullptr;
@@ -391,7 +391,7 @@ namespace vkz {
             VkFormatProperties properties{};
             vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
 
-            if (properties.optimalTilingFeatures & static_cast<VkFormatFeatureFlags>(vkz::format_feature::depth_stencil_attachment)) {
+            if (properties.optimalTilingFeatures & static_cast<VkFormatFeatureFlags>(vkz::format_feature_depth_stencil_attachment)) {
                 return format;
             }
         }
@@ -411,7 +411,7 @@ namespace vkz {
                 .image(swapchain_image)
                 .view_type(VK_IMAGE_VIEW_TYPE_2D)
                 .format(swapchain.format())
-                .aspect_mask(vkz::image::aspect::color)
+                .aspect_mask(vkz::image_aspect_color)
                 .level_count(1)
                 .layer_count(1)
                 .build());

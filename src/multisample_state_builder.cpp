@@ -7,7 +7,7 @@ namespace vkz {
             : graphics_pipeline_builder_proxy(parent),
             _info{
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-                .rasterizationSamples = static_cast<VkSampleCountFlagBits>(vkz::sample_count::x1)
+                .rasterizationSamples = static_cast<VkSampleCountFlagBits>(vkz::sample_count_x1)
             }
     {}
 

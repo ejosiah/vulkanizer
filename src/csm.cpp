@@ -321,28 +321,28 @@ void main(){
         current_frame_ = static_cast<size_t>(currentFrame);
         auto& shadow_map = shadow_map_[currentFrame];
         const auto descriptor_set = descriptor_sets_[current_frame_];
-        transition_shadow_map(commandBuffer, shadow_map.image, shadow_map.image.layout, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, vkz::pipeline::stage::fragment_shader,
-                              vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests, vkz::access::shader_sampled_read, vkz::access::depth_stencil_attachment_write);
+        transition_shadow_map(commandBuffer, shadow_map.image, shadow_map.image.layout, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, vkz::pipeline_stage_fragment_shader,
+                              vkz::pipeline_stage_early_fragment_tests | vkz::pipeline_stage_late_fragment_tests, vkz::access_shader_sampled_read, vkz::access_depth_stencil_attachment_write);
 
         vkz::render(commandBuffer, render_info_[currentFrame], [&] {
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &descriptor_set, 0, VK_NULL_HANDLE);
             vkCmdSetCullMode(commandBuffer, static_cast<VkCullModeFlags>(cull_mode_));
-            const bool culls_back_faces = has_flag(cull_mode_, vkz::cull_mode::back);
+            const bool culls_back_faces = has_flag(cull_mode_, vkz::cull_mode_back);
             vkCmdSetDepthBias(
                 commandBuffer,
                 culls_back_faces ? back_face_depth_bias_constant_ : depth_bias_constant_,
                 0.0f,
                 culls_back_faces ? back_face_depth_bias_slope_ : depth_bias_slope_);
             vkCmdSetPrimitiveTopology(commandBuffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-            vkCmdPushConstants(commandBuffer, layout_, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex), 0, sizeof(constants_), &constants_);
+            vkCmdPushConstants(commandBuffer, layout_, static_cast<VkShaderStageFlags>(vkz::shader_stage_vertex), 0, sizeof(constants_), &constants_);
 
             scene(layout_);
         });
 
         transition_shadow_map(commandBuffer, shadow_map.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                              vkz::pipeline::stage::early_fragment_tests | vkz::pipeline::stage::late_fragment_tests, vkz::pipeline::stage::fragment_shader,
-                              vkz::access::depth_stencil_attachment_write, vkz::access::shader_sampled_read);
+                              vkz::pipeline_stage_early_fragment_tests | vkz::pipeline_stage_late_fragment_tests, vkz::pipeline_stage_fragment_shader,
+                              vkz::access_depth_stencil_attachment_write, vkz::access_shader_sampled_read);
     }
 
     const texture& shadowMap(int index) const {
@@ -361,7 +361,7 @@ void main(){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debug_.pipeline);
         const auto descriptor_set = descriptor_sets_[current_frame_];
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debug_.layout, 0, 1, &descriptor_set, 0, nullptr);
-        vkCmdPushConstants(commandBuffer, debug_.layout, static_cast<VkShaderStageFlags>(vkz::shader_stage::fragment), 0, sizeof(uint), &num_cascades_);
+        vkCmdPushConstants(commandBuffer, debug_.layout, static_cast<VkShaderStageFlags>(vkz::shader_stage_fragment), 0, sizeof(uint), &num_cascades_);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     }
 
@@ -395,9 +395,9 @@ private:
                 .extent({size_, size_, 1})
                 .mip_levels(1)
                 .array_layers(num_cascades_)
-                .samples(vkz::sample_count::x1)
+                .samples(vkz::sample_count_x1)
                 .tiling(VK_IMAGE_TILING_OPTIMAL)
-                .usage(vkz::image::usage::sampled | vkz::image::usage::depth_stencil | vkz::image::usage::transfer_dst)
+                .usage(vkz::image_usage_sampled | vkz::image_usage_depth_stencil | vkz::image_usage_transfer_dst)
                 .sharing_mode(VK_SHARING_MODE_EXCLUSIVE)
                 .initial_layout(VK_IMAGE_LAYOUT_UNDEFINED)
                 .build();
@@ -406,7 +406,7 @@ private:
                 .image(shadow_map.image)
                 .view_type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
                 .format(depth_format_)
-                .aspect_mask(vkz::image::aspect::depth)
+                .aspect_mask(vkz::image_aspect_depth)
                 .base_mip_level(0)
                 .level_count(1)
                 .base_array_layer(0)
@@ -427,8 +427,8 @@ private:
                 .build();
 
             if (initial_transition_command_buffer_) {
-                transition_shadow_map(initial_transition_command_buffer_, shadow_map.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vkz::pipeline::stage::none,
-                                      vkz::pipeline::stage::fragment_shader, vkz::access::none, vkz::access::shader_sampled_read);
+                transition_shadow_map(initial_transition_command_buffer_, shadow_map.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vkz::pipeline_stage_none,
+                                      vkz::pipeline_stage_fragment_shader, vkz::access_none, vkz::access_shader_sampled_read);
             }
         }
     }
@@ -446,13 +446,13 @@ private:
 
     void createUniforms() {
         _uniforms.gpu = buffer::builder(memory_allocator_)
-            .usage(vkz::buffer::usage::storage)
+            .usage(vkz::buffer_usage_storage)
             .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
             .size(sizeof(glm::mat4) * num_cascades_)
             .build();
 
         debug_buffer_ = buffer::builder(memory_allocator_)
-            .usage(vkz::buffer::usage::storage)
+            .usage(vkz::buffer_usage_storage)
             .memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU)
             .size(sizeof(num_cascades_))
             .build();
@@ -470,17 +470,17 @@ private:
         descriptor_set_layout_ = descriptor_set_layout_builder{device_}
                                      .name("cascade_shadow_map_light_descriptor_set_layout")
                                      .binding(0)
-                                     .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                     .descriptor_type(vkz::descriptor_type_storage_buffer)
                                      .descriptor_count(1)
-                                     .shader_stages(vkz::shader_stage::vertex)
+                                     .shader_stages(vkz::shader_stage_vertex)
                                      .binding(1)
-                                     .descriptor_type(vkz::descriptor::type::combined_image_sampler)
+                                     .descriptor_type(vkz::descriptor_type_combined_image_sampler)
                                      .descriptor_count(1)
-                                     .shader_stages(vkz::shader_stage::fragment)
+                                     .shader_stages(vkz::shader_stage_fragment)
                                      .binding(2)
-                                     .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                     .descriptor_type(vkz::descriptor_type_storage_buffer)
                                      .descriptor_count(1)
-                                     .shader_stages(vkz::shader_stage::vertex)
+                                     .shader_stages(vkz::shader_stage_vertex)
                                      .create_layout()
                                      .handle;
 
@@ -488,9 +488,9 @@ private:
             vertex_include_descriptorset_layout_ = descriptor_set_layout_builder{device_}
                                                        .name("cascade_shadow_map_vertex_shader_include_layout")
                                                        .binding(0)
-                                                       .descriptor_type(vkz::descriptor::type::storage_buffer)
+                                                       .descriptor_type(vkz::descriptor_type_storage_buffer)
                                                        .descriptor_count(1)
-                                                       .shader_stages(vkz::shader_stage::vertex)
+                                                       .shader_stages(vkz::shader_stage_vertex)
                                                        .create_layout()
                                                        .handle;
             owns_vertex_include_descriptorset_layout_ = true;
@@ -514,9 +514,9 @@ private:
                                            .descriptor_set = {descriptor_sets_[frame]},
                                            .bindings =
                                                {
-                                                   make_descriptor<buffer_descriptor>(_uniforms.gpu, 0),
-                                                   make_descriptor<texture_descriptor>(shadow_map_[frame], 1),
-                                                   make_descriptor<buffer_descriptor>(debug_buffer_, 2),
+                                                   descriptor<buffer_descriptor>(_uniforms.gpu, 0),
+                                                   descriptor<texture_descriptor>(shadow_map_[frame], 1),
+                                                   descriptor<buffer_descriptor>(debug_buffer_, 2),
                                                },
                                        });
         }
@@ -566,7 +566,7 @@ private:
                         .cull_mode()
                         .primitive_topology()
                         .layout()
-                        .add_push_constant_range(vkz::shader_stage::vertex, 0, sizeof(constants_))
+                        .add_push_constant_range(vkz::shader_stage_vertex, 0, sizeof(constants_))
                         .add_descriptor_set_layout({descriptor_set_layout_, device_})
                         .add_descriptor_set_layout({vertex_include_descriptorset_layout_, device_})
                         .dynamic_render_pass()
@@ -611,7 +611,7 @@ private:
                                   .attachment()
                                   .add()
                                   .layout()
-                                  .add_push_constant_range(vkz::shader_stage::fragment, 0, sizeof(uint))
+                                  .add_push_constant_range(vkz::shader_stage_fragment, 0, sizeof(uint))
                                   .add_descriptor_set_layout({descriptor_set_layout_, device_})
                                   .render_pass(render_pass_)
                                   .subpass(0)
@@ -624,15 +624,15 @@ private:
         return (1u << num_cascades_) - 1;
     }
 
-    void transition_shadow_map(VkCommandBuffer command_buffer, image &shadow_map_image, VkImageLayout old_layout, VkImageLayout new_layout, vkz::pipeline::stage src_stage_mask,
-                               vkz::pipeline::stage dst_stage_mask, vkz::access src_access_mask, vkz::access dst_access_mask) const {
+    void transition_shadow_map(VkCommandBuffer command_buffer, image &shadow_map_image, VkImageLayout old_layout, VkImageLayout new_layout, vkz::pipeline_stage src_stage_mask,
+                               vkz::pipeline_stage dst_stage_mask, vkz::access src_access_mask, vkz::access dst_access_mask) const {
         if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED) {
-            src_stage_mask = vkz::pipeline::stage::none;
-            src_access_mask = vkz::access::none;
+            src_stage_mask = vkz::pipeline_stage_none;
+            src_access_mask = vkz::access_none;
         }
 
         VkImageSubresourceRange subresource_range{};
-        subresource_range.aspectMask = static_cast<VkImageAspectFlags>(vkz::image::aspect::depth);
+        subresource_range.aspectMask = static_cast<VkImageAspectFlags>(vkz::image_aspect_depth);
         subresource_range.baseMipLevel = 0;
         subresource_range.levelCount = 1;
         subresource_range.baseArrayLayer = 0;
@@ -677,7 +677,7 @@ private:
     float depth_bias_slope_{0.05f};
     float back_face_depth_bias_constant_{1.25f};
     float back_face_depth_bias_slope_{1.75f};
-    vkz::cull_mode cull_mode_{vkz::cull_mode::front};
+    vkz::cull_mode cull_mode_{vkz::cull_mode_front};
 
     struct {
         glm::mat4 worldTransform{1};
@@ -694,7 +694,7 @@ private:
     VkPipeline pipeline_{};
     VkPipelineLayout layout_{};
     VkRenderPass render_pass_{};
-    vkz::sample_count debug_samples_{vkz::sample_count::x1};
+    vkz::sample_count debug_samples_{vkz::sample_count_x1};
 
     struct {
         VkPipeline pipeline{};

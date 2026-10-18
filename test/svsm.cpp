@@ -33,14 +33,14 @@ int main() try {
     glfwHideWindow(app.window());
     auto &context = app.context();
     auto allocator = vkz::vma_memory_allocator::create(context);
-    vkz::command_pool commands{context.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
-    auto cpu_buffer = [&](VkDeviceSize size, vkz::buffer::usage usage) {
+    vkz::command_pool commands{context.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
+    auto cpu_buffer = [&](VkDeviceSize size, vkz::buffer_usage usage) {
         return vkz::buffer::builder(allocator).size(size).usage(usage).memory_usage(VMA_MEMORY_USAGE_CPU_TO_GPU).build();
     };
-    auto vertices = cpu_buffer(6 * sizeof(glm::vec3), vkz::buffer::usage::vertex);
+    auto vertices = cpu_buffer(6 * sizeof(glm::vec3), vkz::buffer_usage_vertex);
     const std::array<glm::vec3, 6> quad{{{-1, -1, 0.25f}, {1, -1, 0.25f}, {1, 1, 0.25f}, {-1, -1, 0.25f}, {1, 1, 0.25f}, {-1, 1, 0.25f}}};
     upload(vertices, quad.data(), sizeof(quad));
-    auto indices = cpu_buffer(6 * 4, vkz::buffer::usage::index);
+    auto indices = cpu_buffer(6 * 4, vkz::buffer_usage_index);
     const std::array<uint32_t, 6> index{0, 1, 2, 3, 4, 5};
     upload(indices, index.data(), sizeof(index));
     std::array<vkz::svsm::caster_bounds, 2> bounds{};
@@ -49,31 +49,31 @@ int main() try {
     bounds[0].metadata.x = 1234567;
     bounds[1].center = {20, 0, 0.25f, 0};
     bounds[1].half_extent = {1, 1, 0, 0};
-    auto casters = cpu_buffer(sizeof(bounds), vkz::buffer::usage::storage);
+    auto casters = cpu_buffer(sizeof(bounds), vkz::buffer_usage_storage);
     upload(casters, bounds.data(), sizeof(bounds));
-    auto changes = cpu_buffer(sizeof(bounds), vkz::buffer::usage::storage);
+    auto changes = cpu_buffer(sizeof(bounds), vkz::buffer_usage_storage);
     upload(changes, bounds.data(), sizeof(bounds));
     const std::array<VkDrawIndexedIndirectCommand, 2> templates{{{6, 1, 0, 0, 0}, {6, 1, 0, 0, 0}}};
-    auto draws = cpu_buffer(sizeof(templates), vkz::buffer::usage::storage);
+    auto draws = cpu_buffer(sizeof(templates), vkz::buffer_usage_storage);
     upload(draws, templates.data(), sizeof(templates));
     vkz::texture depth;
     depth.image = vkz::image::builder(allocator)
         .format(VK_FORMAT_R32_SFLOAT)
         .extent(4, 4)
-        .usage(vkz::image::usage::sampled_upload)
+        .usage(vkz::image_usage_sampled_upload)
         .build();
     depth.image_view = vkz::image_view::builder(context.device)
         .image(depth.image)
         .format(VK_FORMAT_R32_SFLOAT)
-        .aspect_mask(vkz::image::aspect::color)
+        .aspect_mask(vkz::image_aspect_color)
         .level_count(1)
         .layer_count(1)
         .build();
     {
         auto cmd = commands.create_command_buffer();
         vkz::clear(cmd, depth.image, VkClearColorValue{{0.75f, 0, 0, 0}}, {});
-        vkz::barrier::push_and_flush(cmd, depth.image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer, vkz::pipeline::stage::compute_shader,
-                                     vkz::access::transfer_write, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        vkz::barrier::push_and_flush(cmd, depth.image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1}, vkz::pipeline_stage_transfer, vkz::pipeline_stage_compute_shader,
+                                     vkz::access_transfer_write, vkz::access_shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         commands.submit_and_wait(cmd);
     }
     vkz::svsm::params config{.device = context.device,
@@ -90,17 +90,17 @@ int main() try {
     auto shadows = vkz::svsm::create(config);
     auto result = vkz::buffer::builder(allocator)
         .size(32 * sizeof(glm::vec2))
-        .usage(vkz::buffer::usage::storage_download)
+        .usage(vkz::buffer_usage_storage_download)
         .build();
     auto result_layout = vkz::make_descriptor_set_layout_builder(context.device)
                              .binding(0)
-                             .descriptor_type(vkz::descriptor::type::storage_buffer)
+                             .descriptor_type(vkz::descriptor_type_storage_buffer)
                              .descriptor_count(1)
-                             .shader_stages(vkz::shader_stage::compute)
+                             .shader_stages(vkz::shader_stage_compute)
                              .create_layout();
-    vkz::descriptor_pool pool{context.device, 1, {{static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 1}}};
+    vkz::descriptor_pool pool{context.device, 1, {{static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 1}}};
     auto result_set = pool.allocate(result_layout);
-    vkz::update_descriptors(context.device, {{result_set, {vkz::make_descriptor<vkz::buffer_descriptor>(result, 0)}}});
+    vkz::update_descriptors(context.device, {{result_set, {vkz::descriptor<vkz::buffer_descriptor>(result, 0)}}});
     auto sample = vkz::make_compute_pipeline_builder(context.device)
                       .shader_stage()
                       .compute_shader(std::string{VKZ_SVSM_SHADER_DIR} + "/svsm_sample.comp.spv")
@@ -110,7 +110,7 @@ int main() try {
                       .build();
     auto readback = vkz::buffer::builder(allocator)
         .size(512)
-        .usage(vkz::buffer::usage::transfer_dst)
+        .usage(vkz::buffer_usage_transfer_dst)
         .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU)
         .build();
     vkz::svsm::frame_inputs inputs{.depth = depth,
@@ -138,7 +138,7 @@ int main() try {
                 constants.caster_index = i;
                 constants.depth_bias = 0;
                 constants.model[3].x = caster_translation;
-                vkCmdPushConstants(cmd, pass.default_layout, static_cast<VkShaderStageFlags>(vkz::shader_stage::vertex | vkz::shader_stage::fragment), 0, sizeof(constants), &constants);
+                vkCmdPushConstants(cmd, pass.default_layout, static_cast<VkShaderStageFlags>(vkz::shader_stage_vertex | vkz::shader_stage_fragment), 0, sizeof(constants), &constants);
                 vkCmdDrawIndexedIndirect(cmd, pass.indexed_draws, pass.indexed_draw_offset + i * 20, 1, 20);
             }
         });
@@ -147,7 +147,7 @@ int main() try {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, sample.handle);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, sample.layout, 0, 2, sets.data(), 0, nullptr);
         vkCmdDispatch(cmd, 1, 1, 1);
-        vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::compute_shader, vkz::pipeline::stage::transfer, vkz::access::shader_write, vkz::access::transfer_read);
+        vkz::barrier::push_and_flush(cmd, vkz::pipeline_stage_compute_shader, vkz::pipeline_stage_transfer, vkz::access_shader_write, vkz::access_transfer_read);
         VkBufferCopy region{0, 0, 32 * sizeof(glm::vec2)};
         vkCmdCopyBuffer(cmd, result, readback, 1, &region);
         region = {0, 256, sizeof(vkz::svsm::statistics)};
@@ -156,7 +156,7 @@ int main() try {
         vkCmdCopyBuffer(cmd, vkz::svsm::visibility(shadows, inputs.frame_slot), readback, 1, &region);
         region = {0, 304, 80};
         vkCmdCopyBuffer(cmd, vkz::svsm::indexed_draws(shadows, inputs.frame_slot), readback, 1, &region);
-        vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::transfer, vkz::pipeline::stage::host, vkz::access::transfer_write, vkz::access::host_read);
+        vkz::barrier::push_and_flush(cmd, vkz::pipeline_stage_transfer, vkz::pipeline_stage_host, vkz::access_transfer_write, vkz::access_host_read);
         commands.submit_and_wait(cmd);
         vmaInvalidateAllocation(readback.allocator, readback.allocation, 0, VK_WHOLE_SIZE);
         auto mapped = readback.map();

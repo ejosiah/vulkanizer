@@ -14,7 +14,7 @@ vkz::compute_shader_stage_builder::compute_shader_stage_builder(vkz::device devi
 
 vkz::compute_shader_stage_builder &
 vkz::compute_shader_stage_builder::compute_shader(const vkz::compute_shader_stage_builder::shader_source &source) {
-    _shader.stage = vkz::shader_stage::compute;
+    _shader.stage = vkz::shader_stage_compute;
     std::visit(overloaded{
             [&](const byte_string& source) { _shader.module = create_shader_module(device(), source); },
             [&](const std::vector<uint32_t>& source) { _shader.module = create_shader_module(device(), source); },
@@ -32,7 +32,7 @@ vkz::compute_shader_stage_builder::~compute_shader_stage_builder() {
 }
 
 void vkz::compute_shader_stage_builder::validate() const {
-    if (_shader.stage != vkz::shader_stage::compute || !_shader.module) {
+    if (_shader.stage != vkz::shader_stage_compute || !_shader.module) {
         VKZ_THROW("shader module must be provided")
     }
 }

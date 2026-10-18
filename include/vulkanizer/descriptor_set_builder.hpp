@@ -44,15 +44,25 @@ namespace vkz {
                 return *this;
             }
 
-            const descriptor_set_layout_binding_builder &descriptor_type(vkz::descriptor::type type) const {
+            const descriptor_set_layout_binding_builder &descriptor_type(vkz::descriptor_type type) const {
                 _binding.descriptorType = static_cast<VkDescriptorType>(type);
                 return *this;
             }
+            #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+            const descriptor_set_layout_binding_builder &descriptor_type(VkDescriptorType type) const {
+                return descriptor_type(static_cast<vkz::descriptor_type >(type));
+            }
+            #endif
 
             const descriptor_set_layout_binding_builder &shader_stages(vkz::shader_stage flags) const {
                 _binding.stageFlags = static_cast<VkShaderStageFlags>(flags);
                 return *this;
             }
+            #ifdef VKZ_ENABLE_VULKAN_COMPATIBILITY
+            const descriptor_set_layout_binding_builder &shader_stages(VkShaderStageFlags flags) const {
+                return shader_stages(static_cast<vkz::shader_stage >(flags));
+            }
+            #endif
 
             const descriptor_set_layout_binding_builder &immutable_sampler(const vkz::sampler &sampler) const {
                 immutable_sampler_storage.push_back({sampler.handle});
@@ -69,7 +79,7 @@ namespace vkz {
                 return *this;
             }
 
-            [[nodiscard]] descriptor_set_layout create_layout(vkz::descriptor_set_layout::flags flags = vkz::descriptor_set_layout::flags::none) const {
+            [[nodiscard]] descriptor_set_layout create_layout(vkz::descriptor_layout_flags flags = vkz::descriptor_layout_flags_none) const {
                 assert_binding();
                 bindings.push_back(_binding);
 
@@ -78,9 +88,9 @@ namespace vkz {
                         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
                 void *next = nullptr;
                 if (bindless_enabled) {
-                    flags |= vkz::descriptor_set_layout::flags::update_after_bind_pool;
+                    flags |= vkz::descriptor_layout_flags_update_after_bind_pool;
                     std::generate(bindless_flags.begin(), bindless_flags.end(), [] {
-                        return static_cast<VkDescriptorBindingFlags>(vkz::descriptor::binding_flags::bindless);
+                        return static_cast<VkDescriptorBindingFlags>(vkz::descriptor_binding_flags_bindless);
                     });
                     extended_info.bindingCount = VKZ_COUNT(bindless_flags);
                     extended_info.pBindingFlags = bindless_flags.data();
@@ -142,4 +152,4 @@ namespace vkz {
         mutable bool bindless_enabled{};
         mutable vkz::device device;
     };
-}
+} // namespace vkz

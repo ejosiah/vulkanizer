@@ -42,7 +42,7 @@ auto pipeline = vkz::reference::create_ray_tracing_pipeline({
 });
 ```
 
-Upload these arrays to storage buffers. The instance helper resolves inherited/overridden materials and LOD index offsets. Build `mesh::bvh` with the same LOD. Its instance custom indices already match this array. Keep every BVH SBT offset at zero: one `surface` hit group handles all meshes and materials.
+Upload these arrays to storage buffers. The instance helper resolves inherited/overridden materials and LOD index offsets. Build `vkz::bvh` with the same LOD. Its instance custom indices already match this array. Keep every BVH SBT offset at zero: one `surface` hit group handles all meshes and materials.
 
 Geometry or LOD changes require a BVH rebuild and refreshed instance data. Material assignments require refreshing instance data and calling BVH `update_instances`. Refresh material uniforms when their factors change; also update BVH flags when alpha mode, double-sidedness, or transmission changes.
 

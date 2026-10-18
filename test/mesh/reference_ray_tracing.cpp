@@ -14,6 +14,25 @@
 namespace {
     constexpr uint32_t extent = 17;
 
+    // A concrete scene with no mesh::data dependency in its BVH-facing API.
+    struct triangle_scene final : vkz::bvh::scene {
+        std::vector<geometry> geometry_data;
+        std::vector<instance> instance_data;
+
+        explicit triangle_scene(const vkz::bvh::scene &source) {
+            build_options = source.build_options;
+            for (size_t i = 0; i < source.geometry_count(); ++i)
+                geometry_data.push_back(source.geometry_at(i));
+            for (size_t i = 0; i < source.instance_count(); ++i)
+                instance_data.push_back(source.instance_at(i));
+        }
+
+        size_t geometry_count() const override { return geometry_data.size(); }
+        geometry geometry_at(size_t index) const override { return geometry_data.at(index); }
+        size_t instance_count() const override { return instance_data.size(); }
+        instance instance_at(size_t index) const override { return instance_data.at(index); }
+    };
+
     vkz::vulkan_app_create_info create_info() {
         vkz::vulkan_app_create_info info{.width = 32, .height = 32, .title = "Reference ray tracing verification", .validation = true};
         info.device_extensions = {VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME};
@@ -38,7 +57,7 @@ namespace {
             create_images();
             create_descriptors();
             pipeline = vkz::reference::create_ray_tracing_pipeline({allocator, layouts, VKZ_COUNT(textures)});
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
             auto cmd = commands.create_command_buffer();
             bvh.build(cmd, scene, {vertices, indices});
             commands.submit_and_wait(cmd);
@@ -67,6 +86,20 @@ namespace {
             uniforms.scene.light_radiance = {};
             uniforms.scene.ambient_irradiance = glm::vec4(std::numbers::pi_v<float> / 0.96f);
             expect(render(), {0.2f, 0.4f, 0.8f}, "base color and ambient");
+            {
+                triangle_scene abstract_scene(vkz::mesh::scene_adapter(scene, {vertices, indices}));
+                vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
+                auto cmd = commands.create_command_buffer();
+                bvh.build(cmd, abstract_scene);
+                commands.submit_and_wait(cmd);
+                write_acceleration();
+            }
+            expect(render(true), {0.2f, 0.4f, 0.8f}, "abstract scene build and update");
+            expect(render(true, true), {0.7f, 0.1f, 0.3f}, "abstract scene instance mask");
+            verify_recorded_uploads(2, false);
+            verify_recorded_uploads(1025, true);
+            verify_recorded_uploads(1025, true, true);
+            verify_geometry_revisions();
             scene.instances[0].material_id = 1;
             expect(render(), {0.7f, 0.1f, 0.3f}, "instance material override");
             scene.instances[0].material_id = vkz::mesh::inherit_material;
@@ -191,7 +224,7 @@ namespace {
             material.double_sided = false;
             scene.instances[0].model = scene.instances[0].model_inverse = glm::mat4{1};
             lod = 1;
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
             auto cmd = commands.create_command_buffer();
             bvh.build(cmd, scene, {vertices, indices}, {.lod = lod});
             commands.submit_and_wait(cmd);
@@ -273,7 +306,7 @@ namespace {
             mapping.unmap();
         }
 
-        vkz::buffer allocate(size_t size, vkz::buffer::usage usage) {
+        vkz::buffer allocate(size_t size, vkz::buffer_usage usage) {
             return vkz::buffer::builder(allocator)
                 .size(size)
                 .usage(usage)
@@ -323,19 +356,19 @@ namespace {
         }
 
         void create_buffers() {
-            constexpr auto geometry_usage = vkz::buffer::usage::acceleration_storage_input;
+            constexpr auto geometry_usage = vkz::buffer_usage_acceleration_storage_input;
             vertices = allocate(scene.vertex_data.size(), geometry_usage);
             indices = allocate(VKZ_BYTE_SIZE(scene.index_data), geometry_usage);
             write(vertices, scene.vertex_data.data(), scene.vertex_data.size());
             write(indices, scene.index_data.data(), scene.index_data.size());
-            scene_buffer = allocate(sizeof(uniforms), vkz::buffer::usage::uniform);
-            instance_buffer = allocate(16 * sizeof(vkz::reference::ray_tracing_instance_uniform), vkz::buffer::usage::storage);
-            material_buffer = allocate(scene.materials.size() * sizeof(vkz::reference::material_uniform), vkz::buffer::usage::storage);
-            light_buffer = allocate(sizeof(vkz::reference::light_uniform), vkz::buffer::usage::storage);
-            readback = allocate(extent * extent * sizeof(glm::vec4), vkz::buffer::usage::transfer_dst);
+            scene_buffer = allocate(sizeof(uniforms), vkz::buffer_usage_uniform);
+            instance_buffer = allocate(16 * sizeof(vkz::reference::ray_tracing_instance_uniform), vkz::buffer_usage_storage);
+            material_buffer = allocate(scene.materials.size() * sizeof(vkz::reference::material_uniform), vkz::buffer_usage_storage);
+            light_buffer = allocate(sizeof(vkz::reference::light_uniform), vkz::buffer_usage_storage);
+            readback = allocate(extent * extent * sizeof(glm::vec4), vkz::buffer_usage_transfer_dst);
         }
 
-        vkz::texture make_image(uint32_t size, vkz::image::usage usage) {
+        vkz::texture make_image(uint32_t size, vkz::image_usage usage) {
             vkz::texture result;
             result.image = vkz::image::builder(allocator)
                 .format(VK_FORMAT_R32G32B32A32_SFLOAT)
@@ -346,7 +379,7 @@ namespace {
                 vkz::image_view::builder(allocator.device)
                     .image(result.image)
                     .format(VK_FORMAT_R32G32B32A32_SFLOAT)
-                    .aspect_mask(vkz::image::aspect::color)
+                    .aspect_mask(vkz::image_aspect_color)
                     .level_count(1)
                     .layer_count(1)
                     .build();
@@ -356,15 +389,15 @@ namespace {
         }
 
         void create_images() {
-            output = make_image(extent, vkz::image::usage::storage_download);
+            output = make_image(extent, vkz::image_usage_storage_download);
             const std::array<glm::vec4, 6> colors{{{1, 1, 1, 1}, {0.5f, 0.25f, 0.75f, 1}, {0.9f, 0.6f, 0.25f, 1}, {1, 0.5f, 0.5f, 1}, {0.2f, 0.8f, 0.9f, 1}, {0.3f, 0.5f, 0.7f, 1}}};
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
             auto cmd = commands.create_command_buffer();
             for (const auto &color : colors) {
-                textures.push_back(make_image(1, vkz::image::usage::sampled_upload));
+                textures.push_back(make_image(1, vkz::image_usage_sampled_upload));
                 vkz::clear(cmd, textures.back().image, VkClearColorValue{{color.x, color.y, color.z, color.w}}, {});
-                vkz::barrier::push_and_flush(cmd, textures.back().image, {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1}, vkz::pipeline::stage::transfer,
-                                             vkz::pipeline::stage::ray_tracing_shader, vkz::access::transfer_write, vkz::access::shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                vkz::barrier::push_and_flush(cmd, textures.back().image, {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1}, vkz::pipeline_stage_transfer,
+                                             vkz::pipeline_stage_ray_tracing_shader, vkz::access_transfer_write, vkz::access_shader_read, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }
             commands.submit_and_wait(cmd);
         }
@@ -378,11 +411,11 @@ namespace {
                 info.pBindings = i == 0 ? vkz::reference::ray_tracing_scene_bindings.data() : &texture_binding;
                 VKZ_CHECK_VULKAN(vkCreateDescriptorSetLayout(allocator.device, &info, nullptr, &layouts[i].handle));
             }
-            const std::array<VkDescriptorPoolSize, 5> sizes{{{static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer), 1},
-                                                             {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer), 5},
-                                                             {static_cast<VkDescriptorType>(vkz::descriptor::type::acceleration_structure), 1},
-                                                             {static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image), 1},
-                                                             {static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler), VKZ_COUNT(textures)}}};
+            const std::array<VkDescriptorPoolSize, 5> sizes{{{static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer), 1},
+                                                             {static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer), 5},
+                                                             {static_cast<VkDescriptorType>(vkz::descriptor_type_acceleration_structure), 1},
+                                                             {static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image), 1},
+                                                             {static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler), VKZ_COUNT(textures)}}};
             VkDescriptorPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
             pool_info.maxSets = 2;
             pool_info.poolSizeCount = VKZ_COUNT(sizes);
@@ -400,7 +433,7 @@ namespace {
                 VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
                 write.dstSet = sets[0];
                 write.dstBinding = i;
-                write.descriptorType = i == 0 ? static_cast<VkDescriptorType>(vkz::descriptor::type::uniform_buffer) : static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer);
+                write.descriptorType = i == 0 ? static_cast<VkDescriptorType>(vkz::descriptor_type_uniform_buffer) : static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer);
                 write.descriptorCount = 1;
                 write.pBufferInfo = &buffer_info;
                 vkUpdateDescriptorSets(allocator.device, 1, &write, 0, nullptr);
@@ -410,7 +443,7 @@ namespace {
             light_write.dstSet = sets[0];
             light_write.dstBinding = 7;
             light_write.descriptorCount = 1;
-            light_write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::storage_buffer);
+            light_write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor_type_storage_buffer);
             light_write.pBufferInfo = &light_info;
             vkUpdateDescriptorSets(allocator.device, 1, &light_write, 0, nullptr);
             VkDescriptorImageInfo output_info{{}, output.image_view, VK_IMAGE_LAYOUT_GENERAL};
@@ -418,7 +451,7 @@ namespace {
             write.dstSet = sets[0];
             write.dstBinding = 6;
             write.descriptorCount = 1;
-            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::storage_image);
+            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor_type_storage_image);
             write.pImageInfo = &output_info;
             vkUpdateDescriptorSets(allocator.device, 1, &write, 0, nullptr);
             std::vector<VkDescriptorImageInfo> images;
@@ -427,13 +460,13 @@ namespace {
             write.dstSet = sets[1];
             write.dstBinding = 0;
             write.descriptorCount = VKZ_COUNT(images);
-            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::combined_image_sampler);
+            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor_type_combined_image_sampler);
             write.pImageInfo = images.data();
             vkUpdateDescriptorSets(allocator.device, 1, &write, 0, nullptr);
         }
 
-        void write_acceleration() {
-            const auto handle = bvh.tlas().handle;
+        void write_acceleration(VkAccelerationStructureKHR handle = VK_NULL_HANDLE) {
+            if (!handle) handle = bvh.tlas().handle;
             VkWriteDescriptorSetAccelerationStructureKHR acceleration{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
             acceleration.accelerationStructureCount = 1;
             acceleration.pAccelerationStructures = &handle;
@@ -442,11 +475,123 @@ namespace {
             write.dstSet = sets[0];
             write.dstBinding = 5;
             write.descriptorCount = 1;
-            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor::type::acceleration_structure);
+            write.descriptorType = static_cast<VkDescriptorType>(vkz::descriptor_type_acceleration_structure);
             vkUpdateDescriptorSets(allocator.device, 1, &write, 0, nullptr);
         }
 
-        std::vector<glm::vec4> render() {
+        void record_trace(VkCommandBuffer cmd, const vkz::buffer &destination) {
+            const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 1, 0, 1};
+            vkz::barrier::push_and_flush(cmd, output.image, range, vkz::pipeline_stage_all_commands, vkz::pipeline_stage_ray_tracing_shader, vkz::access_memory_read_write,
+                                         vkz::access_shader_write, VK_IMAGE_LAYOUT_GENERAL);
+            vkz::bind_pipeline(cmd, pipeline);
+            vkCmdBindDescriptorSets(cmd, pipeline.bind_point, pipeline.layout, 0, VKZ_COUNT(sets), sets.data(), 0, nullptr);
+            vkz::trace_ray(cmd, pipeline, extent, extent);
+            vkz::barrier::push_and_flush(cmd, output.image, range, vkz::pipeline_stage_ray_tracing_shader, vkz::pipeline_stage_transfer, vkz::access_shader_write, vkz::access_transfer_read,
+                                         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            VkBufferImageCopy copy{};
+            copy.imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image_aspect_color), 0, 0, 1};
+            copy.imageExtent = {extent, extent, 1};
+            vkCmdCopyImageToBuffer(cmd, output.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination, 1, &copy);
+            vkz::barrier::push_and_flush(cmd, vkz::pipeline_stage_transfer, vkz::pipeline_stage_host, vkz::access_transfer_write, vkz::access_host_read);
+        }
+
+        std::vector<glm::vec4> read_pixels(const vkz::buffer &buffer) {
+            VKZ_CHECK_VULKAN(vmaInvalidateAllocation(buffer.allocator, buffer.allocation, 0, VK_WHOLE_SIZE));
+            auto mapping = buffer.map();
+            const auto *pixels = mapping.as<glm::vec4>();
+            std::vector<glm::vec4> result(pixels, pixels + extent * extent);
+            mapping.unmap();
+            return result;
+        }
+
+        void verify_recorded_uploads(size_t count, bool explicit_destroy, bool separate_submissions = false) {
+            triangle_scene source(vkz::mesh::scene_adapter(scene, {vertices, indices}));
+            auto hidden = source.instance_data[0];
+            hidden.options.mask = 0;
+            source.instance_data.resize(count, hidden);
+            auto second_readback = vkz::buffer::builder(allocator)
+                .size(extent * extent * sizeof(glm::vec4)).usage(vkz::buffer_usage_transfer_dst)
+                .memory_usage(VMA_MEMORY_USAGE_GPU_TO_CPU).build();
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
+            auto cmd = commands.create_command_buffer();
+            {
+                vkz::bvh acceleration(allocator);
+                acceleration.build(cmd, source);
+                write_acceleration(acceleration.tlas().handle);
+                acceleration.update_instances(cmd, source);
+                record_trace(cmd, readback);
+                if (separate_submissions) {
+                    commands.submit(1, &cmd);
+                    cmd = commands.create_command_buffer();
+                }
+                source.instance_data[0].options.mask = 0;
+                acceleration.update_instances(cmd, source);
+                record_trace(cmd, second_readback);
+
+                // Both generations have commands recorded before submission.
+                vkz::bvh moved(allocator);
+                moved.build(cmd, source);
+                moved = std::move(acceleration);
+                moved.build(cmd, source);
+                commands.submit(1, &cmd);
+                if (explicit_destroy) {
+                    const auto handle = moved.tlas().handle;
+                    moved.release_completed_resources();
+                    VKZ_ASSERT(moved.tlas().handle == handle, "Cleanup must preserve the active TLAS");
+                    const auto update = commands.create_command_buffer();
+                    moved.update_instances(update, source);
+                    commands.submit(1, &update);
+                    moved.destroy();
+                }
+                // Otherwise the destructor waits for submitted work.
+            }
+            expect(read_pixels(readback), {0.2f, 0.4f, 0.8f}, "recorded update keeps first instance snapshot");
+            expect(read_pixels(second_readback), {0.7f, 0.1f, 0.3f}, "recorded update keeps second instance snapshot");
+            second_readback.destroy();
+            write_acceleration();
+            bvh.release_completed_resources();
+        }
+
+        void verify_geometry_revisions() {
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
+            const auto cmd = commands.create_command_buffer();
+            const auto reject = [&](const vkz::bvh::scene &source) {
+                bool rejected = false;
+                try { bvh.update_instances(cmd, source); }
+                catch (const std::runtime_error &) { rejected = true; }
+                VKZ_ASSERT(rejected, "Geometry content changes must require rebuilding");
+            };
+            triangle_scene source(vkz::mesh::scene_adapter(scene, {vertices, indices}));
+            ++source.geometry_data[0].content_revision;
+            reject(source);
+            const auto vertex_offset = source.geometry_data[0].vertex_offset;
+            const auto original_vertex = scene.vertex_data[vertex_offset];
+            scene.vertex_data[vertex_offset] ^= 1;
+            reject(vkz::mesh::scene_adapter(scene, {vertices, indices}));
+            scene.vertex_data[vertex_offset] = original_vertex;
+            const auto index_offset = source.geometry_data[0].index_offset / sizeof(uint32_t);
+            const auto original_index = scene.index_data[index_offset];
+            scene.index_data[index_offset] = (original_index + 1) % scene.meshes[0].vertex_count;
+            reject(vkz::mesh::scene_adapter(scene, {vertices, indices}));
+            scene.index_data[index_offset] = original_index;
+            const auto handle = bvh.tlas().handle;
+            bvh.rebuild(cmd, source);
+            VKZ_ASSERT(bvh.tlas().handle == handle, "Geometry rebuilds must preserve the TLAS handle");
+            bvh.update_instances(cmd, source);
+            ++source.geometry_data[0].vertex_stride;
+            bool rejected_layout = false;
+            try {
+                bvh.rebuild(cmd, source);
+            } catch (const std::runtime_error &) {
+                rejected_layout = true;
+            }
+            VKZ_ASSERT(rejected_layout, "Changed geometry layouts require a new build");
+            bvh.rebuild(cmd, vkz::mesh::scene_adapter(scene, {vertices, indices}));
+            commands.submit_and_wait(cmd);
+            std::cout << "Passed: abstract and mesh geometry content revisions\n";
+        }
+
+        std::vector<glm::vec4> render(bool abstract_scene = false, bool hide_front = false) {
             uniforms.scene.vertex_layout.y = VKZ_COUNT(scene.lights);
             const auto lights = vkz::reference::make_light_uniforms(scene);
             write(light_buffer, lights.data(), lights.size());
@@ -457,22 +602,18 @@ namespace {
             for (const auto &material : scene.materials)
                 materials.push_back(vkz::reference::make_material_uniform(scene, material));
             write(material_buffer, materials.data(), materials.size());
-            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags::transient, app.graphics_queue()};
+            vkz::command_pool commands{allocator.device, app.queue_family_index(), vkz::command_pool_flags_transient, app.graphics_queue()};
             auto cmd = commands.create_command_buffer();
-            bvh.update_instances(cmd, scene);
-            const VkImageSubresourceRange range{static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 1, 0, 1};
-            vkz::barrier::push_and_flush(cmd, output.image, range, vkz::pipeline::stage::all_commands, vkz::pipeline::stage::ray_tracing_shader, vkz::access::memory_read_write,
-                                         vkz::access::shader_write, VK_IMAGE_LAYOUT_GENERAL);
-            vkz::bind_pipeline(cmd, pipeline);
-            vkCmdBindDescriptorSets(cmd, pipeline.bind_point, pipeline.layout, 0, VKZ_COUNT(sets), sets.data(), 0, nullptr);
-            vkz::trace_ray(cmd, pipeline, extent, extent);
-            vkz::barrier::push_and_flush(cmd, output.image, range, vkz::pipeline::stage::ray_tracing_shader, vkz::pipeline::stage::transfer, vkz::access::shader_write, vkz::access::transfer_read,
-                                         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-            VkBufferImageCopy copy{};
-            copy.imageSubresource = {static_cast<VkImageAspectFlags>(vkz::image::aspect::color), 0, 0, 1};
-            copy.imageExtent = {extent, extent, 1};
-            vkCmdCopyImageToBuffer(cmd, output.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readback, 1, &copy);
-            vkz::barrier::push_and_flush(cmd, vkz::pipeline::stage::transfer, vkz::pipeline::stage::host, vkz::access::transfer_write, vkz::access::host_read);
+            const auto handle = bvh.tlas().handle;
+            if (abstract_scene) {
+                triangle_scene source(vkz::mesh::scene_adapter(scene, {vertices, indices}, {.lod = lod}));
+                if (hide_front) source.instance_data[0].options.mask = 0;
+                bvh.update_instances(cmd, source);
+            } else {
+                bvh.update_instances(cmd, scene);
+            }
+            VKZ_ASSERT(bvh.tlas().handle == handle, "Instance updates must preserve the TLAS handle");
+            record_trace(cmd, readback);
             commands.submit_and_wait(cmd);
             VKZ_CHECK_VULKAN(vmaInvalidateAllocation(readback.allocator, readback.allocation, 0, VK_WHOLE_SIZE));
             auto mapping = readback.map();
@@ -496,7 +637,7 @@ namespace {
         uint32_t lod{};
         vkz::vulkan_app app;
         vkz::vma_memory_allocator allocator;
-        vkz::mesh::bvh bvh;
+        vkz::bvh bvh;
         vkz::mesh::data scene;
         vkz::reference::ray_tracing_scene_uniform uniforms;
         vkz::buffer vertices, indices, scene_buffer, material_buffer, light_buffer, instance_buffer, readback;
@@ -507,7 +648,7 @@ namespace {
         VkDescriptorPool pool{};
         vkz::ray_tracing_pipeline pipeline;
     };
-}
+} // namespace
 
 int main() try {
     vkz::iostream_adapter::install(std::cout);

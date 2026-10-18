@@ -33,7 +33,7 @@ namespace vkz::video {
         std::shared_ptr<impl> impl_;
     };
 
-    // Request these extensions and a vkz::queue::video_decode queue before device creation.
+    // Request these extensions and a vkz::queue_video_decode queue before device creation.
     [[nodiscard]] std::span<const char *const> required_extensions();
     [[nodiscard]] uint32_t decode_queue_family(VkPhysicalDevice physical_device);
 
